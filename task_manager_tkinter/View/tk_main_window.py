@@ -9,6 +9,7 @@ TkMainWindowはそれらをttk.Notebookにまとめ、ウィンドウ全体の�
 """
 
 import tkinter as tk
+import tkinter.font as tkfont
 from datetime import datetime
 from tkinter import filedialog, messagebox, ttk
 from typing import Callable, Dict, List, Optional
@@ -402,15 +403,26 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
             row=row, column=0, columnspan=2, sticky="w", pady=(0, 4)
         )
         row += 1
-        ttk.Checkbutton(
+        notify_checkbox = ttk.Checkbutton(
             self,
             text="期限が近い未完了のタスクをハイライトする",
             variable=self._notify_var,
             command=self._on_notify_toggled,
-        ).grid(row=row, column=0, columnspan=2, sticky="w", pady=2)
+        )
+        notify_checkbox.grid(row=row, column=0, columnspan=2, sticky="w", pady=2)
         row += 1
         days_row = ttk.Frame(self)
-        days_row.grid(row=row, column=0, columnspan=2, sticky="w", pady=2)
+        # 次の行の先頭を、直前のチェックボタンの「文字列」の開始位置に揃える。
+        # チェックボタンはチェック用のインジケーター分だけ文字列が右にずれるため、
+        # そのインデント幅を実測してpadxに使う。
+        days_row.grid(
+            row=row,
+            column=0,
+            columnspan=2,
+            sticky="w",
+            pady=2,
+            padx=(self._measure_checkbox_text_indent(notify_checkbox), 0),
+        )
         # 0以上の整数のみを直接入力できるようにする(負の数・文字は弾く)。
         validate_digits = (self.register(self._validate_day_count), "%P")
         self._days_spinbox = ttk.Spinbox(
@@ -503,6 +515,20 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
         state = ["!disabled"] if self._notify_var.get() else ["disabled"]
         self._days_spinbox.state(state)
         self._days_unit_label.state(state)
+
+    def _measure_checkbox_text_indent(self, checkbutton: ttk.Checkbutton) -> int:
+        """Checkbuttonの「文字列」が実際に始まる位置(左端からの距離)をpx単位で測る。
+
+        チェック用のインジケーター＋余白の分だけ、ウィジェット全体の幅から
+        文字列そのものの幅を引けば、文字列の開始位置が求まる。
+        """
+        self.update_idletasks()
+        style_name = checkbutton.cget("style") or "TCheckbutton"
+        style = ttk.Style(self)
+        font_name = style.lookup(style_name, "font") or "TkDefaultFont"
+        font = tkfont.Font(font=font_name)
+        text_width = font.measure(checkbutton.cget("text"))
+        return max(checkbutton.winfo_reqwidth() - text_width, 0)
 
     @staticmethod
     def _validate_day_count(proposed: str) -> bool:
