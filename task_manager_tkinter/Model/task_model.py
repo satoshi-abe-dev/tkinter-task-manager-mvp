@@ -18,11 +18,11 @@ class TaskModel:
         self._tasks: List[Task] = []
         # デモ用の初期データ
         for task in (
-            Task("見積書作成", "佐藤", "2026-09-02", "高", "進行中"),
-            Task("定例MTG資料準備", "田中", "2026-09-01", "中", "未着手"),
-            Task("リリースノート執筆", "鈴木", "2026-08-29", "高", "遅延"),
-            Task("経費精算", "佐藤", "2026-09-05", "低", "完了"),
-            Task("デザインレビュー", "田中", "2026-09-03", "中", "進行中"),
+            Task("Prepare Quotation", "Sato", "2026-09-02", "High", "In Progress"),
+            Task("Prepare Meeting Materials", "Tanaka", "2026-09-01", "Medium", "Not Started"),
+            Task("Write Release Notes", "Suzuki", "2026-08-29", "High", "Overdue"),
+            Task("Expense Report", "Sato", "2026-09-05", "Low", "Done"),
+            Task("Design Review", "Tanaka", "2026-09-03", "Medium", "In Progress"),
         ):
             self._register(task)
 
@@ -48,7 +48,7 @@ class TaskModel:
         番号が重複しうるため、idベースで一意性を保つ。
         """
         task = self._register(Task(name="", assignee="", due_date="", priority="", status=""))
-        task.name = f"タスク{task.id}"
+        task.name = f"Task {task.id}"
         return task
 
     def delete_tasks(self, task_ids: Iterable[int]) -> None:

@@ -25,11 +25,11 @@ _DATE_PATTERN = "yyyy-mm-dd"
 
 _COLUMNS = ("name", "assignee", "due_date", "priority", "status")
 _COLUMN_LABELS = {
-    "name": "タスク名",
-    "assignee": "担当",
-    "due_date": "期限",
-    "priority": "優先度",
-    "status": "ステータス",
+    "name": "Task Name",
+    "assignee": "Assignee",
+    "due_date": "Due Date",
+    "priority": "Priority",
+    "status": "Status",
 }
 
 
@@ -105,11 +105,11 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
         button_row.columnconfigure(1, weight=1)
 
         self._add_button = ttk.Button(
-            button_row, text="＋ 追加", command=self._handle_add_click
+            button_row, text="+ Add", command=self._handle_add_click
         )
         self._add_button.grid(row=0, column=0, sticky="ew")
         self._delete_button = ttk.Button(
-            button_row, text="－ 削除", command=self._handle_delete_click, state="disabled"
+            button_row, text="− Delete", command=self._handle_delete_click, state="disabled"
         )
         self._delete_button.grid(row=0, column=1, sticky="ew")
 
@@ -118,11 +118,11 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
         csv_row = ttk.Frame(self)
         csv_row.grid(row=2, column=0, sticky="w", pady=(8, 0))
         self._export_button = ttk.Button(
-            csv_row, text="書き出し", command=self._handle_export_click
+            csv_row, text="Export", command=self._handle_export_click
         )
         self._export_button.grid(row=0, column=0, padx=(0, 8))
         self._import_button = ttk.Button(
-            csv_row, text="読み込み", command=self._handle_import_click
+            csv_row, text="Import", command=self._handle_import_click
         )
         self._import_button.grid(row=0, column=1)
 
@@ -237,11 +237,11 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
 
         if len(selection) == 1:
             name = self._tree.set(selection[0], "name")
-            message = f"「{name}」を削除しますか？\nこの操作は取り消せません。"
+            message = f'Delete "{name}"?\nThis action cannot be undone.'
         else:
-            message = f"選択中の{len(selection)}件を削除しますか？\nこの操作は取り消せません。"
+            message = f"Delete {len(selection)} selected task(s)?\nThis action cannot be undone."
 
-        confirmed = messagebox.askyesno("確認", message)
+        confirmed = messagebox.askyesno("Confirm", message)
         if confirmed and self._on_delete_click:
             self._on_delete_click(task_ids)
 
@@ -333,13 +333,15 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
             "<Destroy>",
             lambda e: setattr(self, "_date_picker", None) if e.widget is popup else None,
         )
-        popup.title("期限を選択")
+        popup.title("Select Due Date")
         popup.transient(self.winfo_toplevel())
         popup.resizable(False, False)
 
         calendar_kwargs = {
             "selectmode": "day",
             "date_pattern": _DATE_PATTERN,
+            # 月名・曜日名をGUIの言語(英語)に合わせる
+            "locale": "en_US",
             # 週番号列は使わないので非表示（先頭列に出る紛らわしい数字の正体はこれ）。
             "showweeknumbers": False,
             # macOSのAquaテーマはttkカスタムスタイル(TLabel)の背景色指定を無視するため、
@@ -368,7 +370,7 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
         info_row = ttk.Frame(popup)
         info_row.grid(row=0, column=0, sticky="ew", padx=10, pady=(10, 0))
         info_row.columnconfigure(0, weight=1)  # ラベル側が伸び、戻るボタンは右端に寄る
-        info_label = ttk.Label(info_row, text=f"現在の期限: {current_value or '未設定'}")
+        info_label = ttk.Label(info_row, text=f"Current due date: {current_value or 'Not set'}")
         info_label.grid(row=0, column=0, sticky="w")
 
         calendar = Calendar(popup, **calendar_kwargs)
@@ -389,7 +391,7 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
         if initial is not None:
             back_button = ttk.Button(
                 info_row,
-                text="この日に戻る",
+                text="Back to This Date",
                 command=lambda: calendar.selection_set(initial),
             )
             back_button.grid(row=0, column=1, sticky="e")
@@ -443,13 +445,13 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
         self._notify_days_var = tk.StringVar(value="3")
 
         row = 0
-        ttk.Label(self, text="期限ハイライト", font=("Helvetica", 10, "bold")).grid(
+        ttk.Label(self, text="Due Date Highlight", font=("Helvetica", 10, "bold")).grid(
             row=row, column=0, columnspan=2, sticky="w", pady=(0, 4)
         )
         row += 1
         notify_checkbox = ttk.Checkbutton(
             self,
-            text="期限が近い未完了のタスクをハイライトする",
+            text="Highlight upcoming incomplete tasks",
             variable=self._notify_var,
             command=self._on_notify_toggled,
         )
@@ -481,7 +483,7 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
         )
         self._days_spinbox.grid(row=0, column=0)
         # 単位(日)を明示する
-        self._days_unit_label = ttk.Label(days_row, text="日前から")
+        self._days_unit_label = ttk.Label(days_row, text="days before")
         self._days_unit_label.grid(row=0, column=1, padx=(6, 0))
         row += 1
 
@@ -490,7 +492,7 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
         save_row.columnconfigure(0, weight=1)  # ステータス側が伸び、保存ボタンは右端に寄る
         self._status_label = ttk.Label(save_row, text="", foreground="#4a6cf7")
         self._status_label.grid(row=0, column=0, sticky="w")
-        self._save_button = ttk.Button(save_row, text="変更を保存")
+        self._save_button = ttk.Button(save_row, text="Save Changes")
         self._save_button.grid(row=0, column=1, sticky="e")
 
         self.columnconfigure(1, weight=1)
@@ -545,14 +547,6 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
         self._save_button.config(command=handler)
 
     # Override
-    def set_on_export_click(self, handler: Callable[[], None]) -> None:
-        self._export_button.config(command=handler)
-
-    # Override
-    def set_on_import_click(self, handler: Callable[[], None]) -> None:
-        self._import_button.config(command=handler)
-
-    # Override
     def load_settings(self, settings: Settings) -> None:
         self._loading = True
         try:
@@ -571,23 +565,7 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
 
     # Override
     def set_dirty(self, dirty: bool) -> None:
-        self._status_label.config(text="● 未保存の変更があります" if dirty else "")
-
-    # Override
-    def ask_save_path(self) -> Optional[str]:
-        path = filedialog.asksaveasfilename(
-            defaultextension=".csv", filetypes=[("CSV", "*.csv")]
-        )
-        return path or None
-
-    # Override
-    def ask_open_path(self) -> Optional[str]:
-        path = filedialog.askopenfilename(filetypes=[("CSV", "*.csv")])
-        return path or None
-
-    # Override
-    def show_message(self, title: str, message: str) -> None:
-        messagebox.showinfo(title=title, message=message)
+        self._status_label.config(text="● Unsaved changes" if dirty else "")
 
 
 # Called at main.py > def main()
@@ -596,7 +574,7 @@ class TkMainWindow:
 
     def __init__(self) -> None:
         self._root = tk.Tk()
-        self._root.title("タスク管理")
+        self._root.title("Task Manager")
         self._root.geometry("640x540")
 
         self._root.columnconfigure(0, weight=1)
@@ -608,8 +586,8 @@ class TkMainWindow:
         self.task_list_frame = TkTaskListFrame(notebook)
         self.settings_frame = TkSettingsFrame(notebook)
 
-        notebook.add(self.task_list_frame, text="タスク一覧")
-        notebook.add(self.settings_frame, text="設定")
+        notebook.add(self.task_list_frame, text="Task List")
+        notebook.add(self.settings_frame, text="Settings")
 
     def run(self) -> None:
         self._root.mainloop()

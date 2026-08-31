@@ -8,8 +8,8 @@ from dataclasses import dataclass
 
 # 優先度・ステータスの取りうる値と、意味のある並び順（低い方から高い方へ など）。
 # フォームの選択肢や一覧のソート順など、複数箇所から共通で参照する。
-PRIORITIES = ["低", "中", "高"]
-STATUSES = ["未着手", "進行中", "完了", "遅延"]
+PRIORITIES = ["Low", "Medium", "High"]
+STATUSES = ["Not Started", "In Progress", "Done", "Overdue"]
 
 
 @dataclass
@@ -17,8 +17,8 @@ class Task:
     name: str
     assignee: str
     due_date: str
-    priority: str  # "高" | "中" | "低"
-    status: str  # "未着手" | "進行中" | "完了" | "遅延"
+    priority: str  # "High" | "Medium" | "Low"
+    status: str  # "Not Started" | "In Progress" | "Done" | "Overdue"
     # TaskModelが追加時に自動採番する。呼び出し側は指定しなくてよい。
     # 一覧のインライン編集時に「どのタスクか」を安定して特定するために使う
     # （一覧の並び順やインデックスに依存させないため）。

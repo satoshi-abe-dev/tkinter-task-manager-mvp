@@ -49,8 +49,8 @@ def import_tasks_from_csv(path: str) -> Tuple[List[Task], int]:
                     name=name,
                     assignee=row.get("assignee", ""),
                     due_date=row.get("due_date", ""),
-                    priority=row.get("priority") or "中",
-                    status=row.get("status") or "未着手",
+                    priority=row.get("priority") or "Medium",
+                    status=row.get("status") or "Not Started",
                 )
             )
     return tasks, skipped

@@ -28,7 +28,7 @@ _SORT_KEYS: Dict[str, Callable[[Task], object]] = {
 }
 
 # 完了したタスクは、期限が過ぎていてもハイライト対象から除外する
-_EXCLUDED_STATUS = "完了"
+_EXCLUDED_STATUS = "Done"
 
 
 class TaskListPresenter:
@@ -176,7 +176,7 @@ class TaskListPresenter:
         if not path:
             return
         export_tasks_to_csv(self.model.list_tasks(), path)
-        self.view.show_message("お知らせ", f"{path} に書き出しました")
+        self.view.show_message("Notice", f"Exported to {path}")
 
     def on_import_click(self) -> None:
         """「読み込み」ボタン押下時に呼ばれる"""
@@ -188,7 +188,7 @@ class TaskListPresenter:
             self.model.add_task(task)
         self.refresh()
 
-        message = f"{len(tasks)}件を読み込みました"
+        message = f"Imported {len(tasks)} task(s)"
         if skipped:
-            message += f"（タスク名が空の{skipped}件はスキップしました）"
-        self.view.show_message("お知らせ", message)
+            message += f" ({skipped} skipped due to missing task name)"
+        self.view.show_message("Notice", message)

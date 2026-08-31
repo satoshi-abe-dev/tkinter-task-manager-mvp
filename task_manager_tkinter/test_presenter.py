@@ -121,11 +121,11 @@ def test_task_list_presenter_edits_cell() -> None:
     presenter = TaskListPresenter(model, settings_model, view)
 
     target = model.list_tasks()[0]
-    view.cell_edited_handler(target.id, "assignee", "鈴木")
+    view.cell_edited_handler(target.id, "assignee", "Suzuki")
 
-    assert model.list_tasks()[0].assignee == "鈴木"
+    assert model.list_tasks()[0].assignee == "Suzuki"
     # 更新後にViewへ再表示されている
-    assert view.shown_tasks[0].assignee == "鈴木"
+    assert view.shown_tasks[0].assignee == "Suzuki"
     print("test_task_list_presenter_edits_cell: OK")
 
 
@@ -175,7 +175,7 @@ def test_task_list_presenter_sorts_priority_by_meaning_not_alphabetically() -> N
     view.column_clicked_handler("priority")
 
     priorities = [t.priority for t in view.shown_tasks]
-    assert priorities == ["低", "中", "中", "高", "高"]
+    assert priorities == ["Low", "Medium", "Medium", "High", "High"]
     print("test_task_list_presenter_sorts_priority_by_meaning_not_alphabetically: OK")
 
 
@@ -214,7 +214,7 @@ def test_task_list_presenter_adds_blank_task_with_id_based_name() -> None:
     assert len(model.list_tasks()) == before + 1
     new_task = model.list_tasks()[-1]
     # タスク名は件数ベースではなく、id基準の連番（削除後に追加しても重複しない）
-    assert new_task.name == f"タスク{new_task.id}"
+    assert new_task.name == f"Task {new_task.id}"
     assert new_task.assignee == ""
     assert new_task.due_date == ""
     assert new_task.priority == ""
@@ -259,7 +259,7 @@ def test_task_list_presenter_add_preserves_order_across_further_edits() -> None:
 
     # 追加後に別のセルを編集しても(=refreshが再度走っても)、固定した順番は保たれる
     target = model.list_tasks()[0]
-    view.cell_edited_handler(target.id, "assignee", "田中")
+    view.cell_edited_handler(target.id, "assignee", "Tanaka")
 
     assert [t.id for t in view.shown_tasks] == order_after_add
     print("test_task_list_presenter_add_preserves_order_across_further_edits: OK")
@@ -346,17 +346,17 @@ def test_task_list_presenter_highlights_overdue_and_warning_tasks() -> None:
     model.update_task_field(
         overdue_task.id, "due_date", (today - timedelta(days=1)).strftime("%Y-%m-%d")
     )
-    model.update_task_field(overdue_task.id, "status", "進行中")
+    model.update_task_field(overdue_task.id, "status", "In Progress")
 
     model.update_task_field(
         warning_task.id, "due_date", (today + timedelta(days=2)).strftime("%Y-%m-%d")
     )
-    model.update_task_field(warning_task.id, "status", "未着手")
+    model.update_task_field(warning_task.id, "status", "Not Started")
 
     model.update_task_field(
         safe_task.id, "due_date", (today + timedelta(days=30)).strftime("%Y-%m-%d")
     )
-    model.update_task_field(safe_task.id, "status", "未着手")
+    model.update_task_field(safe_task.id, "status", "Not Started")
 
     presenter.refresh()
 
@@ -375,7 +375,7 @@ def test_task_list_presenter_excludes_completed_status_from_highlight() -> None:
     task = model.list_tasks()[0]
     yesterday = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
     model.update_task_field(task.id, "due_date", yesterday)
-    model.update_task_field(task.id, "status", "完了")
+    model.update_task_field(task.id, "status", "Done")
     presenter.refresh()
 
     assert task.id not in view.highlights
@@ -392,7 +392,7 @@ def test_task_list_presenter_disables_highlight_when_notify_off() -> None:
     task = model.list_tasks()[0]
     yesterday = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
     model.update_task_field(task.id, "due_date", yesterday)
-    model.update_task_field(task.id, "status", "進行中")
+    model.update_task_field(task.id, "status", "In Progress")
     presenter.refresh()
 
     assert view.highlights == {}
