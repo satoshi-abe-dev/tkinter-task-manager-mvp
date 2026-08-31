@@ -2,8 +2,9 @@
 Presenterの単体テスト例
 -----------------------
 FakeView（各View抽象クラスの偽実装）を差し込むことで、Tkinterを一切起動せずに
-2つのPresenterのロジックを検証する。View.tk_main_window（Tkinter実装）は
-読み込まないため、tkinterがインストールされていない環境でもこのテストは実行できる。
+2つのPresenterのロジックを検証する。View以下のTkinter実装（tk_task_list_frame.py /
+tk_settings_frame.py / tk_main_window.py）は読み込まないため、tkinterが
+インストールされていない環境でもこのテストは実行できる。
 
 実行方法:
     このフォルダ(task_manager_tkinter)の直下で
@@ -15,13 +16,13 @@ import tempfile
 from datetime import date, timedelta
 from typing import Callable, Dict, List, Optional, Tuple
 
-from Model.settings_model import Settings, SettingsModel
-from Model.task import Task
-from Model.task_model import TaskModel
-from Presenter.settings_presenter import SettingsPresenter
-from Presenter.task_list_presenter import TaskListPresenter
-from View.settings_view import SettingsView
-from View.task_list_view import TaskListView
+from Model.settings.settings_model import Settings, SettingsModel
+from Model.task.task import Task
+from Model.task.task_model import TaskModel
+from Presenter.settings.settings_presenter import SettingsPresenter
+from Presenter.task.task_list_presenter import TaskListPresenter
+from View.settings.settings_view import SettingsView
+from View.task.task_list_view import TaskListView
 
 
 class FakeTaskListView(TaskListView):

@@ -8,7 +8,7 @@ Model
 import csv
 from typing import List, Tuple
 
-from Model.task import Task
+from Model.task.task import Task
 
 FIELDNAMES = ["name", "assignee", "due_date", "priority", "status"]
 

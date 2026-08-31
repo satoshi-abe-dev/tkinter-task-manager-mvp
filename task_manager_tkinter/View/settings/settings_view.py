@@ -7,7 +7,7 @@ Presenterが依存する「契約」だけを定義する。
 from abc import ABC, abstractmethod
 from typing import Callable
 
-from Model.settings_model import Settings
+from Model.settings.settings_model import Settings
 
 
 class SettingsView(ABC):

@@ -64,18 +64,29 @@ task_manager_tkinter/
     main.py                   エントリーポイント（Model, View, Presenterと同じ階層）
     test_presenter.py         2つのPresenterの単体テスト（tkinter不要）
     Model/
-        task.py                Task（データクラス）
-        task_model.py          TaskModel
-        settings_model.py      Settings（データクラス）/ SettingsModel
-        csv_io.py               CSV書き出し/読み込み（tkinterに依存しない純粋なI/O）
+        task/
+            task.py             Task（データクラス）
+            task_model.py       TaskModel
+            csv_io.py            CSV書き出し/読み込み（tkinterに依存しない純粋なI/O）
+        settings/
+            settings_model.py   Settings（データクラス）/ SettingsModel
     View/
-        task_list_view.py      TaskListView（抽象クラス）
-        settings_view.py       SettingsView（抽象クラス）
-        tk_main_window.py      Tkinter実装（2タブぶんのFrame + ウィンドウ全体）
+        task/
+            task_list_view.py       TaskListView（抽象クラス）
+            tk_task_list_frame.py   Tkinter実装（タスク一覧タブ）
+        settings/
+            settings_view.py        SettingsView（抽象クラス）
+            tk_settings_frame.py    Tkinter実装（設定タブ）
+        tk_main_window.py      Tkinter実装（2タブをまとめるウィンドウ全体）
     Presenter/
-        task_list_presenter.py
-        settings_presenter.py
+        task/
+            task_list_presenter.py
+        settings/
+            settings_presenter.py
 ```
+
+Model/View/Presenterのいずれも、タブの種類（`task`/`settings`）ごとにサブフォルダで分けている。
+`View/tk_main_window.py`だけは両タブをまとめる存在なので`View/`直下に置いている。
 
 ## 各層の責務
 
@@ -85,7 +96,7 @@ task_manager_tkinter/
 | Model | `SettingsModel` | 設定値の保持・更新のみ（メモリ上のみ、永続化はしない）。 | なし |
 | Model | `csv_io` | タスクのCSV書き出し/読み込み。純粋なI/O関数。 | なし |
 | View（抽象） | `TaskListView` / `SettingsView` | 各タブの「契約」（表示・入力取得・ハンドラ登録）を定義。 | なし |
-| View（実装） | `tk_main_window.py`（`TkTaskListFrame` / `TkSettingsFrame` / `TkMainWindow`） | 上記の抽象をTkinter（`ttk.Notebook` + 標準ウィジェット）で実装。 | 各View抽象, tkinter |
+| View（実装） | `tk_task_list_frame.py`(`TkTaskListFrame`) / `tk_settings_frame.py`(`TkSettingsFrame`) / `tk_main_window.py`(`TkMainWindow`) | 上記の抽象をTkinter（`ttk.Notebook` + 標準ウィジェット）で実装。 | 各View抽象, tkinter |
 | Presenter | `TaskListPresenter` / `SettingsPresenter` | 各タブの「画面の振る舞い」のロジック。バリデーション・Model更新・一覧のソート状態管理・タスクの追加/削除/CSV入出力・期限ハイライトの判定を担う。`TaskListPresenter`は期限ハイライトの判定基準（有効/無効・何日前から）を得るため`SettingsModel`も参照する。 | 対応するModel（`TaskListPresenter`は`TaskModel`と`SettingsModel`の両方）, 対応するView（抽象のみ） |
 
 各PresenterはそれぞれのView抽象にしか依存していないため、View側の実装を差し替えても（Tkinter／別のGUIライブラリ／テスト用のFakeViewなど）Presenterのコードは変更不要。

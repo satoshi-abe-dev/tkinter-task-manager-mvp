@@ -7,17 +7,25 @@ Model / View / Presenter の各フォルダから読み込んで組み立てて�
     task_manager_tkinter/
         main.py          <- これ（Model, View, Presenterと同じ階層）
         Model/
-            task.py               Task（データクラス）
-            task_model.py         TaskModel
-            settings_model.py     Settings / SettingsModel
-            csv_io.py             CSV書き出し/読み込み（純粋なI/O）
+            task/
+                task.py               Task（データクラス）
+                task_model.py         TaskModel
+                csv_io.py             CSV書き出し/読み込み（純粋なI/O）
+            settings/
+                settings_model.py     Settings / SettingsModel
         View/
-            task_list_view.py     TaskListView（抽象クラス）
-            settings_view.py      SettingsView（抽象クラス）
-            tk_main_window.py     Tkinter実装（2タブぶんのFrame + TkMainWindow）
+            task/
+                task_list_view.py     TaskListView（抽象クラス）
+                tk_task_list_frame.py Tkinter実装（タスク一覧タブ）
+            settings/
+                settings_view.py      SettingsView（抽象クラス）
+                tk_settings_frame.py  Tkinter実装（設定タブ）
+            tk_main_window.py         Tkinter実装（2タブをまとめるTkMainWindow）
         Presenter/
-            task_list_presenter.py
-            settings_presenter.py
+            task/
+                task_list_presenter.py
+            settings/
+                settings_presenter.py
 
 実行方法:
     このフォルダ(task_manager_tkinter)の直下で
@@ -25,10 +33,10 @@ Model / View / Presenter の各フォルダから読み込んで組み立てて�
 ※ GUIなので、Tcl/Tkが使えるお手元のPCで実行してください。
 """
 
-from Model.settings_model import SettingsModel
-from Model.task_model import TaskModel
-from Presenter.settings_presenter import SettingsPresenter
-from Presenter.task_list_presenter import TaskListPresenter
+from Model.settings.settings_model import SettingsModel
+from Model.task.task_model import TaskModel
+from Presenter.settings.settings_presenter import SettingsPresenter
+from Presenter.task.task_list_presenter import TaskListPresenter
 from View.tk_main_window import TkMainWindow
 
 

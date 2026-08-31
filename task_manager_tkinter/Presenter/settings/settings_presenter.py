@@ -8,8 +8,8 @@ CSV書き出し/読み込みはタスクデータに対する操作であり、�
 
 from typing import Callable
 
-from Model.settings_model import SettingsModel
-from View.settings_view import SettingsView
+from Model.settings.settings_model import SettingsModel
+from View.settings.settings_view import SettingsView
 
 
 class SettingsPresenter:

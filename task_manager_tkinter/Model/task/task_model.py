@@ -6,7 +6,7 @@ Model
 
 from typing import Iterable, List, Optional
 
-from Model.task import Task
+from Model.task.task import Task
 
 # 一覧タブのインライン編集で書き換えを許すフィールド
 EDITABLE_FIELDS = {"name", "assignee", "due_date", "priority", "status"}

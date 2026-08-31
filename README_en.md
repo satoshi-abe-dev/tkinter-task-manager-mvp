@@ -67,18 +67,29 @@ task_manager_tkinter/
     main.py                   Entry point (same level as Model, View, Presenter)
     test_presenter.py         Unit tests for the two Presenters (no tkinter required)
     Model/
-        task.py                Task (data class)
-        task_model.py          TaskModel
-        settings_model.py      Settings (data class) / SettingsModel
-        csv_io.py               CSV export/import (pure I/O, no tkinter dependency)
+        task/
+            task.py             Task (data class)
+            task_model.py       TaskModel
+            csv_io.py            CSV export/import (pure I/O, no tkinter dependency)
+        settings/
+            settings_model.py   Settings (data class) / SettingsModel
     View/
-        task_list_view.py      TaskListView (abstract class)
-        settings_view.py       SettingsView (abstract class)
-        tk_main_window.py      Tkinter implementation (the two tab Frames + the window)
+        task/
+            task_list_view.py       TaskListView (abstract class)
+            tk_task_list_frame.py   Tkinter implementation (Task List tab)
+        settings/
+            settings_view.py        SettingsView (abstract class)
+            tk_settings_frame.py    Tkinter implementation (Settings tab)
+        tk_main_window.py      Tkinter implementation (the window that combines both tabs)
     Presenter/
-        task_list_presenter.py
-        settings_presenter.py
+        task/
+            task_list_presenter.py
+        settings/
+            settings_presenter.py
 ```
+
+Model, View, and Presenter are all split into per-tab subfolders (`task`/`settings`). The one
+exception is `View/tk_main_window.py`, which combines both tabs and so stays directly under `View/`.
 
 ## Responsibility of Each Layer
 
@@ -88,7 +99,7 @@ task_manager_tkinter/
 | Model | `SettingsModel` | Holds and updates settings only (in-memory, not persisted). | none |
 | Model | `csv_io` | Exports/imports tasks to/from CSV. Pure I/O functions. | none |
 | View (abstract) | `TaskListView` / `SettingsView` | Define the "contract" for each tab (rendering, reading input, registering handlers). | none |
-| View (impl) | `tk_main_window.py` (`TkTaskListFrame` / `TkSettingsFrame` / `TkMainWindow`) | Concrete implementation of the above abstractions using Tkinter (`ttk.Notebook` + standard widgets). | the View abstractions, tkinter |
+| View (impl) | `tk_task_list_frame.py` (`TkTaskListFrame`) / `tk_settings_frame.py` (`TkSettingsFrame`) / `tk_main_window.py` (`TkMainWindow`) | Concrete implementation of the above abstractions using Tkinter (`ttk.Notebook` + standard widgets). | the View abstractions, tkinter |
 | Presenter | `TaskListPresenter` / `SettingsPresenter` | Holds the "screen behavior" logic for each tab: validation, updating the Model, tracking the list's sort state, adding/deleting tasks, CSV export/import, and determining the due-date highlight. `TaskListPresenter` also reads `SettingsModel` to get the highlight criteria (on/off, how many days ahead). | the corresponding Model(s) (`TaskListPresenter` depends on both `TaskModel` and `SettingsModel`), the corresponding View (abstract only) |
 
 Because each Presenter depends only on its View abstraction, swapping the View implementation (Tkinter / another GUI library / a fake View for testing) requires no change to the Presenter code.
