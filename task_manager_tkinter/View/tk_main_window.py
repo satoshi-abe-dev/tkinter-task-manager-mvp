@@ -44,7 +44,14 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
         self._on_cell_edited: Optional[Callable[[int, str, str], None]] = None
         self._editor: Optional[tk.Widget] = None
 
-        self._tree = ttk.Treeview(self, columns=_COLUMNS, show="headings", height=12)
+        # 既定の行高(18px前後)だとインライン編集用のEntry/Comboboxを重ねた時に
+        # 上下が窮屈になり文字が見切れるため、この一覧専用のスタイルで広げる。
+        style = ttk.Style(self)
+        style.configure("TaskList.Treeview", rowheight=28)
+
+        self._tree = ttk.Treeview(
+            self, columns=_COLUMNS, show="headings", height=12, style="TaskList.Treeview"
+        )
         for col in _COLUMNS:
             self._tree.heading(col, text=_COLUMN_LABELS[col])
             self._tree.column(col, width=110, anchor="w")
@@ -102,7 +109,16 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
             entry.select_range(0, "end")
             editor = entry
 
-        editor.place(x=x, y=y, width=width, height=height)
+        # 編集ウィジェットをセルの矩形ぴったりに重ねると、ウィジェット自体の
+        # フォーカスハイライト枠が内側の文字表示領域を圧迫し、テキストが
+        # 見切れてしまう。枠の分だけ少し大きめ・上方向にずらして配置する。
+        pad_x, pad_y = 3, 2
+        editor.place(
+            x=x - pad_x,
+            y=y - pad_y,
+            width=width + pad_x * 2,
+            height=height + pad_y * 2,
+        )
         editor.focus_set()
 
         def commit(_event: Optional[tk.Event] = None) -> None:
