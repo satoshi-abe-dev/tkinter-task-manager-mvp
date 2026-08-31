@@ -89,8 +89,11 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
         scrollbar = ttk.Scrollbar(tree_frame, orient="vertical", command=self._tree.yview)
         self._tree.configure(yscrollcommand=scrollbar.set)
 
-        self._tree.pack(side="left", fill="both", expand=True)
+        # scrollbarを先にpackして右側の幅を確保してから、残りをtreeで埋める。
+        # 逆順(treeを先にexpand=Trueでpack)だと、treeが余白を独占してしまい
+        # scrollbar用の幅が残らず、見えなくなる。
         scrollbar.pack(side="right", fill="y")
+        self._tree.pack(side="left", fill="both", expand=True)
 
         self._tree.bind("<Double-1>", self._on_double_click)
         self._tree.bind("<Button-1>", self._on_click)
