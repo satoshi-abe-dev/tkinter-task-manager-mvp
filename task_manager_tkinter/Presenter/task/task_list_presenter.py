@@ -53,11 +53,18 @@ class TaskListPresenter:
         self.refresh()
 
     def refresh(self) -> None:
-        """Modelから最新のタスク一覧を取得し、必要ならソートしてViewに反映する"""
+        """Modelから最新のタスク一覧を取得し、必要ならソートしてViewに反映する。
+
+        設定タブの「Auto Save」がONの場合、この時点で未保存の変更があれば
+        即座にsave()する（＝結果として、編集操作のたびに自動保存される）。
+        OFFの場合は今まで通り、共通Saveボタンを押すまでDBには反映されない。
+        """
         tasks = self._ordered_tasks(self.model.list_tasks())
         self.view.show_tasks(tasks)
         self.view.show_sort_state(self._sort_field, self._sort_ascending)
         self.view.show_due_date_highlights(self._compute_due_date_highlights(tasks))
+        if self.settings_model.get().auto_save_enabled and self.model.is_dirty():
+            self.model.save()
         self.view.set_dirty(self.model.is_dirty())
 
     def has_unsaved_changes(self) -> bool:

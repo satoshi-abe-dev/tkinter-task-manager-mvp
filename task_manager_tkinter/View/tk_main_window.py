@@ -88,5 +88,12 @@ class TkMainWindow:
         """ウィンドウを実際に閉じ、アプリを終了する"""
         self._root.destroy()
 
+    def schedule(self, delay_ms: int, callback: Callable[[], None]) -> None:
+        """delay_ms ミリ秒後にcallbackを1回呼ぶ(tkinterのafter()の薄いラッパー)。
+        定期的に実行したい場合は、callback自身の中で再度schedule()を呼べばよい
+        （main.pyの定期バックアップがこの使い方をしている）。
+        """
+        self._root.after(delay_ms, callback)
+
     def run(self) -> None:
         self._root.mainloop()

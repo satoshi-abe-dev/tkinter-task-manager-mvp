@@ -22,6 +22,12 @@ class SettingsView(ABC):
         """
 
     @abstractmethod
+    def set_on_auto_save_toggled(self, handler: Callable[[bool], None]) -> None:
+        """Auto SaveチェックボタンがOn/Offされた時に呼ばれるハンドラを登録する。
+        このスイッチ自体は「変更を保存」を待たず即座に反映・保存される。
+        """
+
+    @abstractmethod
     def load_settings(self, settings: Settings) -> None:
         """設定値をフォームに反映する（起動時・保存直後などに使う）"""
 

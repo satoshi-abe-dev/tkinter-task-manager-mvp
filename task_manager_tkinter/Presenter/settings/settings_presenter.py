@@ -27,9 +27,12 @@ class SettingsPresenter:
         self.view.set_dirty(False)
         self.view.set_on_field_changed(self.on_field_changed)
         self.view.set_on_highlight_toggled(self.on_highlight_toggled)
+        self.view.set_on_auto_save_toggled(self.on_auto_save_toggled)
 
     def on_field_changed(self) -> None:
         self.view.set_dirty(True)
+        if self.settings_model.get().auto_save_enabled:
+            self.on_save_click()
 
     def has_unsaved_changes(self) -> bool:
         """未保存の変更があるかどうか（共通Saveボタンの表示・アプリ終了時の
@@ -43,6 +46,16 @@ class SettingsPresenter:
         """
         self.settings_model.set_notify_enabled(enabled)
         self.on_settings_saved()
+
+    def on_auto_save_toggled(self, enabled: bool) -> None:
+        """Auto SaveチェックボタンがOn/Offされた時に呼ばれる。スイッチ自体は
+        「保存」を待たず即座に反映・保存する。ONにした場合は、ついでに他の
+        フィールドの未保存分もまとめて保存する（「Auto Saveを有効にしたのに
+        何か未保存のまま」という矛盾した状態を避けるため）。
+        """
+        self.settings_model.set_auto_save_enabled(enabled)
+        if enabled:
+            self.on_save_click()
 
     def on_save_click(self) -> None:
         """メモリ上（Viewのフォーム）の変更をまとめてDBへ書き込む。Saveボタンは

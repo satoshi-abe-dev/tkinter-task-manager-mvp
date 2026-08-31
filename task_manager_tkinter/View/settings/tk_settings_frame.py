@@ -21,6 +21,7 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
         super().__init__(master, padding=16)
         self._on_field_changed: Optional[Callable[[], None]] = None
         self._on_highlight_toggled: Optional[Callable[[bool], None]] = None
+        self._on_auto_save_toggled: Optional[Callable[[bool], None]] = None
         # load_settings() でフォームに値をセットする際、trace経由でon_field_changedが
         # 誤って発火しないようにするためのガード。
         self._loading = False
@@ -30,10 +31,23 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
 
         self._notify_var = tk.BooleanVar(value=True)
         self._notify_days_var = tk.StringVar(value="3")
+        self._auto_save_var = tk.BooleanVar(value=True)
 
         row = 0
-        ttk.Label(self, text="Due Date Highlight", font=("Helvetica", 10, "bold")).grid(
+        ttk.Label(self, text="Saving", font=("Helvetica", 10, "bold")).grid(
             row=row, column=0, columnspan=2, sticky="w", pady=(0, 4)
+        )
+        row += 1
+        ttk.Checkbutton(
+            self,
+            text="Automatically save changes",
+            variable=self._auto_save_var,
+            command=self._on_auto_save_changed,
+        ).grid(row=row, column=0, columnspan=2, sticky="w", pady=2)
+        row += 1
+
+        ttk.Label(self, text="Due Date Highlight", font=("Helvetica", 10, "bold")).grid(
+            row=row, column=0, columnspan=2, sticky="w", pady=(16, 4)
         )
         row += 1
         notify_checkbox = ttk.Checkbutton(
@@ -99,6 +113,11 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
         if self._on_highlight_toggled:
             self._on_highlight_toggled(self._notify_var.get())
 
+    def _on_auto_save_changed(self) -> None:
+        # Auto Saveのスイッチ自体は「保存」を待たず即座に反映・保存する
+        if self._on_auto_save_toggled:
+            self._on_auto_save_toggled(self._auto_save_var.get())
+
     def _update_days_row_state(self) -> None:
         """チェックボタンがOFFの間、日数欄をグレーアウトして編集できなくする"""
         state = ["!disabled"] if self._notify_var.get() else ["disabled"]
@@ -133,11 +152,16 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
         self._on_highlight_toggled = handler
 
     # Override
+    def set_on_auto_save_toggled(self, handler: Callable[[bool], None]) -> None:
+        self._on_auto_save_toggled = handler
+
+    # Override
     def load_settings(self, settings: Settings) -> None:
         self._loading = True
         try:
             self._notify_var.set(settings.notify_enabled)
             self._notify_days_var.set(str(settings.notify_days_before))
+            self._auto_save_var.set(settings.auto_save_enabled)
         finally:
             self._loading = False
         self._update_days_row_state()
@@ -147,6 +171,7 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
         return Settings(
             notify_enabled=self._notify_var.get(),
             notify_days_before=int(self._notify_days_var.get()),
+            auto_save_enabled=self._auto_save_var.get(),
         )
 
     # Override

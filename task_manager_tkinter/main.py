@@ -7,8 +7,10 @@ Model / View / Presenter の各フォルダから読み込んで組み立てて�
     task_manager_tkinter/
         main.py          <- これ（Model, View, Presenterと同じ階層）
         data/            アプリのSQLiteデータベース(app.db)の置き場。実行時に自動作成される
+            backups/           15分おきの自動バックアップ(直近24時間分)の置き場
         Model/
             db_path.py            DBファイルの既定パス（task/settingsで共有）
+            db_backup.py           app.dbのバックアップ・世代管理（純粋なI/O）
             task/
                 task.py               Task（データクラス）
                 task_model.py         TaskModel
@@ -37,15 +39,20 @@ Model / View / Presenter の各フォルダから読み込んで組み立てて�
 ※ GUIなので、Tcl/Tkが使えるお手元のPCで実行してください。
 ※ タスク・設定はSQLite(標準ライブラリのsqlite3、追加インストール不要)で
   永続化される。DBファイルは初回実行時にdata/app.dbとして作成される。
-  ただしどちらのタブの変更も、タブの外（Notebookの直前の行、右端）にある
-  共通の「Save」ボタンを押すまでDBには書き込まれない（保存前に間違えても、
-  保存しなければ次回起動時には直前の保存状態に戻る）。ウィンドウを閉じようと
-  した時、どちらかのタブに未保存の変更があれば保存するかどうかを確認する
-  ダイアログを出す。
-※ 「Save」ボタンを押すたびに、書き込み前のapp.dbをdata/backups/へタイムス
-  タンプ付きでコピーする（直近10件だけ残し、古いものは自動的に削除する）。
-  ディスク破損など、DBファイル自体が壊れてしまった場合の保険。
+※ 設定タブの「Automatically save changes」がONの間は、編集のたびに即座に
+  DBへ保存される。OFFの間は、タブの外（Notebookの直前の行、右端）にある
+  共通の「Save」ボタンを押すまでDBに書き込まれない（保存前に間違えても、
+  保存しなければ次回起動時には直前の保存状態に戻る）。ウィンドウを閉じよう
+  とした時、未保存の変更があれば保存するかどうかを確認するダイアログを出す
+  （Auto Save中は基本的に未保存の変更が残らないため、通常はこのダイアログは
+  出ない）。
+※ Auto Saveの設定に関わらず、15分おきにapp.dbへの変更を検知して自動的に
+  バックアップを取る（前回のバックアップ以降に変更が無ければスキップする）。
+  直近24時間分だけ残し、古いものは自動的に削除する。ディスク破損など、
+  DBファイル自体が壊れてしまった場合の保険。
 """
+
+import os
 
 from Model.db_backup import backup_and_rotate
 from Model.db_path import DEFAULT_DB_PATH
@@ -54,6 +61,8 @@ from Model.task.task_model import TaskModel
 from Presenter.settings.settings_presenter import SettingsPresenter
 from Presenter.task.task_list_presenter import TaskListPresenter
 from View.tk_main_window import TkMainWindow
+
+_BACKUP_CHECK_INTERVAL_MS = 15 * 60 * 1000  # 15分
 
 
 def main() -> None:
@@ -71,15 +80,9 @@ def main() -> None:
 
     def save_all() -> None:
         """共通の「Save」ボタン用。どちらのタブが今表示されているかに関わらず、
-        両タブの未保存の変更をまとめて保存する。
-
-        書き込みの直前に、その時点のapp.dbをバックアップしておく(直近10件を
-        世代管理)。ディスク破損などでDBファイル自体が読めなくなった場合の
-        保険で、Undo/Saveボタンの仕組みとは別の防御層。ハイライトON/OFFの
-        即時反映（on_highlight_toggled）はこの対象に含めない
-        （頻度が高く、リスクの低い単発の変更のため）。
+        両タブの未保存の変更をまとめて保存する（Auto SaveがOFFの時のための
+        手動保存の手段）。
         """
-        backup_and_rotate(DEFAULT_DB_PATH)
         task_list_presenter.on_save_click()
         settings_presenter.on_save_click()
 
@@ -106,6 +109,23 @@ def main() -> None:
 
     window.set_on_save_click(save_all)
     window.set_on_close_requested(handle_close_request)
+
+    # 15分おきに、app.dbが前回のバックアップ以降に変更されていないか確認し、
+    # 変更があればバックアップを取る。ファイルの更新日時(mtime)を比較するだけ
+    # なので、Auto Saveによる自動書き込みか、Saveボタンによる手動保存かは
+    # 区別しない（どちらの経路で書き込まれても等しく保護する）。
+    last_backup_mtime = None
+
+    def check_and_backup() -> None:
+        nonlocal last_backup_mtime
+        if os.path.exists(DEFAULT_DB_PATH):
+            current_mtime = os.path.getmtime(DEFAULT_DB_PATH)
+            if current_mtime != last_backup_mtime:
+                backup_and_rotate(DEFAULT_DB_PATH)
+                last_backup_mtime = current_mtime
+        window.schedule(_BACKUP_CHECK_INTERVAL_MS, check_and_backup)
+
+    window.schedule(_BACKUP_CHECK_INTERVAL_MS, check_and_backup)
 
     window.run()
 

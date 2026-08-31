@@ -51,36 +51,40 @@ to the MVP pattern (Model / View / Presenter).
     edited again.
   - A row whose status is manually set to "Overdue" is always highlighted red, regardless of its due
     date (excluding "Done" tasks).
-  - Adding, deleting, and editing tasks only changes the in-memory state — none of it is written to
-    disk (SQLite) until the shared "Save" button described below is clicked.
-- **Settings tab**: configures the due-date highlight (on/off, and how many days ahead to warn).
-  - Changing a value shows "Unsaved changes". The change only lives in memory until the shared "Save"
-    button described below is clicked. The one exception is the highlight on/off checkbox itself —
-    toggling it applies to (and persists) the task list's highlighting immediately, without waiting
-    for "Save".
-  - This setting directly drives the due-date highlight on the task list (rows for tasks that are
-    overdue or due soon are shaded orange/red). Tasks with a "Done" status are excluded.
+- **Settings tab**:
+  - **"Automatically save changes"** (Auto Save): while on (the default), every edit on either tab is
+    written to the database immediately — no need to click "Save". Turning it off defers writes:
+    edits only change the in-memory state until the shared "Save" button (below) is clicked. If you
+    make a mistake before saving, just don't save — quitting (without saving) and reopening the app
+    restores the last saved state, since nothing wrong ever reached the database (quitting the app
+    effectively acts as an "undo everything since the last save"). This switch itself always applies
+    (and saves) immediately when toggled; turning it on also flushes any other pending unsaved changes
+    at that moment.
+  - **Due-date highlight** (on/off, and how many days ahead to warn): changing a value shows "Unsaved
+    changes" while Auto Save is off. The highlight on/off checkbox itself is always the exception,
+    regardless of the Auto Save setting — toggling it applies to (and persists) the task list's
+    highlighting immediately, without waiting for "Save". This setting directly drives the due-date
+    highlight on the task list (rows for tasks that are overdue or due soon are shaded orange/red).
+    Tasks with a "Done" status are excluded.
 
 Tabs and buttons deliberately keep the OS-native look (the default `ttk.Notebook` / `ttk.Button` style).
 
 Both tasks and settings are persisted to SQLite (the standard-library `sqlite3` module — no extra
-install needed; see the folder structure below for details). **The Save button lives outside both
-tabs** — a single button in the row just above the tab bar (right-aligned) — and clicking it saves
-any unsaved changes in both tabs at once, regardless of which tab is currently showing. Each tab
-still shows its own "Unsaved changes" label when it has pending changes (display only — there's no
-button inside either tab anymore). If you make a mistake before saving, just don't save — quitting
-(without saving) and reopening the app restores the last saved state, since nothing wrong ever
-reached the database (quitting the app effectively acts as an "undo everything since the last save").
-If you try to close the window while either tab has unsaved changes, a dialog asks whether to save,
-discard, or cancel.
+install needed; see the folder structure below for details). The shared "Save" button (used when Auto
+Save is off) lives outside both tabs — a single button in the row just above the tab bar
+(right-aligned) — and clicking it saves any unsaved changes in both tabs at once, regardless of which
+tab is currently showing. If you try to close the window while either tab has unsaved changes, a
+dialog asks whether to save, discard, or cancel (with Auto Save on, there's normally nothing unsaved,
+so this dialog rarely appears).
 
-Every time the "Save" button is clicked, the current `app.db` (before the write) is copied to
-`data/backups/` with a timestamped filename, keeping only the newest 10 and deleting older ones
-automatically (generation-based rotation). This is a separate safety net from "just don't save to
-undo" above — it protects against the actual database *file* becoming unreadable (disk failure,
-filesystem corruption, etc.). SQLite's own transactions already guard reasonably well against a crash
-mid-write leaving the file half-written, but they can't help if the file itself gets corrupted or lost
-outright.
+Regardless of the Auto Save setting, **every 15 minutes the app checks whether `app.db` has changed
+and, if so, backs it up** (skipped if nothing changed since the last backup). Backups go to
+`data/backups/`, keeping only the newest **24 hours** and deleting anything older (retention by
+elapsed time, not by count — so changing the backup interval later doesn't break the "one day of
+history" guarantee). This is a separate safety net from "just don't save to undo" above — it protects
+against the actual database *file* becoming unreadable (disk failure, filesystem corruption, etc.).
+SQLite's own transactions already guard reasonably well against a crash mid-write leaving the file
+half-written, but they can't help if the file itself gets corrupted or lost outright.
 
 ## Folder Structure
 
@@ -89,7 +93,7 @@ task_manager_tkinter/
     main.py                   Entry point (same level as Model, View, Presenter)
     test_presenter.py         Unit tests for the two Presenters (no tkinter required)
     data/                     Where the SQLite database (app.db) lives; created automatically at runtime
-        backups/               Backups of app.db, made automatically on Save (newest 10 kept)
+        backups/               Backups of app.db, made automatically every 15 minutes (last 24h kept)
     Model/
         db_path.py            The DB file's default path (shared by task/settings)
         db_backup.py           Backs up and rotates app.db (pure I/O)
@@ -129,11 +133,11 @@ exception is `View/tk_main_window.py`, which combines both tabs and so stays dir
 | Model | `TaskModel` | Domain logic for holding, adding (including blank tasks), updating, and deleting tasks. Edits only change the in-memory state; persistence is delegated to `task_db` only when `save()` is called (and `TaskModel` doesn't know any SQL itself). Knows nothing about the UI either. | `task_db` |
 | Model | `SettingsModel` | Domain logic for holding and updating settings. Delegates the persistence details (SQLite) to `settings_db` and doesn't know any SQL itself. | `settings_db` |
 | Model | `task_db` / `settings_db` | Saves/loads tasks and settings to/from SQLite. Pure I/O functions, no tkinter dependency. | `db_path` (where the DB file lives) |
-| Model | `db_backup` | Backs up `app.db` with a timestamp right before a Save, keeping only the newest N and deleting older ones (generation-based rotation). Pure I/O functions. | none |
+| Model | `db_backup` | Backs up `app.db` with a timestamp and deletes backups older than a given retention window (default 24h). Pure I/O functions; main.py owns the 15-minute call cadence. | none |
 | Model | `csv_io` | Exports/imports tasks to/from CSV. Pure I/O functions. | none |
 | View (abstract) | `TaskListView` / `SettingsView` | Define the "contract" for each tab (rendering, reading input, registering handlers). | none |
 | View (impl) | `tk_task_list_frame.py` (`TkTaskListFrame`) / `tk_settings_frame.py` (`TkSettingsFrame`) / `tk_main_window.py` (`TkMainWindow`) | Concrete implementation of the above abstractions using Tkinter (`ttk.Notebook` + standard widgets). | the View abstractions, tkinter |
-| Presenter | `TaskListPresenter` / `SettingsPresenter` | Holds the "screen behavior" logic for each tab: validation, updating the Model, tracking the list's sort state, adding/deleting tasks, CSV export/import, and determining the due-date highlight. `TaskListPresenter` also reads `SettingsModel` to get the highlight criteria (on/off, how many days ahead). | the corresponding Model(s) (`TaskListPresenter` depends on both `TaskModel` and `SettingsModel`), the corresponding View (abstract only) |
+| Presenter | `TaskListPresenter` / `SettingsPresenter` | Holds the "screen behavior" logic for each tab: validation, updating the Model, tracking the list's sort state, adding/deleting tasks, CSV export/import, and determining the due-date highlight. On every `refresh()` (or `on_field_changed()`), checks `SettingsModel.get().auto_save_enabled` and calls `save()` immediately if it's on. `TaskListPresenter` also reads `SettingsModel` to get the highlight criteria (on/off, how many days ahead). | the corresponding Model(s) (`TaskListPresenter` depends on both `TaskModel` and `SettingsModel`), the corresponding View (abstract only) |
 
 Because each Presenter depends only on its View abstraction, swapping the View implementation (Tkinter / another GUI library / a fake View for testing) requires no change to the Presenter code.
 Likewise, `TaskModel`/`SettingsModel` hide their persistence behind `task_db`/`settings_db`. Switching
@@ -148,6 +152,11 @@ that saves both tabs at once. The decision of "what needs saving, across both ta
 either Presenter or View and placed in `main.py` (the composition root) instead — each Presenter/View
 pair still only needs to know about its own tab's save state; nothing needed to learn about the other
 tab.
+Finally, since deciding where to put a Save button had turned into its own recurring design problem,
+an Auto Save toggle was added to the Settings tab instead. Rather than rebuilding the deferred-save
+mechanism, it was kept exactly as-is for when Auto Save is off; when it's on, the Presenter layer
+(`refresh()` / `on_field_changed()`) simply calls `save()` on its own — one conditional, reusing
+everything already built, rather than two separate code paths.
 
 ## Data Flow (clicking "+ Add")
 
