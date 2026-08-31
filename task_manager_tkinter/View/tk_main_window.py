@@ -567,7 +567,7 @@ class TkMainWindow:
 
     def __init__(self) -> None:
         self._root = tk.Tk()
-        self._root.title("タスク管理 (MVP)")
+        self._root.title("タスク管理")
         self._root.geometry("640x540")
 
         notebook = ttk.Notebook(self._root)
