@@ -2,7 +2,7 @@
 Model
 -----
 タスクのCSV書き出し・読み込み。tkinterに依存しない純粋なI/Oロジック。
-「設定」タブの書き出し/読み込みボタンから、Presenter経由で呼ばれる。
+「タスク一覧」タブの書き出し/読み込みボタンから、Presenter経由で呼ばれる。
 """
 
 import csv
@@ -10,7 +10,7 @@ from typing import List, Tuple
 
 from Model.task import Task
 
-FIELDNAMES = ["name", "assignee", "due_date", "priority", "status", "tags", "memo"]
+FIELDNAMES = ["name", "assignee", "due_date", "priority", "status"]
 
 
 def export_tasks_to_csv(tasks: List[Task], path: str) -> None:
@@ -26,8 +26,6 @@ def export_tasks_to_csv(tasks: List[Task], path: str) -> None:
                     "due_date": t.due_date,
                     "priority": t.priority,
                     "status": t.status,
-                    "tags": ",".join(t.tags),
-                    "memo": t.memo,
                 }
             )
 
@@ -46,7 +44,6 @@ def import_tasks_from_csv(path: str) -> Tuple[List[Task], int]:
             if not name:
                 skipped += 1
                 continue
-            tags_raw = row.get("tags") or ""
             tasks.append(
                 Task(
                     name=name,
@@ -54,8 +51,6 @@ def import_tasks_from_csv(path: str) -> Tuple[List[Task], int]:
                     due_date=row.get("due_date", ""),
                     priority=row.get("priority") or "中",
                     status=row.get("status") or "未着手",
-                    tags=[t.strip() for t in tags_raw.split(",") if t.strip()],
-                    memo=row.get("memo", ""),
                 )
             )
     return tasks, skipped
