@@ -5,7 +5,7 @@ Presenterが依存する「契約」だけを定義する。
 """
 
 from abc import ABC, abstractmethod
-from typing import Callable, Optional
+from typing import Callable
 
 from Model.settings_model import Settings
 
@@ -20,14 +20,6 @@ class SettingsView(ABC):
         """「変更を保存」ボタン押下時に呼ばれるハンドラを登録する"""
 
     @abstractmethod
-    def set_on_export_click(self, handler: Callable[[], None]) -> None:
-        """「書き出し」ボタン押下時に呼ばれるハンドラを登録する"""
-
-    @abstractmethod
-    def set_on_import_click(self, handler: Callable[[], None]) -> None:
-        """「読み込み」ボタン押下時に呼ばれるハンドラを登録する"""
-
-    @abstractmethod
     def load_settings(self, settings: Settings) -> None:
         """設定値をフォームに反映する（起動時・保存直後などに使う）"""
 
@@ -38,15 +30,3 @@ class SettingsView(ABC):
     @abstractmethod
     def set_dirty(self, dirty: bool) -> None:
         """未保存の変更があるかどうかの表示を切り替える"""
-
-    @abstractmethod
-    def ask_save_path(self) -> Optional[str]:
-        """書き出し先のファイルパスをユーザーに選ばせる。キャンセル時はNone"""
-
-    @abstractmethod
-    def ask_open_path(self) -> Optional[str]:
-        """読み込み元のファイルパスをユーザーに選ばせる。キャンセル時はNone"""
-
-    @abstractmethod
-    def show_message(self, title: str, message: str) -> None:
-        """メッセージをポップアップ表示する"""

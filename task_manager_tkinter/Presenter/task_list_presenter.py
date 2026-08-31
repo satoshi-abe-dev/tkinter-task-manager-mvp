@@ -8,6 +8,7 @@ Modelのタスク一覧をViewに反映する橋渡し役。
 from datetime import date, datetime, timedelta
 from typing import Callable, Dict, List, Optional
 
+from Model.csv_io import export_tasks_to_csv, import_tasks_from_csv
 from Model.settings_model import SettingsModel
 from Model.task import PRIORITIES, STATUSES, Task
 from Model.task_model import TaskModel
@@ -43,6 +44,8 @@ class TaskListPresenter:
         self.view.set_on_column_clicked(self.on_column_clicked)
         self.view.set_on_add_click(self.on_add_click)
         self.view.set_on_delete_click(self.on_delete_click)
+        self.view.set_on_export_click(self.on_export_click)
+        self.view.set_on_import_click(self.on_import_click)
         self.refresh()
 
     def refresh(self) -> None:
@@ -112,3 +115,26 @@ class TaskListPresenter:
         """
         self.model.delete_tasks(task_ids)
         self.refresh()
+
+    def on_export_click(self) -> None:
+        """「書き出し」ボタン押下時に呼ばれる"""
+        path = self.view.ask_save_path()
+        if not path:
+            return
+        export_tasks_to_csv(self.model.list_tasks(), path)
+        self.view.show_message("お知らせ", f"{path} に書き出しました")
+
+    def on_import_click(self) -> None:
+        """「読み込み」ボタン押下時に呼ばれる"""
+        path = self.view.ask_open_path()
+        if not path:
+            return
+        tasks, skipped = import_tasks_from_csv(path)
+        for task in tasks:
+            self.model.add_task(task)
+        self.refresh()
+
+        message = f"{len(tasks)}件を読み込みました"
+        if skipped:
+            message += f"（タスク名が空の{skipped}件はスキップしました）"
+        self.view.show_message("お知らせ", message)

@@ -57,3 +57,23 @@ class TaskListView(ABC):
         引数: task_id → "warning"（期限が近い）または "overdue"（期限超過）の対応表。
         表に含まれないtask_idは通常表示に戻す。
         """
+
+    @abstractmethod
+    def set_on_export_click(self, handler: Callable[[], None]) -> None:
+        """「書き出し」ボタン押下時に呼ばれるハンドラを登録する"""
+
+    @abstractmethod
+    def set_on_import_click(self, handler: Callable[[], None]) -> None:
+        """「読み込み」ボタン押下時に呼ばれるハンドラを登録する"""
+
+    @abstractmethod
+    def ask_save_path(self) -> Optional[str]:
+        """書き出し先のファイルパスをユーザーに選ばせる。キャンセル時はNone"""
+
+    @abstractmethod
+    def ask_open_path(self) -> Optional[str]:
+        """読み込み元のファイルパスをユーザーに選ばせる。キャンセル時はNone"""
+
+    @abstractmethod
+    def show_message(self, title: str, message: str) -> None:
+        """メッセージをポップアップ表示する"""

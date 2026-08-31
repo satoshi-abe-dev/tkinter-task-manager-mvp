@@ -31,9 +31,14 @@ class FakeTaskListView(TaskListView):
         self.column_clicked_handler: Optional[Callable[[str], None]] = None
         self.add_handler: Optional[Callable[[], None]] = None
         self.delete_handler: Optional[Callable[[List[int]], None]] = None
+        self.export_handler: Optional[Callable[[], None]] = None
+        self.import_handler: Optional[Callable[[], None]] = None
         self.sort_state: Optional[Tuple[Optional[str], bool]] = None
         self.selected_task_id: Optional[int] = None
         self.highlights: Dict[int, str] = {}
+        self.save_path: Optional[str] = None
+        self.open_path: Optional[str] = None
+        self.messages: List[Tuple[str, str]] = []
 
     def show_tasks(self, tasks: List[Task]) -> None:
         self.shown_tasks = list(tasks)
@@ -59,40 +64,11 @@ class FakeTaskListView(TaskListView):
     def show_due_date_highlights(self, highlights: Dict[int, str]) -> None:
         self.highlights = dict(highlights)
 
-
-class FakeSettingsView(SettingsView):
-    def __init__(self) -> None:
-        self.field_changed_handler: Optional[Callable[[], None]] = None
-        self.save_handler: Optional[Callable[[], None]] = None
-        self.export_handler: Optional[Callable[[], None]] = None
-        self.import_handler: Optional[Callable[[], None]] = None
-        self.loaded: Optional[Settings] = None
-        self.dirty = False
-        self.form_values = Settings()
-        self.save_path: Optional[str] = None
-        self.open_path: Optional[str] = None
-        self.messages: List[Tuple[str, str]] = []
-
-    def set_on_field_changed(self, handler: Callable[[], None]) -> None:
-        self.field_changed_handler = handler
-
-    def set_on_save_click(self, handler: Callable[[], None]) -> None:
-        self.save_handler = handler
-
     def set_on_export_click(self, handler: Callable[[], None]) -> None:
         self.export_handler = handler
 
     def set_on_import_click(self, handler: Callable[[], None]) -> None:
         self.import_handler = handler
-
-    def load_settings(self, settings: Settings) -> None:
-        self.loaded = settings
-
-    def get_form_values(self) -> Settings:
-        return self.form_values
-
-    def set_dirty(self, dirty: bool) -> None:
-        self.dirty = dirty
 
     def ask_save_path(self) -> Optional[str]:
         return self.save_path
@@ -102,6 +78,30 @@ class FakeSettingsView(SettingsView):
 
     def show_message(self, title: str, message: str) -> None:
         self.messages.append((title, message))
+
+
+class FakeSettingsView(SettingsView):
+    def __init__(self) -> None:
+        self.field_changed_handler: Optional[Callable[[], None]] = None
+        self.save_handler: Optional[Callable[[], None]] = None
+        self.loaded: Optional[Settings] = None
+        self.dirty = False
+        self.form_values = Settings()
+
+    def set_on_field_changed(self, handler: Callable[[], None]) -> None:
+        self.field_changed_handler = handler
+
+    def set_on_save_click(self, handler: Callable[[], None]) -> None:
+        self.save_handler = handler
+
+    def load_settings(self, settings: Settings) -> None:
+        self.loaded = settings
+
+    def get_form_values(self) -> Settings:
+        return self.form_values
+
+    def set_dirty(self, dirty: bool) -> None:
+        self.dirty = dirty
 
 
 def test_task_list_presenter_shows_initial_tasks() -> None:
@@ -316,17 +316,33 @@ def test_task_list_presenter_disables_highlight_when_notify_off() -> None:
     print("test_task_list_presenter_disables_highlight_when_notify_off: OK")
 
 
+def test_task_list_presenter_export_import_csv() -> None:
+    model = TaskModel()
+    settings_model = SettingsModel()
+    view = FakeTaskListView()
+    presenter = TaskListPresenter(model, settings_model, view)
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        path = os.path.join(tmp_dir, "tasks.csv")
+
+        view.save_path = path
+        view.export_handler()
+        assert os.path.exists(path)
+
+        before = len(model.list_tasks())
+        view.open_path = path
+        view.import_handler()
+
+        assert len(model.list_tasks()) == before * 2
+        # 書き出し・読み込みそれぞれで1件ずつメッセージが表示される
+        assert len(view.messages) == 2
+    print("test_task_list_presenter_export_import_csv: OK")
+
+
 def test_settings_presenter_tracks_dirty_and_saves() -> None:
     settings_model = SettingsModel()
-    task_model = TaskModel()
     view = FakeSettingsView()
-    SettingsPresenter(
-        settings_model,
-        task_model,
-        view,
-        on_tasks_imported=lambda: None,
-        on_settings_saved=lambda: None,
-    )
+    SettingsPresenter(settings_model, view, on_settings_saved=lambda: None)
 
     assert view.loaded == Settings()
     assert view.dirty is False
@@ -347,52 +363,14 @@ def test_settings_presenter_tracks_dirty_and_saves() -> None:
 
 def test_settings_presenter_calls_on_settings_saved_after_save() -> None:
     settings_model = SettingsModel()
-    task_model = TaskModel()
     view = FakeSettingsView()
     saved: List[bool] = []
-    SettingsPresenter(
-        settings_model,
-        task_model,
-        view,
-        on_tasks_imported=lambda: None,
-        on_settings_saved=lambda: saved.append(True),
-    )
+    SettingsPresenter(settings_model, view, on_settings_saved=lambda: saved.append(True))
 
     view.save_handler()
 
     assert len(saved) == 1
     print("test_settings_presenter_calls_on_settings_saved_after_save: OK")
-
-
-def test_settings_presenter_export_import_csv() -> None:
-    settings_model = SettingsModel()
-    task_model = TaskModel()
-    view = FakeSettingsView()
-    imported: List[bool] = []
-    SettingsPresenter(
-        settings_model,
-        task_model,
-        view,
-        on_tasks_imported=lambda: imported.append(True),
-        on_settings_saved=lambda: None,
-    )
-
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        path = os.path.join(tmp_dir, "tasks.csv")
-
-        view.save_path = path
-        view.export_handler()
-        assert os.path.exists(path)
-
-        before = len(task_model.list_tasks())
-        view.open_path = path
-        view.import_handler()
-
-        assert len(imported) == 1
-        assert len(task_model.list_tasks()) == before * 2
-        # 書き出し・読み込みそれぞれで1件ずつメッセージが表示される
-        assert len(view.messages) == 2
-    print("test_settings_presenter_export_import_csv: OK")
 
 
 if __name__ == "__main__":
@@ -408,6 +386,6 @@ if __name__ == "__main__":
     test_task_list_presenter_highlights_overdue_and_warning_tasks()
     test_task_list_presenter_excludes_completed_status_from_highlight()
     test_task_list_presenter_disables_highlight_when_notify_off()
+    test_task_list_presenter_export_import_csv()
     test_settings_presenter_tracks_dirty_and_saves()
     test_settings_presenter_calls_on_settings_saved_after_save()
-    test_settings_presenter_export_import_csv()

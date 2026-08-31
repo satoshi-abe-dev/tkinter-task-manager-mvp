@@ -41,9 +41,7 @@ def main() -> None:
     task_list_presenter = TaskListPresenter(task_model, settings_model, window.task_list_frame)
     SettingsPresenter(
         settings_model,
-        task_model,
         window.settings_frame,
-        on_tasks_imported=task_list_presenter.refresh,
         on_settings_saved=task_list_presenter.refresh,
     )
 

@@ -51,6 +51,8 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
         self._on_column_clicked: Optional[Callable[[str], None]] = None
         self._on_add_click: Optional[Callable[[], None]] = None
         self._on_delete_click: Optional[Callable[[List[int]], None]] = None
+        self._on_export_click: Optional[Callable[[], None]] = None
+        self._on_import_click: Optional[Callable[[], None]] = None
         self._editor: Optional[tk.Widget] = None
         self._date_picker: Optional[tk.Toplevel] = None
 
@@ -60,10 +62,12 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
         style.configure("TaskList.Treeview", rowheight=28)
 
         # このフレーム自身のgrid構成: 行0(表+スクロールバー)が余白を吸収し、
-        # 行1(追加/削除ボタン)は内容ぶんの高さで下端に固定される。
+        # 行1(追加/削除ボタン)・行2(書き出し/読み込みボタン)は内容ぶんの
+        # 高さで下端に固定される。
         self.columnconfigure(0, weight=1)
         self.rowconfigure(0, weight=1)
         self.rowconfigure(1, weight=0)
+        self.rowconfigure(2, weight=0)
 
         # 表とスクロールバーをまとめる専用フレーム。
         tree_frame = ttk.Frame(self)
@@ -108,6 +112,19 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
             button_row, text="－ 削除", command=self._handle_delete_click, state="disabled"
         )
         self._delete_button.grid(row=0, column=1, sticky="ew")
+
+        # CSV書き出し/読み込みは「追加」ボタンの下に配置する（左詰め、幅は
+        # 「追加」ボタンに揃えず内容ぶんのみ）。
+        csv_row = ttk.Frame(self)
+        csv_row.grid(row=2, column=0, sticky="w", pady=(8, 0))
+        self._export_button = ttk.Button(
+            csv_row, text="書き出し", command=self._handle_export_click
+        )
+        self._export_button.grid(row=0, column=0, padx=(0, 8))
+        self._import_button = ttk.Button(
+            csv_row, text="読み込み", command=self._handle_import_click
+        )
+        self._import_button.grid(row=0, column=1)
 
         self._tree.bind("<Double-1>", self._on_double_click)
         self._tree.bind("<Button-1>", self._on_click)
@@ -169,6 +186,38 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
         for iid in self._tree.get_children():
             tag = highlights.get(int(iid))
             self._tree.item(iid, tags=(tag,) if tag else ())
+
+    # Override
+    def set_on_export_click(self, handler: Callable[[], None]) -> None:
+        self._on_export_click = handler
+
+    # Override
+    def set_on_import_click(self, handler: Callable[[], None]) -> None:
+        self._on_import_click = handler
+
+    # Override
+    def ask_save_path(self) -> Optional[str]:
+        path = filedialog.asksaveasfilename(
+            defaultextension=".csv", filetypes=[("CSV", "*.csv")]
+        )
+        return path or None
+
+    # Override
+    def ask_open_path(self) -> Optional[str]:
+        path = filedialog.askopenfilename(filetypes=[("CSV", "*.csv")])
+        return path or None
+
+    # Override
+    def show_message(self, title: str, message: str) -> None:
+        messagebox.showinfo(title=title, message=message)
+
+    def _handle_export_click(self) -> None:
+        if self._on_export_click:
+            self._on_export_click()
+
+    def _handle_import_click(self) -> None:
+        if self._on_import_click:
+            self._on_import_click()
 
     def _on_selection_changed(self, event: tk.Event) -> None:
         state = "normal" if self._tree.selection() else "disabled"
@@ -434,22 +483,6 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
         # 単位(日)を明示する
         self._days_unit_label = ttk.Label(days_row, text="日前から")
         self._days_unit_label.grid(row=0, column=1, padx=(6, 0))
-        row += 1
-
-        ttk.Separator(self).grid(row=row, column=0, columnspan=2, sticky="we", pady=10)
-        row += 1
-
-        ttk.Label(self, text="データ", font=("Helvetica", 10, "bold")).grid(
-            row=row, column=0, columnspan=2, sticky="w", pady=(0, 4)
-        )
-        row += 1
-
-        data_row = ttk.Frame(self)
-        data_row.grid(row=row, column=0, columnspan=2, sticky="w", pady=(6, 0))
-        self._export_button = ttk.Button(data_row, text="書き出し")
-        self._export_button.grid(row=0, column=0, padx=(0, 8))
-        self._import_button = ttk.Button(data_row, text="読み込み")
-        self._import_button.grid(row=0, column=1)
         row += 1
 
         save_row = ttk.Frame(self)
