@@ -116,6 +116,10 @@ class TaskListPresenter:
         for task in tasks:
             if task.status == _EXCLUDED_STATUS:
                 continue
+            if task.status == "Overdue":
+                # Statusが手動でOverdueにされている場合は、期限日に関わらず赤にする
+                highlights[task.id] = "overdue"
+                continue
             try:
                 due = datetime.strptime(task.due_date, "%Y-%m-%d").date()
             except ValueError:
@@ -133,7 +137,29 @@ class TaskListPresenter:
             self.refresh()
             return
         self.model.update_task_field(task_id, field, value)
+        if field == "due_date":
+            self._auto_set_overdue_if_past_due(task_id, value)
         self.refresh()
+
+    def _auto_set_overdue_if_past_due(self, task_id: int, due_date_value: str) -> None:
+        """期限日を過去の日付に変更した直後、1回だけ自動でStatusをOverdueにする。
+
+        あくまで「編集した瞬間」だけの自動セットであり、継続的に強制する
+        わけではない。以降ユーザーが手動でStatusを他の値に変更すれば、
+        次に期限日を編集するまではそのまま尊重される（毎回のrefreshで
+        Overdueへ戻したりはしない）。Doneのタスクは対象外
+        （完了後に期限日を過去へ書き換えても、完了扱いのままにする）。
+        """
+        try:
+            due = datetime.strptime(due_date_value, "%Y-%m-%d").date()
+        except ValueError:
+            return
+        if due >= date.today():
+            return
+        task = self.model.get_task(task_id)
+        if task is None or task.status == _EXCLUDED_STATUS:
+            return
+        self.model.update_task_field(task_id, "status", "Overdue")
 
     def on_column_clicked(self, field: str) -> None:
         """一覧タブのカラムヘッダーがクリックされた時に呼ばれる"""

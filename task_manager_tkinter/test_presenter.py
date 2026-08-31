@@ -386,6 +386,79 @@ def test_task_list_presenter_excludes_completed_status_from_highlight() -> None:
     print("test_task_list_presenter_excludes_completed_status_from_highlight: OK")
 
 
+def test_task_list_presenter_highlights_manually_set_overdue_status() -> None:
+    """Statusを手動でOverdueにしたタスクは、期限日が未来でも赤くなる"""
+    model = TaskModel()
+    settings_model = SettingsModel()
+    view = FakeTaskListView()
+    presenter = TaskListPresenter(model, settings_model, view)
+
+    task = model.list_tasks()[0]
+    tomorrow = (date.today() + timedelta(days=1)).strftime("%Y-%m-%d")
+    model.update_task_field(task.id, "due_date", tomorrow)
+    model.update_task_field(task.id, "status", "Overdue")
+    presenter.refresh()
+
+    assert view.highlights.get(task.id) == "overdue"
+    print("test_task_list_presenter_highlights_manually_set_overdue_status: OK")
+
+
+def test_task_list_presenter_auto_sets_overdue_status_on_past_due_date_edit() -> None:
+    """期限日を過去の日付にインライン編集した瞬間、自動でStatusがOverdueになる"""
+    model = TaskModel()
+    settings_model = SettingsModel()
+    view = FakeTaskListView()
+    presenter = TaskListPresenter(model, settings_model, view)
+
+    task = model.list_tasks()[0]
+    model.update_task_field(task.id, "status", "In Progress")
+    yesterday = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+
+    view.cell_edited_handler(task.id, "due_date", yesterday)
+
+    assert model.get_task(task.id).status == "Overdue"
+    print("test_task_list_presenter_auto_sets_overdue_status_on_past_due_date_edit: OK")
+
+
+def test_task_list_presenter_auto_overdue_excludes_done_status() -> None:
+    """Doneのタスクは、期限日を過去にしてもStatusをOverdueに自動変更しない"""
+    model = TaskModel()
+    settings_model = SettingsModel()
+    view = FakeTaskListView()
+    presenter = TaskListPresenter(model, settings_model, view)
+
+    task = model.list_tasks()[0]
+    model.update_task_field(task.id, "status", "Done")
+    yesterday = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+
+    view.cell_edited_handler(task.id, "due_date", yesterday)
+
+    assert model.get_task(task.id).status == "Done"
+    print("test_task_list_presenter_auto_overdue_excludes_done_status: OK")
+
+
+def test_task_list_presenter_auto_overdue_is_one_time_only() -> None:
+    """自動Overdueは編集した瞬間だけの一度きりで、その後の手動変更は上書きしない"""
+    model = TaskModel()
+    settings_model = SettingsModel()
+    view = FakeTaskListView()
+    presenter = TaskListPresenter(model, settings_model, view)
+
+    task = model.list_tasks()[0]
+    model.update_task_field(task.id, "status", "In Progress")
+    yesterday = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+    view.cell_edited_handler(task.id, "due_date", yesterday)
+    assert model.get_task(task.id).status == "Overdue"
+
+    # ユーザーが手動で"In Progress"に戻す（期限日はそのまま過去日）
+    view.cell_edited_handler(task.id, "status", "In Progress")
+    # 別のセルを編集してrefreshが走っても、Overdueへ勝手に戻されない
+    view.cell_edited_handler(task.id, "assignee", "Suzuki")
+
+    assert model.get_task(task.id).status == "In Progress"
+    print("test_task_list_presenter_auto_overdue_is_one_time_only: OK")
+
+
 def test_task_list_presenter_disables_highlight_when_notify_off() -> None:
     model = TaskModel()
     settings_model = SettingsModel()
@@ -515,6 +588,10 @@ if __name__ == "__main__":
     test_task_list_presenter_deletes_multiple_tasks()
     test_task_list_presenter_highlights_overdue_and_warning_tasks()
     test_task_list_presenter_excludes_completed_status_from_highlight()
+    test_task_list_presenter_highlights_manually_set_overdue_status()
+    test_task_list_presenter_auto_sets_overdue_status_on_past_due_date_edit()
+    test_task_list_presenter_auto_overdue_excludes_done_status()
+    test_task_list_presenter_auto_overdue_is_one_time_only()
     test_task_list_presenter_disables_highlight_when_notify_off()
     test_task_list_presenter_export_import_csv()
     test_settings_presenter_tracks_dirty_and_saves()

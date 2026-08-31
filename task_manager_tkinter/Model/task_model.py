@@ -4,7 +4,7 @@ Model
 タスクの保持・追加・更新のみを行う。View や Presenter のことは一切知らない。
 """
 
-from typing import Iterable, List
+from typing import Iterable, List, Optional
 
 from Model.task import Task
 
@@ -35,6 +35,13 @@ class TaskModel:
     def list_tasks(self) -> List[Task]:
         """登録済みタスクの一覧を返す"""
         return list(self._tasks)
+
+    def get_task(self, task_id: int) -> Optional[Task]:
+        """idで1件だけ取得する。見つからなければNone"""
+        for task in self._tasks:
+            if task.id == task_id:
+                return task
+        return None
 
     def add_task(self, task: Task) -> Task:
         """タスクを1件追加する。idを採番して返す"""
