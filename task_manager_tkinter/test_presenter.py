@@ -242,6 +242,25 @@ def test_task_list_presenter_add_preserves_order_across_further_edits() -> None:
     print("test_task_list_presenter_add_preserves_order_across_further_edits: OK")
 
 
+def test_task_list_presenter_two_consecutive_adds_keep_order() -> None:
+    model = TaskModel()
+    settings_model = SettingsModel()
+    view = FakeTaskListView()
+    presenter = TaskListPresenter(model, settings_model, view)
+
+    view.column_clicked_handler("name")
+    sorted_ids = [t.id for t in view.shown_tasks]
+
+    view.add_handler()
+    first_new = model.list_tasks()[-1]
+    view.add_handler()
+    second_new = model.list_tasks()[-1]
+
+    # 1回目の追加が固定した並び順を、2回目の追加でも壊さず、末尾に足すだけ
+    assert [t.id for t in view.shown_tasks] == sorted_ids + [first_new.id, second_new.id]
+    print("test_task_list_presenter_two_consecutive_adds_keep_order: OK")
+
+
 def test_task_list_presenter_add_name_survives_deletion_without_duplicate() -> None:
     model = TaskModel()
     settings_model = SettingsModel()
@@ -423,6 +442,7 @@ if __name__ == "__main__":
     test_task_list_presenter_adds_blank_task_with_id_based_name()
     test_task_list_presenter_add_always_appears_at_bottom_even_when_sorted()
     test_task_list_presenter_add_preserves_order_across_further_edits()
+    test_task_list_presenter_two_consecutive_adds_keep_order()
     test_task_list_presenter_add_name_survives_deletion_without_duplicate()
     test_task_list_presenter_deletes_task()
     test_task_list_presenter_deletes_multiple_tasks()

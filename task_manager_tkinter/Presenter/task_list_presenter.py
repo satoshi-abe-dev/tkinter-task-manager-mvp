@@ -54,14 +54,20 @@ class TaskListPresenter:
 
     def refresh(self) -> None:
         """Modelから最新のタスク一覧を取得し、必要ならソートしてViewに反映する"""
-        tasks = self.model.list_tasks()
-        if self._manual_order is not None:
-            tasks = self._apply_manual_order(tasks)
-        else:
-            tasks = self._sorted_tasks(tasks)
+        tasks = self._ordered_tasks(self.model.list_tasks())
         self.view.show_tasks(tasks)
         self.view.show_sort_state(self._sort_field, self._sort_ascending)
         self.view.show_due_date_highlights(self._compute_due_date_highlights(tasks))
+
+    def _ordered_tasks(self, tasks: List[Task]) -> List[Task]:
+        """現在の表示順でタスクを並べる。
+        _manual_order（固定順）があればそれを、無ければ現在のソート列の
+        結果を使う。「今の並び順」を知りたい場面（追加時など）でも使う
+        共通ロジック。
+        """
+        if self._manual_order is not None:
+            return self._apply_manual_order(tasks)
+        return self._sorted_tasks(tasks)
 
     def _sorted_tasks(self, tasks: List[Task]) -> List[Task]:
         """現在のソート列に従ってタスクを並べ替える（列が未指定ならそのまま）"""
@@ -132,13 +138,15 @@ class TaskListPresenter:
     def on_add_click(self) -> None:
         """「追加」ボタン押下時に呼ばれる。空欄のタスクを1件追加して選択状態にする。
 
-        今表示されている行の並び順（ソートしていた場合はその結果）は変えず、
-        新しいタスクだけを末尾に追加する。ソートしたままだと新タスクが
-        並び順のどこかに紛れ込んでしまうため、以後は列ソートに従わず
-        この時点の並び順を固定する(_manual_order)。列見出しの矢印は、
-        もう厳密にソートされた状態ではないことを示すため非表示にする。
+        今表示されている行の並び順（ソートしていた場合はその結果、既に
+        _manual_orderで固定済みならその順番）は変えず、新しいタスクだけを
+        末尾に追加する。_sorted_tasks()だけを見ると、2回目以降の追加で
+        直前の追加が固定した順番を無視してしまう（_sort_fieldは1回目の
+        追加時点で既にNoneになっているため）ので、_manual_orderも考慮する
+        _ordered_tasks()を使う。列見出しの矢印は、もう厳密にソートされた
+        状態ではないことを示すため非表示にする。
         """
-        current_order = [t.id for t in self._sorted_tasks(self.model.list_tasks())]
+        current_order = [t.id for t in self._ordered_tasks(self.model.list_tasks())]
         task = self.model.add_blank_task()
         self._manual_order = current_order + [task.id]
         self._sort_field = None
