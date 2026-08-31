@@ -6,6 +6,12 @@ Python (Tkinter) による MVP（Model-View-Presenter）デザインパターン
 [mvp-pattern-sample-1](https://github.com/yanyayanyan1988/mvp-pattern-sample-1) の続編で、
 「タブ付きの実務寄りなタスク管理アプリ」を題材にしている。
 
+## スクリーンショット
+
+| タスク一覧 | 新規登録 | 設定 |
+|---|---|---|
+| ![タスク一覧タブ](docs/screenshots/task-list.png) | ![新規登録タブ](docs/screenshots/new-task.png) | ![設定タブ](docs/screenshots/settings.png) |
+
 ## 目的
 
 タブごとに異なる画面（タスク一覧・新規登録・設定）を持つ、実務でありそうなTkinterデスクトップアプリを題材に、

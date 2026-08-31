@@ -6,6 +6,12 @@ A sample implementation of the MVP (Model-View-Presenter) design pattern in Pyth
 This is a follow-up to [mvp-pattern-sample-1](https://github.com/yanyayanyan1988/mvp-pattern-sample-1),
 built around a more realistic, business-style, tabbed task-management app.
 
+## Screenshots
+
+| Task List | New Task | Settings |
+|---|---|---|
+| ![Task list tab](docs/screenshots/task-list.png) | ![New task tab](docs/screenshots/new-task.png) | ![Settings tab](docs/screenshots/settings.png) |
+
 ## Purpose
 
 A sample project built around a Tkinter desktop app that could plausibly exist in a real workplace —
