@@ -34,7 +34,6 @@ class FakeTaskListView(TaskListView):
         self.delete_handler: Optional[Callable[[List[int]], None]] = None
         self.export_handler: Optional[Callable[[], None]] = None
         self.import_handler: Optional[Callable[[], None]] = None
-        self.save_handler: Optional[Callable[[], None]] = None
         self.sort_state: Optional[Tuple[Optional[str], bool]] = None
         self.selected_task_id: Optional[int] = None
         self.highlights: Dict[int, str] = {}
@@ -82,9 +81,6 @@ class FakeTaskListView(TaskListView):
     def show_message(self, title: str, message: str) -> None:
         self.messages.append((title, message))
 
-    def set_on_save_click(self, handler: Callable[[], None]) -> None:
-        self.save_handler = handler
-
     def set_dirty(self, dirty: bool) -> None:
         self.dirty = dirty
 
@@ -92,7 +88,6 @@ class FakeTaskListView(TaskListView):
 class FakeSettingsView(SettingsView):
     def __init__(self) -> None:
         self.field_changed_handler: Optional[Callable[[], None]] = None
-        self.save_handler: Optional[Callable[[], None]] = None
         self.highlight_toggled_handler: Optional[Callable[[bool], None]] = None
         self.loaded: Optional[Settings] = None
         self.dirty = False
@@ -100,9 +95,6 @@ class FakeSettingsView(SettingsView):
 
     def set_on_field_changed(self, handler: Callable[[], None]) -> None:
         self.field_changed_handler = handler
-
-    def set_on_save_click(self, handler: Callable[[], None]) -> None:
-        self.save_handler = handler
 
     def set_on_highlight_toggled(self, handler: Callable[[bool], None]) -> None:
         self.highlight_toggled_handler = handler
@@ -115,6 +107,9 @@ class FakeSettingsView(SettingsView):
 
     def set_dirty(self, dirty: bool) -> None:
         self.dirty = dirty
+
+    def is_dirty(self) -> bool:
+        return self.dirty
 
 
 def test_task_list_presenter_shows_initial_tasks() -> None:
@@ -537,7 +532,7 @@ def test_task_list_presenter_has_unsaved_changes() -> None:
     view.cell_edited_handler(target.id, "assignee", "Changed")
     assert presenter.has_unsaved_changes() is True
 
-    view.save_handler()
+    presenter.on_save_click()
     assert presenter.has_unsaved_changes() is False
     print("test_task_list_presenter_has_unsaved_changes: OK")
 
@@ -553,7 +548,7 @@ def test_task_list_presenter_defers_db_write_until_save() -> None:
         model = TaskModel(db_path=db_path)
         settings_model = SettingsModel(db_path=":memory:")
         view = FakeTaskListView()
-        TaskListPresenter(model, settings_model, view)
+        presenter = TaskListPresenter(model, settings_model, view)
 
         target = model.list_tasks()[0]
         view.cell_edited_handler(target.id, "assignee", "Changed")
@@ -564,7 +559,7 @@ def test_task_list_presenter_defers_db_write_until_save() -> None:
         assert reopened_before_save.get_task(target.id).assignee != "Changed"
 
         # Saveすると、その後に開いた接続からも見えるようになる
-        view.save_handler()
+        presenter.on_save_click()
         assert model.is_dirty() is False
         reopened_after_save = TaskModel(db_path=db_path)
         assert reopened_after_save.get_task(target.id).assignee == "Changed"
@@ -575,21 +570,23 @@ def test_task_list_presenter_defers_db_write_until_save() -> None:
 def test_settings_presenter_tracks_dirty_and_saves() -> None:
     settings_model = SettingsModel(db_path=":memory:")
     view = FakeSettingsView()
-    SettingsPresenter(settings_model, view, on_settings_saved=lambda: None)
+    presenter = SettingsPresenter(settings_model, view, on_settings_saved=lambda: None)
 
     assert view.loaded == Settings()
     assert view.dirty is False
 
     view.field_changed_handler()
     assert view.dirty is True
+    assert presenter.has_unsaved_changes() is True
 
     view.form_values = Settings(
         notify_enabled=False,
         notify_days_before=7,
     )
-    view.save_handler()
+    presenter.on_save_click()
 
     assert view.dirty is False
+    assert presenter.has_unsaved_changes() is False
     assert settings_model.get().notify_days_before == 7
     print("test_settings_presenter_tracks_dirty_and_saves: OK")
 
@@ -598,9 +595,9 @@ def test_settings_presenter_calls_on_settings_saved_after_save() -> None:
     settings_model = SettingsModel(db_path=":memory:")
     view = FakeSettingsView()
     saved: List[bool] = []
-    SettingsPresenter(settings_model, view, on_settings_saved=lambda: saved.append(True))
+    presenter = SettingsPresenter(settings_model, view, on_settings_saved=lambda: saved.append(True))
 
-    view.save_handler()
+    presenter.on_save_click()
 
     assert len(saved) == 1
     print("test_settings_presenter_calls_on_settings_saved_after_save: OK")

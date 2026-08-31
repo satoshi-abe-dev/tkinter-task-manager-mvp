@@ -26,11 +26,16 @@ class SettingsPresenter:
         self.view.load_settings(self.settings_model.get())
         self.view.set_dirty(False)
         self.view.set_on_field_changed(self.on_field_changed)
-        self.view.set_on_save_click(self.on_save_click)
         self.view.set_on_highlight_toggled(self.on_highlight_toggled)
 
     def on_field_changed(self) -> None:
         self.view.set_dirty(True)
+
+    def has_unsaved_changes(self) -> bool:
+        """未保存の変更があるかどうか（共通Saveボタンの表示・アプリ終了時の
+        確認ダイアログ用）
+        """
+        return self.view.is_dirty()
 
     def on_highlight_toggled(self, enabled: bool) -> None:
         """ハイライトON/OFFチェックボタンが切り替わった時に呼ばれる。
@@ -40,6 +45,9 @@ class SettingsPresenter:
         self.on_settings_saved()
 
     def on_save_click(self) -> None:
+        """メモリ上（Viewのフォーム）の変更をまとめてDBへ書き込む。Saveボタンは
+        タブの外(TkMainWindow側)にあり、main.pyがそこから直接このメソッドを呼ぶ。
+        """
         settings = self.view.get_form_values()
         self.settings_model.update(settings)
         self.view.set_dirty(False)

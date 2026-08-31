@@ -50,7 +50,6 @@ class TaskListPresenter:
         self.view.set_on_delete_click(self.on_delete_click)
         self.view.set_on_export_click(self.on_export_click)
         self.view.set_on_import_click(self.on_import_click)
-        self.view.set_on_save_click(self.on_save_click)
         self.refresh()
 
     def refresh(self) -> None:
@@ -66,7 +65,9 @@ class TaskListPresenter:
         return self.model.is_dirty()
 
     def on_save_click(self) -> None:
-        """「Save」ボタン押下時に呼ばれる。メモリ上の変更をまとめてDBへ書き込む"""
+        """メモリ上の変更をまとめてDBへ書き込む。Saveボタンはタブの外
+        (TkMainWindow側)にあり、main.pyがそこから直接このメソッドを呼ぶ。
+        """
         self.model.save()
         self.refresh()
 

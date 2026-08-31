@@ -52,25 +52,27 @@ to the MVP pattern (Model / View / Presenter).
   - A row whose status is manually set to "Overdue" is always highlighted red, regardless of its due
     date (excluding "Done" tasks).
   - Adding, deleting, and editing tasks only changes the in-memory state — none of it is written to
-    disk (SQLite) until the "Save" button below the table is clicked. While there's anything unsaved,
-    it's labeled "Unsaved changes". If you make a mistake before saving, just don't save — quitting
-    (without saving) and reopening the app restores the last saved state, since nothing wrong ever
-    reached the database (quitting the app effectively acts as an "undo everything since the last
-    save"). If you try to close the window while there are unsaved changes, a dialog asks whether to
-    save, discard, or cancel.
+    disk (SQLite) until the shared "Save" button described below is clicked.
 - **Settings tab**: configures the due-date highlight (on/off, and how many days ahead to warn).
-  - Changing a value shows "Unsaved changes"; nothing is applied until "Save Changes" is clicked.
-    The one exception is the highlight on/off checkbox itself — toggling it applies immediately to
-    the task list's highlighting, without waiting for "Save Changes".
+  - Changing a value shows "Unsaved changes". The change only lives in memory until the shared "Save"
+    button described below is clicked. The one exception is the highlight on/off checkbox itself —
+    toggling it applies to (and persists) the task list's highlighting immediately, without waiting
+    for "Save".
   - This setting directly drives the due-date highlight on the task list (rows for tasks that are
     overdue or due soon are shaded orange/red). Tasks with a "Done" status are excluded.
 
 Tabs and buttons deliberately keep the OS-native look (the default `ttk.Notebook` / `ttk.Button` style).
 
 Both tasks and settings are persisted to SQLite (the standard-library `sqlite3` module — no extra
-install needed; see the folder structure below for details). Both tabs require an explicit save:
-the Settings tab needs "Save Changes", and the Task List tab needs "Save" (see above). Reopening the
-app after saving restores exactly that saved state.
+install needed; see the folder structure below for details). **The Save button lives outside both
+tabs** — a single button in the row just above the tab bar (right-aligned) — and clicking it saves
+any unsaved changes in both tabs at once, regardless of which tab is currently showing. Each tab
+still shows its own "Unsaved changes" label when it has pending changes (display only — there's no
+button inside either tab anymore). If you make a mistake before saving, just don't save — quitting
+(without saving) and reopening the app restores the last saved state, since nothing wrong ever
+reached the database (quitting the app effectively acts as an "undo everything since the last save").
+If you try to close the window while either tab has unsaved changes, a dialog asks whether to save,
+discard, or cancel.
 
 ## Folder Structure
 
@@ -97,7 +99,8 @@ task_manager_tkinter/
         settings/
             settings_view.py        SettingsView (abstract class)
             tk_settings_frame.py    Tkinter implementation (Settings tab)
-        tk_main_window.py      Tkinter implementation (the window that combines both tabs)
+        tk_main_window.py      Tkinter implementation (the window that combines both tabs;
+                               also owns the shared Save button, in the row just above the tabs)
     Presenter/
         task/
             task_list_presenter.py
@@ -127,8 +130,13 @@ from an in-memory-only implementation to SQLite (writing through on every change
 to the Presenter or View code at all. Later, the write-through behavior was replaced with an explicit
 `save()` — so that a mistake made before saving can simply be discarded by not saving and restarting
 the app. Since that introduced new user-facing behavior (a Save button, an "unsaved changes" indicator,
-and a confirm-on-quit dialog), it did require corresponding changes to `TaskListPresenter`,
-`TaskListView`, `TkTaskListFrame`, and `TkMainWindow`.
+and a confirm-on-quit dialog), it did require corresponding changes to both Presenters, both Views, and
+`TkMainWindow`.
+A further redesign moved the Save button out of both tabs into one shared button on `TkMainWindow`
+that saves both tabs at once. The decision of "what needs saving, across both tabs" was kept out of
+either Presenter or View and placed in `main.py` (the composition root) instead — each Presenter/View
+pair still only needs to know about its own tab's save state; nothing needed to learn about the other
+tab.
 
 ## Data Flow (clicking "+ Add")
 

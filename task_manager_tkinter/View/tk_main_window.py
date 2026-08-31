@@ -4,6 +4,10 @@ View（Tkinter実装層）— ウィンドウ全体
 タスク一覧タブ(TkTaskListFrame)・設定タブ(TkSettingsFrame)をttk.Notebookに
 まとめ、ウィンドウ全体の起動(run)を担う。各タブ自体の実装はView/task/、
 View/settings/ 以下（タブごとのフォルダ）に分かれている。
+
+Saveボタンはどちらのタブの中にも置かず、Notebookの直前の行（タブの外）に
+1つだけ配置している。押すと両タブの変更をまとめて保存する（実際に何を
+保存するかの判断はこのクラスの外、main.py側で行う）。
 """
 
 import tkinter as tk
@@ -23,11 +27,22 @@ class TkMainWindow:
         self._root.title("Task Manager")
         self._root.geometry("640x580")
 
+        self._on_save_click: Optional[Callable[[], None]] = None
+
         self._root.columnconfigure(0, weight=1)
-        self._root.rowconfigure(0, weight=1)
+        self._root.rowconfigure(0, weight=0)  # Save行
+        self._root.rowconfigure(1, weight=1)  # タブ本体
+
+        # Saveボタンだけの行。タブの直前(Notebookの上)に置き、行の右端に寄せる
+        # (列0を空きスペース吸収用にし、ボタンだけ列1に置く)。
+        save_row = ttk.Frame(self._root)
+        save_row.grid(row=0, column=0, sticky="ew", padx=8, pady=(8, 0))
+        save_row.columnconfigure(0, weight=1)
+        self._save_button = ttk.Button(save_row, text="Save", command=self._handle_save_click)
+        self._save_button.grid(row=0, column=1, sticky="e")
 
         notebook = ttk.Notebook(self._root)
-        notebook.grid(row=0, column=0, sticky="nsew", padx=8, pady=8)
+        notebook.grid(row=1, column=0, sticky="nsew", padx=8, pady=8)
 
         self.task_list_frame = TkTaskListFrame(notebook)
         self.settings_frame = TkSettingsFrame(notebook)
@@ -41,6 +56,17 @@ class TkMainWindow:
         # 未保存の変更があるかどうかはModelの話なので、View側であるこのクラスは
         # 一切知らない（知っているのはハンドラを登録する側）。
         self._root.protocol("WM_DELETE_WINDOW", self._handle_close_request)
+
+    def set_on_save_click(self, handler: Callable[[], None]) -> None:
+        """Saveボタン押下時に呼ばれるハンドラを登録する。
+        実際に何を保存するか（どのPresenterのon_save_click()を呼ぶか）は
+        ハンドラの責任（main.py側で両タブ分をまとめて呼ぶ）。
+        """
+        self._on_save_click = handler
+
+    def _handle_save_click(self) -> None:
+        if self._on_save_click:
+            self._on_save_click()
 
     def set_on_close_requested(self, handler: Callable[[], None]) -> None:
         """ウィンドウを閉じようとした時に呼ばれるハンドラを登録する。

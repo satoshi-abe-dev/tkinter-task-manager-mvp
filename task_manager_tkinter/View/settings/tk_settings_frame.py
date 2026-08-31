@@ -24,6 +24,9 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
         # load_settings() でフォームに値をセットする際、trace経由でon_field_changedが
         # 誤って発火しないようにするためのガード。
         self._loading = False
+        # is_dirty()で外部(共通Saveボタン・終了時の確認)から問い合わせられるように、
+        # ラベルの文字列だけでなく真偽値としても保持しておく。
+        self._dirty = False
 
         self._notify_var = tk.BooleanVar(value=True)
         self._notify_days_var = tk.StringVar(value="3")
@@ -71,13 +74,10 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
         self._days_unit_label.grid(row=0, column=1, padx=(6, 0))
         row += 1
 
-        save_row = ttk.Frame(self)
-        save_row.grid(row=row, column=0, columnspan=2, sticky="we", pady=(16, 0))
-        save_row.columnconfigure(0, weight=1)  # ステータス側が伸び、保存ボタンは右端に寄る
-        self._status_label = ttk.Label(save_row, text="", foreground="#4a6cf7")
-        self._status_label.grid(row=0, column=0, sticky="w")
-        self._save_button = ttk.Button(save_row, text="Save Changes")
-        self._save_button.grid(row=0, column=1, sticky="e")
+        # 未保存の変更があるかどうかの表示（ボタンはタブの外の共通Saveボタンを使う
+        # ため、ここには置かない）。
+        self._status_label = ttk.Label(self, text="", foreground="#4a6cf7")
+        self._status_label.grid(row=row, column=0, columnspan=2, sticky="w", pady=(16, 0))
 
         self.columnconfigure(1, weight=1)
 
@@ -133,10 +133,6 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
         self._on_highlight_toggled = handler
 
     # Override
-    def set_on_save_click(self, handler: Callable[[], None]) -> None:
-        self._save_button.config(command=handler)
-
-    # Override
     def load_settings(self, settings: Settings) -> None:
         self._loading = True
         try:
@@ -155,4 +151,9 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
 
     # Override
     def set_dirty(self, dirty: bool) -> None:
+        self._dirty = dirty
         self._status_label.config(text="● Unsaved changes" if dirty else "")
+
+    # Override
+    def is_dirty(self) -> bool:
+        return self._dirty

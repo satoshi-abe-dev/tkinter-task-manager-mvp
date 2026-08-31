@@ -16,10 +16,6 @@ class SettingsView(ABC):
         """いずれかの設定項目が変更された時に呼ばれるハンドラを登録する（未保存表示に使う）"""
 
     @abstractmethod
-    def set_on_save_click(self, handler: Callable[[], None]) -> None:
-        """「変更を保存」ボタン押下時に呼ばれるハンドラを登録する"""
-
-    @abstractmethod
     def set_on_highlight_toggled(self, handler: Callable[[bool], None]) -> None:
         """ハイライトON/OFFチェックボタンが変更された時に呼ばれるハンドラを登録する。
         「変更を保存」を待たず、一覧タブのハイライトへ即座に反映するために使う。
@@ -35,4 +31,13 @@ class SettingsView(ABC):
 
     @abstractmethod
     def set_dirty(self, dirty: bool) -> None:
-        """未保存の変更があるかどうかの表示を切り替える"""
+        """未保存の変更があるかどうかの表示を切り替える。
+        Saveボタン自体はこのタブの外(TkMainWindow側)にあるため、ここでは
+        あくまで表示のみを行う。
+        """
+
+    @abstractmethod
+    def is_dirty(self) -> bool:
+        """未保存の変更があるかどうかを返す（アプリ終了時の確認・共通Saveボタンの
+        「何か保存すべきものがあるか」判定に使う）
+        """
