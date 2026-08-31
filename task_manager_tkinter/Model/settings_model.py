@@ -24,3 +24,7 @@ class SettingsModel:
     def update(self, settings: Settings) -> None:
         """設定を丸ごと置き換える"""
         self._settings = settings
+
+    def set_notify_enabled(self, enabled: bool) -> None:
+        """ハイライトの有効/無効だけを即座に切り替える（「保存」を待たずに使う）"""
+        self._settings.notify_enabled = enabled

@@ -437,6 +437,7 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
     def __init__(self, master: tk.Widget) -> None:
         super().__init__(master, padding=16)
         self._on_field_changed: Optional[Callable[[], None]] = None
+        self._on_highlight_toggled: Optional[Callable[[bool], None]] = None
         # load_settings() でフォームに値をセットする際、trace経由でon_field_changedが
         # 誤って発火しないようにするためのガード。
         self._loading = False
@@ -511,7 +512,9 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
 
     def _on_notify_toggled(self) -> None:
         self._update_days_row_state()
-        self._changed()
+        # ハイライトON/OFFは「保存」を待たず、一覧タブへ即座に反映する
+        if self._on_highlight_toggled:
+            self._on_highlight_toggled(self._notify_var.get())
 
     def _update_days_row_state(self) -> None:
         """チェックボタンがOFFの間、日数欄をグレーアウトして編集できなくする"""
@@ -541,6 +544,10 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
     # Override
     def set_on_field_changed(self, handler: Callable[[], None]) -> None:
         self._on_field_changed = handler
+
+    # Override
+    def set_on_highlight_toggled(self, handler: Callable[[bool], None]) -> None:
+        self._on_highlight_toggled = handler
 
     # Override
     def set_on_save_click(self, handler: Callable[[], None]) -> None:

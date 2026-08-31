@@ -84,6 +84,7 @@ class FakeSettingsView(SettingsView):
     def __init__(self) -> None:
         self.field_changed_handler: Optional[Callable[[], None]] = None
         self.save_handler: Optional[Callable[[], None]] = None
+        self.highlight_toggled_handler: Optional[Callable[[bool], None]] = None
         self.loaded: Optional[Settings] = None
         self.dirty = False
         self.form_values = Settings()
@@ -93,6 +94,9 @@ class FakeSettingsView(SettingsView):
 
     def set_on_save_click(self, handler: Callable[[], None]) -> None:
         self.save_handler = handler
+
+    def set_on_highlight_toggled(self, handler: Callable[[bool], None]) -> None:
+        self.highlight_toggled_handler = handler
 
     def load_settings(self, settings: Settings) -> None:
         self.loaded = settings
@@ -456,6 +460,45 @@ def test_settings_presenter_calls_on_settings_saved_after_save() -> None:
     print("test_settings_presenter_calls_on_settings_saved_after_save: OK")
 
 
+def test_settings_presenter_highlight_toggle_applies_immediately_without_save() -> None:
+    settings_model = SettingsModel()
+    view = FakeSettingsView()
+    saved: List[bool] = []
+    SettingsPresenter(settings_model, view, on_settings_saved=lambda: saved.append(True))
+
+    # チェックボタンをOFFにしても「保存」ボタンは押していない
+    view.highlight_toggled_handler(False)
+
+    assert settings_model.get().notify_enabled is False
+    assert len(saved) == 1  # 一覧タブの再評価(ハイライトOFF反映)が即座に呼ばれる
+    # 保存操作ではないので「未保存」表示は変化しない
+    assert view.dirty is False
+    print("test_settings_presenter_highlight_toggle_applies_immediately_without_save: OK")
+
+
+def test_task_list_presenter_highlight_disappears_immediately_when_toggled_off() -> None:
+    model = TaskModel()
+    settings_model = SettingsModel()
+    task_view = FakeTaskListView()
+    task_presenter = TaskListPresenter(model, settings_model, task_view)
+
+    task = model.list_tasks()[0]
+    yesterday = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+    model.update_task_field(task.id, "due_date", yesterday)
+    model.update_task_field(task.id, "status", "In Progress")
+    task_presenter.refresh()
+    assert task_view.highlights.get(task.id) == "overdue"
+
+    settings_view = FakeSettingsView()
+    SettingsPresenter(
+        settings_model, settings_view, on_settings_saved=task_presenter.refresh
+    )
+    settings_view.highlight_toggled_handler(False)
+
+    assert task_view.highlights == {}
+    print("test_task_list_presenter_highlight_disappears_immediately_when_toggled_off: OK")
+
+
 if __name__ == "__main__":
     test_task_list_presenter_shows_initial_tasks()
     test_task_list_presenter_edits_cell()
@@ -476,3 +519,5 @@ if __name__ == "__main__":
     test_task_list_presenter_export_import_csv()
     test_settings_presenter_tracks_dirty_and_saves()
     test_settings_presenter_calls_on_settings_saved_after_save()
+    test_settings_presenter_highlight_toggle_applies_immediately_without_save()
+    test_task_list_presenter_highlight_disappears_immediately_when_toggled_off()

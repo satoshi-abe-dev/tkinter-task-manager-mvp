@@ -27,9 +27,17 @@ class SettingsPresenter:
         self.view.set_dirty(False)
         self.view.set_on_field_changed(self.on_field_changed)
         self.view.set_on_save_click(self.on_save_click)
+        self.view.set_on_highlight_toggled(self.on_highlight_toggled)
 
     def on_field_changed(self) -> None:
         self.view.set_dirty(True)
+
+    def on_highlight_toggled(self, enabled: bool) -> None:
+        """ハイライトON/OFFチェックボタンが切り替わった時に呼ばれる。
+        「保存」を待たず、一覧タブのハイライト表示へ即座に反映する。
+        """
+        self.settings_model.set_notify_enabled(enabled)
+        self.on_settings_saved()
 
     def on_save_click(self) -> None:
         settings = self.view.get_form_values()

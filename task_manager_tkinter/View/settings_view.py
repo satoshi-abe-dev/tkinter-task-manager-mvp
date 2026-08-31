@@ -20,6 +20,12 @@ class SettingsView(ABC):
         """「変更を保存」ボタン押下時に呼ばれるハンドラを登録する"""
 
     @abstractmethod
+    def set_on_highlight_toggled(self, handler: Callable[[bool], None]) -> None:
+        """ハイライトON/OFFチェックボタンが変更された時に呼ばれるハンドラを登録する。
+        「変更を保存」を待たず、一覧タブのハイライトへ即座に反映するために使う。
+        """
+
+    @abstractmethod
     def load_settings(self, settings: Settings) -> None:
         """設定値をフォームに反映する（起動時・保存直後などに使う）"""
 
