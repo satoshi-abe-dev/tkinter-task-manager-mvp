@@ -1,29 +1,51 @@
 """
 Model
 -----
-タスクの保持・追加のみを行う。View や Presenter のことは一切知らない。
+タスクの保持・追加・更新のみを行う。View や Presenter のことは一切知らない。
 """
 
 from typing import List
 
 from Model.task import Task
 
+# 一覧タブのインライン編集で書き換えを許すフィールド
+EDITABLE_FIELDS = {"name", "assignee", "due_date", "priority", "status"}
+
 
 class TaskModel:
     def __init__(self) -> None:
+        self._next_id = 1
+        self._tasks: List[Task] = []
         # デモ用の初期データ
-        self._tasks: List[Task] = [
+        for task in (
             Task("見積書作成", "佐藤", "2026-09-02", "高", "進行中"),
             Task("定例MTG資料準備", "田中", "2026-09-01", "中", "未着手"),
             Task("リリースノート執筆", "鈴木", "2026-08-29", "高", "遅延"),
             Task("経費精算", "佐藤", "2026-09-05", "低", "完了"),
             Task("デザインレビュー", "田中", "2026-09-03", "中", "進行中"),
-        ]
+        ):
+            self._register(task)
+
+    def _register(self, task: Task) -> Task:
+        task.id = self._next_id
+        self._next_id += 1
+        self._tasks.append(task)
+        return task
 
     def list_tasks(self) -> List[Task]:
         """登録済みタスクの一覧を返す"""
         return list(self._tasks)
 
-    def add_task(self, task: Task) -> None:
-        """タスクを1件追加する"""
-        self._tasks.append(task)
+    def add_task(self, task: Task) -> Task:
+        """タスクを1件追加する。idを採番して返す"""
+        return self._register(task)
+
+    def update_task_field(self, task_id: int, field: str, value: str) -> None:
+        """指定したタスクの1項目を書き換える（一覧タブのインライン編集用）"""
+        if field not in EDITABLE_FIELDS:
+            raise ValueError(f"編集できない項目です: {field}")
+        for task in self._tasks:
+            if task.id == task_id:
+                setattr(task, field, value)
+                return
+        raise ValueError(f"該当するタスクが見つかりません: id={task_id}")

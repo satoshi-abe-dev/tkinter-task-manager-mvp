@@ -28,9 +28,13 @@ from View.task_list_view import TaskListView
 class FakeTaskListView(TaskListView):
     def __init__(self) -> None:
         self.shown_tasks: List[Task] = []
+        self.cell_edited_handler: Optional[Callable[[int, str, str], None]] = None
 
     def show_tasks(self, tasks: List[Task]) -> None:
         self.shown_tasks = list(tasks)
+
+    def set_on_cell_edited(self, handler: Callable[[int, str, str], None]) -> None:
+        self.cell_edited_handler = handler
 
 
 class FakeNewTaskView(NewTaskView):
@@ -116,6 +120,33 @@ def test_task_list_presenter_shows_initial_tasks() -> None:
 
     assert len(view.shown_tasks) == len(model.list_tasks())
     print("test_task_list_presenter_shows_initial_tasks: OK")
+
+
+def test_task_list_presenter_edits_cell() -> None:
+    model = TaskModel()
+    view = FakeTaskListView()
+    presenter = TaskListPresenter(model, view)
+
+    target = model.list_tasks()[0]
+    view.cell_edited_handler(target.id, "assignee", "鈴木")
+
+    assert model.list_tasks()[0].assignee == "鈴木"
+    # 更新後にViewへ再表示されている
+    assert view.shown_tasks[0].assignee == "鈴木"
+    print("test_task_list_presenter_edits_cell: OK")
+
+
+def test_task_list_presenter_rejects_empty_name_edit() -> None:
+    model = TaskModel()
+    view = FakeTaskListView()
+    presenter = TaskListPresenter(model, view)
+
+    target = model.list_tasks()[0]
+    original_name = target.name
+    view.cell_edited_handler(target.id, "name", "   ")
+
+    assert model.list_tasks()[0].name == original_name
+    print("test_task_list_presenter_rejects_empty_name_edit: OK")
 
 
 def test_new_task_presenter_rejects_empty_name() -> None:
@@ -218,6 +249,8 @@ def test_settings_presenter_export_import_csv() -> None:
 
 if __name__ == "__main__":
     test_task_list_presenter_shows_initial_tasks()
+    test_task_list_presenter_edits_cell()
+    test_task_list_presenter_rejects_empty_name_edit()
     test_new_task_presenter_rejects_empty_name()
     test_new_task_presenter_adds_task_and_notifies()
     test_new_task_presenter_cancel_clears_form()

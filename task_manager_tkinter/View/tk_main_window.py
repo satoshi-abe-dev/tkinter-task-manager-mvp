@@ -30,10 +30,19 @@ _COLUMN_LABELS = {
 
 # Called at View/tk_main_window.py > class TkMainWindow
 class TkTaskListFrame(ttk.Frame, TaskListView):
-    """「タスク一覧」タブの実装。ttk.Treeviewで表形式に表示する。"""
+    """「タスク一覧」タブの実装。ttk.Treeviewで表形式に表示する。
+
+    セルをダブルクリックするとインライン編集ができる。編集内容の確定は
+    Presenterに委ねる（Viewはここで直接Modelを書き換えない）。
+    """
+
+    PRIORITIES = ["低", "中", "高"]
+    STATUSES = ["未着手", "進行中", "完了", "遅延"]
 
     def __init__(self, master: tk.Widget) -> None:
         super().__init__(master, padding=16)
+        self._on_cell_edited: Optional[Callable[[int, str, str], None]] = None
+        self._editor: Optional[tk.Widget] = None
 
         self._tree = ttk.Treeview(self, columns=_COLUMNS, show="headings", height=12)
         for col in _COLUMNS:
@@ -41,13 +50,80 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
             self._tree.column(col, width=110, anchor="w")
         self._tree.pack(fill="both", expand=True)
 
+        self._tree.bind("<Double-1>", self._on_double_click)
+
     # Override
     def show_tasks(self, tasks: List[Task]) -> None:
+        self._destroy_editor()
         self._tree.delete(*self._tree.get_children())
         for t in tasks:
             self._tree.insert(
-                "", "end", values=(t.name, t.assignee, t.due_date, t.priority, t.status)
+                "",
+                "end",
+                iid=str(t.id),
+                values=(t.name, t.assignee, t.due_date, t.priority, t.status),
             )
+
+    # Override
+    def set_on_cell_edited(self, handler: Callable[[int, str, str], None]) -> None:
+        self._on_cell_edited = handler
+
+    def _on_double_click(self, event: tk.Event) -> None:
+        if self._tree.identify_region(event.x, event.y) != "cell":
+            return
+        row_id = self._tree.identify_row(event.y)
+        col_id = self._tree.identify_column(event.x)  # 例: "#1"
+        if not row_id or not col_id:
+            return
+        col_index = int(col_id.replace("#", "")) - 1
+        if col_index < 0 or col_index >= len(_COLUMNS):
+            return
+        field = _COLUMNS[col_index]
+        bbox = self._tree.bbox(row_id, col_id)
+        if not bbox:
+            return
+
+        task_id = int(row_id)
+        x, y, width, height = bbox
+        current_value = self._tree.set(row_id, field)
+
+        self._destroy_editor()
+
+        editor: tk.Widget
+        if field in ("priority", "status"):
+            values = self.PRIORITIES if field == "priority" else self.STATUSES
+            combobox = ttk.Combobox(self._tree, values=values, state="readonly")
+            combobox.set(current_value)
+            combobox.bind("<<ComboboxSelected>>", lambda e: commit())
+            editor = combobox
+        else:
+            entry = ttk.Entry(self._tree)
+            entry.insert(0, current_value)
+            entry.select_range(0, "end")
+            editor = entry
+
+        editor.place(x=x, y=y, width=width, height=height)
+        editor.focus_set()
+
+        def commit(_event: Optional[tk.Event] = None) -> None:
+            new_value = editor.get()  # type: ignore[attr-defined]
+            self._destroy_editor()
+            if new_value != current_value and self._on_cell_edited:
+                self._on_cell_edited(task_id, field, new_value)
+
+        def cancel(_event: Optional[tk.Event] = None) -> None:
+            self._destroy_editor()
+
+        editor.bind("<Return>", commit)
+        editor.bind("<FocusOut>", commit)
+        editor.bind("<Escape>", cancel)
+
+        self._editor = editor
+
+    def _destroy_editor(self) -> None:
+        if self._editor is not None:
+            self._editor.destroy()
+            self._editor = None
 
 
 class TkNewTaskFrame(ttk.Frame, NewTaskView):
