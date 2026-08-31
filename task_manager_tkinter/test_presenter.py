@@ -16,6 +16,7 @@ import tempfile
 from datetime import date, timedelta
 from typing import Callable, Dict, List, Optional, Tuple
 
+from Model.db_backup import backup_and_rotate
 from Model.settings.settings_model import Settings, SettingsModel
 from Model.task.task import Task
 from Model.task.task_model import TaskModel
@@ -567,6 +568,54 @@ def test_task_list_presenter_defers_db_write_until_save() -> None:
     print("test_task_list_presenter_defers_db_write_until_save: OK")
 
 
+def test_backup_and_rotate_copies_current_db_contents() -> None:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        db_path = os.path.join(tmp_dir, "app.db")
+        model = TaskModel(db_path=db_path)
+        model.add_blank_task()
+        model.save()
+
+        backup_and_rotate(db_path, keep=10)
+
+        backup_dir = os.path.join(tmp_dir, "backups")
+        backups = os.listdir(backup_dir)
+        assert len(backups) == 1
+
+        # バックアップ時点の内容が複製されていることを確認する
+        # (バックアップされたファイルをそのままTaskModelで開いて中身を見る)
+        backup_path = os.path.join(backup_dir, backups[0])
+        reopened = TaskModel(db_path=backup_path)
+        assert len(reopened.list_tasks()) == 6  # デモ5件 + 追加した1件
+    print("test_backup_and_rotate_copies_current_db_contents: OK")
+
+
+def test_backup_and_rotate_keeps_only_the_newest_n() -> None:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        db_path = os.path.join(tmp_dir, "app.db")
+        TaskModel(db_path=db_path)  # 初回作成(シード投入・自動保存)でapp.dbができる
+
+        for _ in range(5):
+            backup_and_rotate(db_path, keep=3)
+
+        backup_dir = os.path.join(tmp_dir, "backups")
+        backups = os.listdir(backup_dir)
+        assert len(backups) == 3
+    print("test_backup_and_rotate_keeps_only_the_newest_n: OK")
+
+
+def test_backup_and_rotate_skips_memory_and_missing_files() -> None:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        # :memory: はそもそもファイルが無いので何もしない
+        backup_and_rotate(":memory:")
+
+        # まだ一度もsave()していない(=ファイルがまだ無い)場合も何もしない
+        missing_path = os.path.join(tmp_dir, "not_created_yet.db")
+        backup_and_rotate(missing_path)
+
+        assert not os.path.exists(os.path.join(tmp_dir, "backups"))
+    print("test_backup_and_rotate_skips_memory_and_missing_files: OK")
+
+
 def test_settings_presenter_tracks_dirty_and_saves() -> None:
     settings_model = SettingsModel(db_path=":memory:")
     view = FakeSettingsView()
@@ -667,6 +716,9 @@ if __name__ == "__main__":
     test_task_list_presenter_shows_dirty_state()
     test_task_list_presenter_has_unsaved_changes()
     test_task_list_presenter_defers_db_write_until_save()
+    test_backup_and_rotate_copies_current_db_contents()
+    test_backup_and_rotate_keeps_only_the_newest_n()
+    test_backup_and_rotate_skips_memory_and_missing_files()
     test_settings_presenter_tracks_dirty_and_saves()
     test_settings_presenter_calls_on_settings_saved_after_save()
     test_settings_presenter_highlight_toggle_applies_immediately_without_save()

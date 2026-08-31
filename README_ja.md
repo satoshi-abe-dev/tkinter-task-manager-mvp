@@ -69,6 +69,12 @@ MVPパターン（Model / View / Presenter）で責務を分離して実装し�
 （アプリの再起動が「全部取り消し」の代わりになる）。ウィンドウを閉じようとした時、
 どちらかのタブに未保存の変更があれば「保存する/破棄する/キャンセル」を確認するダイアログが出る。
 
+「Save」ボタンを押すたびに、書き込み前の`app.db`を`data/backups/`へタイムスタンプ付きで
+コピーする（直近10件だけ残し、古いものは自動的に削除される「世代管理」方式）。これは上記の
+「保存前なら取り消せる」仕組みとは別の防御層で、ディスク破損などでDBファイル自体が読めなく
+なった場合の保険。SQLite自体もトランザクションにより書き込み中のクラッシュにはある程度強いが、
+それでも防げないファイル単位の破損に対応するためのもの。
+
 ## フォルダ構成
 
 ```
@@ -76,8 +82,10 @@ task_manager_tkinter/
     main.py                   エントリーポイント（Model, View, Presenterと同じ階層）
     test_presenter.py         2つのPresenterの単体テスト（tkinter不要）
     data/                     SQLiteデータベース(app.db)の置き場。実行時に自動作成される
+        backups/               Save時に自動作成されるapp.dbのバックアップ(直近10件)
     Model/
         db_path.py            DBファイルの既定パス（task/settingsで共有）
+        db_backup.py           app.dbのバックアップ・世代管理（純粋なI/O）
         task/
             task.py             Task（データクラス）
             task_model.py       TaskModel
@@ -114,6 +122,7 @@ Model/View/Presenterのいずれも、タブの種類（`task`/`settings`）ご�
 | Model | `TaskModel` | タスクの保持・追加（空欄タスクの追加を含む）・更新・削除のドメインロジック。編集操作はメモリ上の状態だけを書き換え、`save()`が呼ばれた時だけ`task_db`へ永続化を委譲する（自身はSQLを知らない）。UIのことも一切知らない。 | `task_db` |
 | Model | `SettingsModel` | 設定値の保持・更新のドメインロジック。永続化の詳細（SQLite）は`settings_db`に委譲し、自身はSQLを知らない。 | `settings_db` |
 | Model | `task_db` / `settings_db` | タスク・設定をSQLiteに保存/読み込みする。tkinterに依存しない純粋なI/O関数。 | `db_path`（DBファイルの場所） |
+| Model | `db_backup` | `app.db`をSave操作の直前にタイムスタンプ付きでバックアップし、直近N件だけ残して古いものを削除する（世代管理）。純粋なI/O関数。 | なし |
 | Model | `csv_io` | タスクのCSV書き出し/読み込み。純粋なI/O関数。 | なし |
 | View（抽象） | `TaskListView` / `SettingsView` | 各タブの「契約」（表示・入力取得・ハンドラ登録）を定義。 | なし |
 | View（実装） | `tk_task_list_frame.py`(`TkTaskListFrame`) / `tk_settings_frame.py`(`TkSettingsFrame`) / `tk_main_window.py`(`TkMainWindow`) | 上記の抽象をTkinter（`ttk.Notebook` + 標準ウィジェット）で実装。 | 各View抽象, tkinter |

@@ -74,6 +74,14 @@ reached the database (quitting the app effectively acts as an "undo everything s
 If you try to close the window while either tab has unsaved changes, a dialog asks whether to save,
 discard, or cancel.
 
+Every time the "Save" button is clicked, the current `app.db` (before the write) is copied to
+`data/backups/` with a timestamped filename, keeping only the newest 10 and deleting older ones
+automatically (generation-based rotation). This is a separate safety net from "just don't save to
+undo" above — it protects against the actual database *file* becoming unreadable (disk failure,
+filesystem corruption, etc.). SQLite's own transactions already guard reasonably well against a crash
+mid-write leaving the file half-written, but they can't help if the file itself gets corrupted or lost
+outright.
+
 ## Folder Structure
 
 ```
@@ -81,8 +89,10 @@ task_manager_tkinter/
     main.py                   Entry point (same level as Model, View, Presenter)
     test_presenter.py         Unit tests for the two Presenters (no tkinter required)
     data/                     Where the SQLite database (app.db) lives; created automatically at runtime
+        backups/               Backups of app.db, made automatically on Save (newest 10 kept)
     Model/
         db_path.py            The DB file's default path (shared by task/settings)
+        db_backup.py           Backs up and rotates app.db (pure I/O)
         task/
             task.py             Task (data class)
             task_model.py       TaskModel
@@ -119,6 +129,7 @@ exception is `View/tk_main_window.py`, which combines both tabs and so stays dir
 | Model | `TaskModel` | Domain logic for holding, adding (including blank tasks), updating, and deleting tasks. Edits only change the in-memory state; persistence is delegated to `task_db` only when `save()` is called (and `TaskModel` doesn't know any SQL itself). Knows nothing about the UI either. | `task_db` |
 | Model | `SettingsModel` | Domain logic for holding and updating settings. Delegates the persistence details (SQLite) to `settings_db` and doesn't know any SQL itself. | `settings_db` |
 | Model | `task_db` / `settings_db` | Saves/loads tasks and settings to/from SQLite. Pure I/O functions, no tkinter dependency. | `db_path` (where the DB file lives) |
+| Model | `db_backup` | Backs up `app.db` with a timestamp right before a Save, keeping only the newest N and deleting older ones (generation-based rotation). Pure I/O functions. | none |
 | Model | `csv_io` | Exports/imports tasks to/from CSV. Pure I/O functions. | none |
 | View (abstract) | `TaskListView` / `SettingsView` | Define the "contract" for each tab (rendering, reading input, registering handlers). | none |
 | View (impl) | `tk_task_list_frame.py` (`TkTaskListFrame`) / `tk_settings_frame.py` (`TkSettingsFrame`) / `tk_main_window.py` (`TkMainWindow`) | Concrete implementation of the above abstractions using Tkinter (`ttk.Notebook` + standard widgets). | the View abstractions, tkinter |

@@ -42,8 +42,13 @@ Model / View / Presenter の各フォルダから読み込んで組み立てて�
   保存しなければ次回起動時には直前の保存状態に戻る）。ウィンドウを閉じようと
   した時、どちらかのタブに未保存の変更があれば保存するかどうかを確認する
   ダイアログを出す。
+※ 「Save」ボタンを押すたびに、書き込み前のapp.dbをdata/backups/へタイムス
+  タンプ付きでコピーする（直近10件だけ残し、古いものは自動的に削除する）。
+  ディスク破損など、DBファイル自体が壊れてしまった場合の保険。
 """
 
+from Model.db_backup import backup_and_rotate
+from Model.db_path import DEFAULT_DB_PATH
 from Model.settings.settings_model import SettingsModel
 from Model.task.task_model import TaskModel
 from Presenter.settings.settings_presenter import SettingsPresenter
@@ -67,7 +72,14 @@ def main() -> None:
     def save_all() -> None:
         """共通の「Save」ボタン用。どちらのタブが今表示されているかに関わらず、
         両タブの未保存の変更をまとめて保存する。
+
+        書き込みの直前に、その時点のapp.dbをバックアップしておく(直近10件を
+        世代管理)。ディスク破損などでDBファイル自体が読めなくなった場合の
+        保険で、Undo/Saveボタンの仕組みとは別の防御層。ハイライトON/OFFの
+        即時反映（on_highlight_toggled）はこの対象に含めない
+        （頻度が高く、リスクの低い単発の変更のため）。
         """
+        backup_and_rotate(DEFAULT_DB_PATH)
         task_list_presenter.on_save_click()
         settings_presenter.on_save_click()
 
