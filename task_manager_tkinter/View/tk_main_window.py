@@ -383,9 +383,6 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
 class TkSettingsFrame(ttk.Frame, SettingsView):
     """「設定」タブの実装。"""
 
-    PAGE_SIZE_OPTIONS = ["10", "25", "50"]
-    THEME_OPTIONS = ["ライト", "ダーク", "システムに合わせる"]
-
     def __init__(self, master: tk.Widget) -> None:
         super().__init__(master, padding=16)
         self._on_field_changed: Optional[Callable[[], None]] = None
@@ -395,8 +392,6 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
 
         self._notify_var = tk.BooleanVar(value=True)
         self._notify_days_var = tk.StringVar(value="3")
-        self._page_size_var = tk.StringVar(value="25")
-        self._theme_var = tk.StringVar(value="システムに合わせる")
 
         row = 0
         ttk.Label(self, text="期限ハイライト", font=("Helvetica", 10, "bold")).grid(
@@ -444,31 +439,9 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
         ttk.Separator(self).grid(row=row, column=0, columnspan=2, sticky="we", pady=10)
         row += 1
 
-        ttk.Label(self, text="既定値", font=("Helvetica", 10, "bold")).grid(
+        ttk.Label(self, text="データ", font=("Helvetica", 10, "bold")).grid(
             row=row, column=0, columnspan=2, sticky="w", pady=(0, 4)
         )
-        row += 1
-        ttk.Label(self, text="一覧の表示件数").grid(row=row, column=0, sticky="w", pady=2)
-        ttk.Combobox(
-            self,
-            textvariable=self._page_size_var,
-            values=self.PAGE_SIZE_OPTIONS,
-            state="readonly",
-            width=8,
-        ).grid(row=row, column=1, sticky="w", pady=2)
-        row += 1
-
-        ttk.Separator(self).grid(row=row, column=0, columnspan=2, sticky="we", pady=10)
-        row += 1
-
-        ttk.Label(self, text="表示・データ", font=("Helvetica", 10, "bold")).grid(
-            row=row, column=0, columnspan=2, sticky="w", pady=(0, 4)
-        )
-        row += 1
-        ttk.Label(self, text="テーマ").grid(row=row, column=0, sticky="w", pady=2)
-        ttk.Combobox(
-            self, textvariable=self._theme_var, values=self.THEME_OPTIONS, state="readonly"
-        ).grid(row=row, column=1, sticky="w", pady=2)
         row += 1
 
         data_row = ttk.Frame(self)
@@ -489,13 +462,8 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
 
         self.columnconfigure(1, weight=1)
 
-        # プルダウン系は値の変更をtraceで検知する（load_settings中は_loadingで抑制）
-        for var in (
-            self._notify_days_var,
-            self._page_size_var,
-            self._theme_var,
-        ):
-            var.trace_add("write", lambda *_: self._changed())
+        # 日数欄の値変更をtraceで検知する（load_settings中は_loadingで抑制）
+        self._notify_days_var.trace_add("write", lambda *_: self._changed())
 
         # チェックボタンの初期状態(既定でON)に日数欄を合わせる
         self._update_days_row_state()
@@ -557,8 +525,6 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
         try:
             self._notify_var.set(settings.notify_enabled)
             self._notify_days_var.set(str(settings.notify_days_before))
-            self._page_size_var.set(str(settings.page_size))
-            self._theme_var.set(settings.theme)
         finally:
             self._loading = False
         self._update_days_row_state()
@@ -568,8 +534,6 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
         return Settings(
             notify_enabled=self._notify_var.get(),
             notify_days_before=int(self._notify_days_var.get()),
-            page_size=int(self._page_size_var.get()),
-            theme=self._theme_var.get(),
         )
 
     # Override

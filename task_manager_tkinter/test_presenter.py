@@ -337,13 +337,11 @@ def test_settings_presenter_tracks_dirty_and_saves() -> None:
     view.form_values = Settings(
         notify_enabled=False,
         notify_days_before=7,
-        page_size=50,
-        theme="ダーク",
     )
     view.save_handler()
 
     assert view.dirty is False
-    assert settings_model.get().theme == "ダーク"
+    assert settings_model.get().notify_days_before == 7
     print("test_settings_presenter_tracks_dirty_and_saves: OK")
 
 
