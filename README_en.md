@@ -51,11 +51,14 @@ to the MVP pattern (Model / View / Presenter).
     edited again.
   - A row whose status is manually set to "Overdue" is always highlighted red, regardless of its due
     date (excluding "Done" tasks).
-- **Settings tab**: configures the due-date highlight (on/off, and how many days ahead to warn).
+- **Settings tab**: configures the due-date highlight (on/off, and how many days ahead to warn) and
+  the backup interval.
   - Changing a value is saved to the database immediately (Auto Save — there's no Save button).
   - The highlight on/off checkbox applies to the task list's highlighting immediately when toggled.
     This setting directly drives the due-date highlight on the task list (rows for tasks that are
     overdue or due soon are shaded orange/red). Tasks with a "Done" status are excluded.
+  - The "Backup" field sets how often (in minutes, default 15) the app checks for changes to back up.
+    Changing it while the app is running takes effect starting from the next time the timer fires.
 
 Tabs and buttons deliberately keep the OS-native look (the default `ttk.Notebook` / `ttk.Button` style).
 
@@ -65,8 +68,9 @@ immediately** (Auto Save). There's no Save button, no "unsaved changes" indicato
 confirm-on-quit dialog — you never have to think about saving, but there's also no way to undo a
 mistake by simply not saving (the periodic backup below is the only safety net for that).
 
-**Every 15 minutes the app checks whether `app.db` has changed and, if so, backs it up** (skipped if
-nothing changed since the last backup). Backups go to `data/backups/`, keeping only the newest
+**At the configured interval (default 15 minutes), the app checks whether `app.db` has changed and, if
+so, backs it up** (skipped if nothing changed since the last backup). Backups go to `data/backups/`,
+keeping only the newest
 **24 hours** and deleting anything older (retention by elapsed time, not by count — so changing the
 backup interval later doesn't break the "one day of history" guarantee). This protects against the
 actual database *file* becoming unreadable (disk failure, filesystem corruption, etc.).
@@ -80,7 +84,7 @@ task_manager_tkinter/
     main.py                   Entry point (same level as Model, View, Presenter)
     test_presenter.py         Unit tests for the two Presenters (no tkinter required)
     data/                     Where the SQLite database (app.db) lives; created automatically at runtime
-        backups/               Backups of app.db, made automatically every 15 minutes (last 24h kept)
+        backups/               Backups of app.db, made automatically at the configured interval (last 24h kept)
     Model/
         db_path.py            The DB file's default path (shared by task/settings)
         db_backup.py           Backs up and rotates app.db (pure I/O)
@@ -119,7 +123,7 @@ exception is `View/tk_main_window.py`, which combines both tabs and so stays dir
 | Model | `TaskModel` | Domain logic for holding, adding (including blank tasks), updating, and deleting tasks. Edits only change the in-memory state; persistence is delegated to `task_db` only when `save()` is called (and `TaskModel` doesn't know any SQL itself). Knows nothing about the UI either. | `task_db` |
 | Model | `SettingsModel` | Domain logic for holding and updating settings. Delegates the persistence details (SQLite) to `settings_db` and doesn't know any SQL itself. | `settings_db` |
 | Model | `task_db` / `settings_db` | Saves/loads tasks and settings to/from SQLite. Pure I/O functions, no tkinter dependency. | `db_path` (where the DB file lives) |
-| Model | `db_backup` | Backs up `app.db` with a timestamp and deletes backups older than a given retention window (default 24h). Pure I/O functions; main.py owns the 15-minute call cadence. | none |
+| Model | `db_backup` | Backs up `app.db` with a timestamp and deletes backups older than a given retention window (default 24h). Pure I/O functions; main.py owns the call cadence, read from `SettingsModel` (default 15 minutes). | none |
 | Model | `csv_io` | Exports/imports tasks to/from CSV. Pure I/O functions. | none |
 | View (abstract) | `TaskListView` / `SettingsView` | Define the "contract" for each tab (rendering, reading input, registering handlers). | none |
 | View (impl) | `tk_task_list_frame.py` (`TkTaskListFrame`) / `tk_settings_frame.py` (`TkSettingsFrame`) / `tk_main_window.py` (`TkMainWindow`) | Concrete implementation of the above abstractions using Tkinter (`ttk.Notebook` + standard widgets). | the View abstractions, tkinter |

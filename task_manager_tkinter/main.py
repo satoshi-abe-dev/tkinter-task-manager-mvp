@@ -7,7 +7,7 @@ Model / View / Presenter の各フォルダから読み込んで組み立てて�
     task_manager_tkinter/
         main.py          <- これ（Model, View, Presenterと同じ階層）
         data/            アプリのSQLiteデータベース(app.db)の置き場。実行時に自動作成される
-            backups/           15分おきの自動バックアップ(直近24時間分)の置き場
+            backups/           設定した間隔(既定15分)ごとの自動バックアップ(直近24時間分)の置き場
         Model/
             db_path.py            DBファイルの既定パス（task/settingsで共有）
             db_backup.py           app.dbのバックアップ・世代管理（純粋なI/O）
@@ -40,10 +40,12 @@ Model / View / Presenter の各フォルダから読み込んで組み立てて�
 ※ タスク・設定はSQLite(標準ライブラリのsqlite3、追加インストール不要)で
   永続化される。DBファイルは初回実行時にdata/app.dbとして作成される。
   編集は常に即座にDBへ保存される(Auto Save)。Saveボタンや「未保存」表示は無い。
-※ 15分おきに、app.dbへの変更を検知して自動的にバックアップを取る（前回の
-  バックアップ以降に変更が無ければスキップする）。直近24時間分だけ残し、
-  古いものは自動的に削除する。ディスク破損など、DBファイル自体が壊れて
-  しまった場合の保険。
+※ 設定タブの「Backup」欄で指定した間隔（既定15分）ごとに、app.dbへの変更を検知して
+  自動的にバックアップを取る（前回のバックアップ以降に変更が無ければスキップする）。
+  直近24時間分だけ残し、古いものは自動的に削除する。ディスク破損など、DBファイル
+  自体が壊れてしまった場合の保険。
+  間隔を実行中に変更した場合、次にタイマーが発火したタイミングから新しい間隔が
+  反映される（既にスケジュール済みの分を即座にキャンセルして再スケジュールはしない）。
 """
 
 import os
@@ -56,7 +58,7 @@ from Presenter.settings.settings_presenter import SettingsPresenter
 from Presenter.task.task_list_presenter import TaskListPresenter
 from View.tk_main_window import TkMainWindow
 
-_BACKUP_CHECK_INTERVAL_MS = 15 * 60 * 1000  # 15分
+_MIN_BACKUP_INTERVAL_MINUTES = 1  # 0以下が設定されても暴走しないようにする下限
 
 
 def main() -> None:
@@ -72,9 +74,9 @@ def main() -> None:
         on_settings_saved=task_list_presenter.refresh,
     )
 
-    # 15分おきに、app.dbが前回のバックアップ以降に変更されていないか確認し、
-    # 変更があればバックアップを取る。ファイルの更新日時(mtime)を比較するだけ
-    # なので、どの編集操作が書き込んだかは区別しない。
+    # 設定タブで指定された間隔(既定15分)ごとに、app.dbが前回のバックアップ以降に
+    # 変更されていないか確認し、変更があればバックアップを取る。ファイルの更新日時
+    # (mtime)を比較するだけなので、どの編集操作が書き込んだかは区別しない。
     last_backup_mtime = None
 
     def check_and_backup() -> None:
@@ -84,9 +86,15 @@ def main() -> None:
             if current_mtime != last_backup_mtime:
                 backup_and_rotate(DEFAULT_DB_PATH)
                 last_backup_mtime = current_mtime
-        window.schedule(_BACKUP_CHECK_INTERVAL_MS, check_and_backup)
+        interval_minutes = max(
+            _MIN_BACKUP_INTERVAL_MINUTES, settings_model.get().backup_interval_minutes
+        )
+        window.schedule(interval_minutes * 60 * 1000, check_and_backup)
 
-    window.schedule(_BACKUP_CHECK_INTERVAL_MS, check_and_backup)
+    initial_interval_minutes = max(
+        _MIN_BACKUP_INTERVAL_MINUTES, settings_model.get().backup_interval_minutes
+    )
+    window.schedule(initial_interval_minutes * 60 * 1000, check_and_backup)
 
     window.run()
 

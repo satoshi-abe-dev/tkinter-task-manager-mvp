@@ -623,6 +623,26 @@ def test_settings_presenter_saves_field_changes_immediately() -> None:
     print("test_settings_presenter_saves_field_changes_immediately: OK")
 
 
+def test_settings_default_backup_interval_is_15_minutes() -> None:
+    assert Settings().backup_interval_minutes == 15
+    print("test_settings_default_backup_interval_is_15_minutes: OK")
+
+
+def test_settings_presenter_saves_backup_interval_immediately() -> None:
+    """バックアップ間隔も、他のフィールドと同様に変更した瞬間に即座に保存される"""
+    settings_model = SettingsModel(db_path=":memory:")
+    view = FakeSettingsView()
+    SettingsPresenter(settings_model, view, on_settings_saved=lambda: None)
+
+    assert settings_model.get().backup_interval_minutes == 15
+
+    view.form_values = Settings(backup_interval_minutes=30)
+    view.field_changed_handler()
+
+    assert settings_model.get().backup_interval_minutes == 30
+    print("test_settings_presenter_saves_backup_interval_immediately: OK")
+
+
 def test_settings_presenter_calls_on_settings_saved_after_field_change() -> None:
     settings_model = SettingsModel(db_path=":memory:")
     view = FakeSettingsView()
@@ -700,6 +720,8 @@ if __name__ == "__main__":
     test_backup_and_rotate_prunes_backups_older_than_retention_window()
     test_backup_and_rotate_skips_memory_and_missing_files()
     test_settings_presenter_saves_field_changes_immediately()
+    test_settings_default_backup_interval_is_15_minutes()
+    test_settings_presenter_saves_backup_interval_immediately()
     test_settings_presenter_calls_on_settings_saved_after_field_change()
     test_settings_presenter_highlight_toggle_applies_immediately()
     test_task_list_presenter_highlight_disappears_immediately_when_toggled_off()

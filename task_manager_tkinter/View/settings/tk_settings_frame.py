@@ -27,6 +27,7 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
 
         self._notify_var = tk.BooleanVar(value=True)
         self._notify_days_var = tk.StringVar(value="3")
+        self._backup_interval_var = tk.StringVar(value="15")
 
         row = 0
         ttk.Label(self, text="Due Date Highlight", font=("Helvetica", 10, "bold")).grid(
@@ -71,10 +72,36 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
         self._days_unit_label.grid(row=0, column=1, padx=(6, 0))
         row += 1
 
+        ttk.Label(self, text="Backup", font=("Helvetica", 10, "bold")).grid(
+            row=row, column=0, columnspan=2, sticky="w", pady=(16, 4)
+        )
+        row += 1
+        backup_row = ttk.Frame(self)
+        backup_row.grid(row=row, column=0, columnspan=2, sticky="w", pady=2)
+        # 0以上の整数のみを直接入力できるようにする（日数欄と同じバリデーション）。
+        validate_digits = (self.register(self._validate_day_count), "%P")
+        self._backup_interval_spinbox = ttk.Spinbox(
+            backup_row,
+            from_=1,
+            to=1440,
+            increment=1,
+            textvariable=self._backup_interval_var,
+            width=5,
+            validate="key",
+            validatecommand=validate_digits,
+        )
+        self._backup_interval_spinbox.grid(row=0, column=0)
+        ttk.Label(backup_row, text="minutes between automatic backups").grid(
+            row=0, column=1, padx=(6, 0)
+        )
+        row += 1
+
         self.columnconfigure(1, weight=1)
 
-        # 日数欄の値変更をtraceで検知する（load_settings中は_loadingで抑制）
+        # 日数欄・バックアップ間隔欄の値変更をtraceで検知する
+        # （load_settings中は_loadingで抑制）
         self._notify_days_var.trace_add("write", lambda *_: self._changed())
+        self._backup_interval_var.trace_add("write", lambda *_: self._changed())
 
         # チェックボタンの初期状態(既定でON)に日数欄を合わせる
         self._update_days_row_state()
@@ -113,7 +140,9 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
 
     @staticmethod
     def _validate_day_count(proposed: str) -> bool:
-        """日数欄への入力を0以上の整数（または編集途中の空欄）だけに制限する"""
+        """日数欄・バックアップ間隔欄への入力を0以上の整数
+        （または編集途中の空欄）だけに制限する
+        """
         return proposed == "" or proposed.isdigit()
 
     # Override
@@ -130,6 +159,7 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
         try:
             self._notify_var.set(settings.notify_enabled)
             self._notify_days_var.set(str(settings.notify_days_before))
+            self._backup_interval_var.set(str(settings.backup_interval_minutes))
         finally:
             self._loading = False
         self._update_days_row_state()
@@ -139,4 +169,5 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
         return Settings(
             notify_enabled=self._notify_var.get(),
             notify_days_before=int(self._notify_days_var.get()),
+            backup_interval_minutes=int(self._backup_interval_var.get()),
         )
