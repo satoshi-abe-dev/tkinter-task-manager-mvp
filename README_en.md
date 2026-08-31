@@ -110,12 +110,24 @@ Because each Presenter depends only on its View abstraction, swapping the View i
 `tkcalendar` is required (used for the due-date calendar picker), so set up a virtual environment at the
 repository root first. Since this is a GUI app, run it in an environment where Tcl/Tk is available.
 
+macOS / Linux:
+
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 
 cd task_manager_tkinter
 ../.venv/bin/python main.py
+```
+
+Windows (Command Prompt / PowerShell):
+
+```bat
+python -m venv .venv
+.venv\Scripts\pip install -r requirements.txt
+
+cd task_manager_tkinter
+..\.venv\Scripts\python main.py
 ```
 
 ## How to Test
@@ -138,3 +150,15 @@ CI also runs the same tests automatically on every pull request and every push t
 - Python 3.14 (Homebrew build)
 - Using tkinter requires `brew install python-tk@3.14` separately (the deprecated Tcl/Tk 8.5.9 bundled with macOS's `/usr/bin` Python is not used)
 - Running the GUI requires `tkcalendar` (see `requirements.txt`). Not needed to run `test_presenter.py`.
+
+### A note on Windows
+
+The code only uses cross-platform `tkinter`/`ttk`/`tkcalendar` APIs and has no macOS-only dependency, so it
+should run on Windows too (development and testing were only done on macOS, though).
+
+- The official python.org Windows installer bundles Tcl/Tk, so there's no equivalent of
+  `brew install python-tk@3.14` to install separately
+- The commands above include a Windows-specific variant
+- The Settings tab's section header uses `font=("Helvetica", 10, "bold")`; "Helvetica" isn't a standard
+  Windows font, but Tk silently falls back to a substitute font instead of raising an error when the
+  requested family isn't available, so this only affects appearance, not functionality

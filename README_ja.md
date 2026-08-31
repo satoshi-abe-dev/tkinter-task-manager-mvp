@@ -107,12 +107,24 @@ task_manager_tkinter/
 `tkcalendar`（期限のカレンダー選択に使用）が必要なため、リポジトリ直下に仮想環境を作ってから実行する。
 GUIを使うため、Tcl/Tkが使える環境で実行すること。
 
+macOS / Linux:
+
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 
 cd task_manager_tkinter
 ../.venv/bin/python main.py
+```
+
+Windows（コマンドプロンプト / PowerShell）:
+
+```bat
+python -m venv .venv
+.venv\Scripts\pip install -r requirements.txt
+
+cd task_manager_tkinter
+..\.venv\Scripts\python main.py
 ```
 
 ## テスト方法
@@ -135,3 +147,15 @@ CIでも、PR作成時・`main`へのpush時に同じテストが自動実行さ
 - Python 3.14（Homebrew版）
 - tkinter利用には `brew install python-tk@3.14` が別途必要（macOS標準の`/usr/bin`側は非推奨のTcl/Tk 8.5.9のため使用しない）
 - GUIの実行には`tkcalendar`が必要（`requirements.txt`参照）。`test_presenter.py`の実行には不要
+
+### Windowsでの動作について
+
+`tkinter`/`ttk`/`tkcalendar`のみを使ったクロスプラットフォームなコードで、macOS専用のAPIには依存していないため、
+Windowsでも動作するはず（開発・動作確認はmacOS上でのみ行っている）。
+
+- python.org配布のPython Windows版インストーラーはTcl/Tkを標準で同梱しているため、`brew install python-tk@3.14`
+  のような追加インストールは不要
+- 上記の実行方法はWindows用のコマンドも併記した
+- 設定タブの見出しに`font=("Helvetica", 10, "bold")`を指定している箇所があるが、Windowsに"Helvetica"は
+  標準搭載されていない。Tkは存在しないフォント名が渡されてもエラーにはせず自動的にフォールバックするため、
+  動作は止まらない（見た目のフォントが変わるのみ）
