@@ -40,6 +40,10 @@ class TaskListPresenter:
         self.view = view
         self._sort_field: Optional[str] = None
         self._sort_ascending = True
+        # 「追加」直後など、列ソートに従わず「今表示している順番」をそのまま
+        # 維持したい時に使う、タスクidの並び順。Noneの間は_sort_fieldに従って
+        # 毎回ソートし直す。列ヘッダーをクリックすると解除される。
+        self._manual_order: Optional[List[int]] = None
         self.view.set_on_cell_edited(self.on_cell_edited)
         self.view.set_on_column_clicked(self.on_column_clicked)
         self.view.set_on_add_click(self.on_add_click)
@@ -51,12 +55,33 @@ class TaskListPresenter:
     def refresh(self) -> None:
         """Modelから最新のタスク一覧を取得し、必要ならソートしてViewに反映する"""
         tasks = self.model.list_tasks()
-        if self._sort_field is not None:
-            key = _SORT_KEYS[self._sort_field]
-            tasks.sort(key=key, reverse=not self._sort_ascending)
+        if self._manual_order is not None:
+            tasks = self._apply_manual_order(tasks)
+        else:
+            tasks = self._sorted_tasks(tasks)
         self.view.show_tasks(tasks)
         self.view.show_sort_state(self._sort_field, self._sort_ascending)
         self.view.show_due_date_highlights(self._compute_due_date_highlights(tasks))
+
+    def _sorted_tasks(self, tasks: List[Task]) -> List[Task]:
+        """現在のソート列に従ってタスクを並べ替える（列が未指定ならそのまま）"""
+        if self._sort_field is None:
+            return tasks
+        key = _SORT_KEYS[self._sort_field]
+        return sorted(tasks, key=key, reverse=not self._sort_ascending)
+
+    def _apply_manual_order(self, tasks: List[Task]) -> List[Task]:
+        """_manual_orderで固定した並び順を適用する。
+
+        削除されたタスクのidは自然に取り除かれ、_manual_orderに無い
+        新しいid（読み込みなどで増えた分）は末尾に追加する。
+        """
+        tasks_by_id = {t.id: t for t in tasks}
+        ordered_ids = [tid for tid in self._manual_order if tid in tasks_by_id]
+        known_ids = set(ordered_ids)
+        ordered_ids += [t.id for t in tasks if t.id not in known_ids]
+        self._manual_order = ordered_ids
+        return [tasks_by_id[tid] for tid in ordered_ids]
 
     def _compute_due_date_highlights(self, tasks: List[Task]) -> Dict[int, str]:
         """期限が近い/過ぎているタスクをハイライトするための、id→種別の対応表を作る。
@@ -96,6 +121,7 @@ class TaskListPresenter:
 
     def on_column_clicked(self, field: str) -> None:
         """一覧タブのカラムヘッダーがクリックされた時に呼ばれる"""
+        self._manual_order = None  # 明示的な列ソート操作なので、固定順は解除する
         if self._sort_field == field:
             self._sort_ascending = not self._sort_ascending
         else:
@@ -106,13 +132,16 @@ class TaskListPresenter:
     def on_add_click(self) -> None:
         """「追加」ボタン押下時に呼ばれる。空欄のタスクを1件追加して選択状態にする。
 
-        ソートが有効なままだと、タスク名などの並び順次第で新しい行が
-        一覧の途中や先頭に紛れ込んでしまう。追加した直後は必ず一覧の
-        末尾（Modelの追加順=一番下）に見えるよう、ソート状態を解除する。
+        今表示されている行の並び順（ソートしていた場合はその結果）は変えず、
+        新しいタスクだけを末尾に追加する。ソートしたままだと新タスクが
+        並び順のどこかに紛れ込んでしまうため、以後は列ソートに従わず
+        この時点の並び順を固定する(_manual_order)。列見出しの矢印は、
+        もう厳密にソートされた状態ではないことを示すため非表示にする。
         """
+        current_order = [t.id for t in self._sorted_tasks(self.model.list_tasks())]
         task = self.model.add_blank_task()
+        self._manual_order = current_order + [task.id]
         self._sort_field = None
-        self._sort_ascending = True
         self.refresh()
         self.view.select_task(task.id)
 
