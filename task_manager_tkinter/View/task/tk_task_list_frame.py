@@ -47,6 +47,7 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
         self._on_delete_click: Optional[Callable[[List[int]], None]] = None
         self._on_export_click: Optional[Callable[[], None]] = None
         self._on_import_click: Optional[Callable[[], None]] = None
+        self._on_save_click: Optional[Callable[[], None]] = None
         self._editor: Optional[tk.Widget] = None
         self._date_picker: Optional[tk.Toplevel] = None
 
@@ -56,12 +57,13 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
         style.configure("TaskList.Treeview", rowheight=28)
 
         # このフレーム自身のgrid構成: 行0(表+スクロールバー)が余白を吸収し、
-        # 行1(追加/削除ボタン)・行2(書き出し/読み込みボタン)は内容ぶんの
-        # 高さで下端に固定される。
+        # 行1(追加/削除ボタン)・行2(書き出し/読み込みボタン)・行3(未保存表示+Save
+        # ボタン)は内容ぶんの高さで下端に固定される。
         self.columnconfigure(0, weight=1)
         self.rowconfigure(0, weight=1)
         self.rowconfigure(1, weight=0)
         self.rowconfigure(2, weight=0)
+        self.rowconfigure(3, weight=0)
 
         # 表とスクロールバーをまとめる専用フレーム。
         tree_frame = ttk.Frame(self)
@@ -119,6 +121,16 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
             csv_row, text="Import", command=self._handle_import_click
         )
         self._import_button.grid(row=0, column=1)
+
+        # 未保存の変更があるかどうかの表示とSaveボタン。設定タブと同じ配置
+        # （左に状態ラベル、右にボタン）にして見た目を揃える。
+        save_row = ttk.Frame(self)
+        save_row.grid(row=3, column=0, sticky="we", pady=(8, 0))
+        save_row.columnconfigure(0, weight=1)
+        self._status_label = ttk.Label(save_row, text="", foreground="#4a6cf7")
+        self._status_label.grid(row=0, column=0, sticky="w")
+        self._save_button = ttk.Button(save_row, text="Save", command=self._handle_save_click)
+        self._save_button.grid(row=0, column=1, sticky="e")
 
         self._tree.bind("<Double-1>", self._on_double_click)
         self._tree.bind("<Button-1>", self._on_click)
@@ -205,6 +217,14 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
     def show_message(self, title: str, message: str) -> None:
         messagebox.showinfo(title=title, message=message)
 
+    # Override
+    def set_on_save_click(self, handler: Callable[[], None]) -> None:
+        self._on_save_click = handler
+
+    # Override
+    def set_dirty(self, dirty: bool) -> None:
+        self._status_label.config(text="● Unsaved changes" if dirty else "")
+
     def _handle_export_click(self) -> None:
         if self._on_export_click:
             self._on_export_click()
@@ -212,6 +232,10 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
     def _handle_import_click(self) -> None:
         if self._on_import_click:
             self._on_import_click()
+
+    def _handle_save_click(self) -> None:
+        if self._on_save_click:
+            self._on_save_click()
 
     def _on_selection_changed(self, event: tk.Event) -> None:
         state = "normal" if self._tree.selection() else "disabled"

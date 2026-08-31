@@ -51,6 +51,13 @@ to the MVP pattern (Model / View / Presenter).
     edited again.
   - A row whose status is manually set to "Overdue" is always highlighted red, regardless of its due
     date (excluding "Done" tasks).
+  - Adding, deleting, and editing tasks only changes the in-memory state — none of it is written to
+    disk (SQLite) until the "Save" button below the table is clicked. While there's anything unsaved,
+    it's labeled "Unsaved changes". If you make a mistake before saving, just don't save — quitting
+    (without saving) and reopening the app restores the last saved state, since nothing wrong ever
+    reached the database (quitting the app effectively acts as an "undo everything since the last
+    save"). If you try to close the window while there are unsaved changes, a dialog asks whether to
+    save, discard, or cancel.
 - **Settings tab**: configures the due-date highlight (on/off, and how many days ahead to warn).
   - Changing a value shows "Unsaved changes"; nothing is applied until "Save Changes" is clicked.
     The one exception is the highlight on/off checkbox itself — toggling it applies immediately to
@@ -60,9 +67,10 @@ to the MVP pattern (Model / View / Presenter).
 
 Tabs and buttons deliberately keep the OS-native look (the default `ttk.Notebook` / `ttk.Button` style).
 
-Both tasks and settings are automatically persisted to SQLite (the standard-library `sqlite3` module —
-no extra install needed). Closing and reopening the app restores the previous state (see the folder
-structure below for details).
+Both tasks and settings are persisted to SQLite (the standard-library `sqlite3` module — no extra
+install needed; see the folder structure below for details). Both tabs require an explicit save:
+the Settings tab needs "Save Changes", and the Task List tab needs "Save" (see above). Reopening the
+app after saving restores exactly that saved state.
 
 ## Folder Structure
 
@@ -76,7 +84,8 @@ task_manager_tkinter/
         task/
             task.py             Task (data class)
             task_model.py       TaskModel
-            task_db.py           Task persistence (SQLite), pure I/O, no tkinter dependency
+            task_db.py           Task persistence (SQLite), pure I/O, no tkinter dependency.
+                                  save() writes the whole in-memory state at once
             csv_io.py            CSV export/import (pure I/O, no tkinter dependency)
         settings/
             settings_model.py   Settings (data class) / SettingsModel
@@ -104,7 +113,7 @@ exception is `View/tk_main_window.py`, which combines both tabs and so stays dir
 
 | Layer | Class | Responsibility | Depends on |
 |---|---|---|---|
-| Model | `TaskModel` | Domain logic for holding, adding (including blank tasks), updating, and deleting tasks. Delegates the persistence details (SQLite) to `task_db` and doesn't know any SQL itself. Knows nothing about the UI either. | `task_db` |
+| Model | `TaskModel` | Domain logic for holding, adding (including blank tasks), updating, and deleting tasks. Edits only change the in-memory state; persistence is delegated to `task_db` only when `save()` is called (and `TaskModel` doesn't know any SQL itself). Knows nothing about the UI either. | `task_db` |
 | Model | `SettingsModel` | Domain logic for holding and updating settings. Delegates the persistence details (SQLite) to `settings_db` and doesn't know any SQL itself. | `settings_db` |
 | Model | `task_db` / `settings_db` | Saves/loads tasks and settings to/from SQLite. Pure I/O functions, no tkinter dependency. | `db_path` (where the DB file lives) |
 | Model | `csv_io` | Exports/imports tasks to/from CSV. Pure I/O functions. | none |
@@ -113,8 +122,13 @@ exception is `View/tk_main_window.py`, which combines both tabs and so stays dir
 | Presenter | `TaskListPresenter` / `SettingsPresenter` | Holds the "screen behavior" logic for each tab: validation, updating the Model, tracking the list's sort state, adding/deleting tasks, CSV export/import, and determining the due-date highlight. `TaskListPresenter` also reads `SettingsModel` to get the highlight criteria (on/off, how many days ahead). | the corresponding Model(s) (`TaskListPresenter` depends on both `TaskModel` and `SettingsModel`), the corresponding View (abstract only) |
 
 Because each Presenter depends only on its View abstraction, swapping the View implementation (Tkinter / another GUI library / a fake View for testing) requires no change to the Presenter code.
-Likewise, `TaskModel`/`SettingsModel` hide their persistence behind `task_db`/`settings_db`, so switching
-from an in-memory-only implementation to SQLite required no changes to the Presenter or View code at all.
+Likewise, `TaskModel`/`SettingsModel` hide their persistence behind `task_db`/`settings_db`. Switching
+from an in-memory-only implementation to SQLite (writing through on every change) required no changes
+to the Presenter or View code at all. Later, the write-through behavior was replaced with an explicit
+`save()` — so that a mistake made before saving can simply be discarded by not saving and restarting
+the app. Since that introduced new user-facing behavior (a Save button, an "unsaved changes" indicator,
+and a confirm-on-quit dialog), it did require corresponding changes to `TaskListPresenter`,
+`TaskListView`, `TkTaskListFrame`, and `TkMainWindow`.
 
 ## Data Flow (clicking "+ Add")
 

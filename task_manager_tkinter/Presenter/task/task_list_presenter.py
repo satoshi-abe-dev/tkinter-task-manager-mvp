@@ -50,6 +50,7 @@ class TaskListPresenter:
         self.view.set_on_delete_click(self.on_delete_click)
         self.view.set_on_export_click(self.on_export_click)
         self.view.set_on_import_click(self.on_import_click)
+        self.view.set_on_save_click(self.on_save_click)
         self.refresh()
 
     def refresh(self) -> None:
@@ -58,6 +59,16 @@ class TaskListPresenter:
         self.view.show_tasks(tasks)
         self.view.show_sort_state(self._sort_field, self._sort_ascending)
         self.view.show_due_date_highlights(self._compute_due_date_highlights(tasks))
+        self.view.set_dirty(self.model.is_dirty())
+
+    def has_unsaved_changes(self) -> bool:
+        """save()していない変更があるかどうか（アプリ終了時の確認ダイアログ用）"""
+        return self.model.is_dirty()
+
+    def on_save_click(self) -> None:
+        """「Save」ボタン押下時に呼ばれる。メモリ上の変更をまとめてDBへ書き込む"""
+        self.model.save()
+        self.refresh()
 
     def _ordered_tasks(self, tasks: List[Task]) -> List[Task]:
         """現在の表示順でタスクを並べる。

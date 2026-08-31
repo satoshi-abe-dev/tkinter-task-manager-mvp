@@ -77,3 +77,11 @@ class TaskListView(ABC):
     @abstractmethod
     def show_message(self, title: str, message: str) -> None:
         """メッセージをポップアップ表示する"""
+
+    @abstractmethod
+    def set_on_save_click(self, handler: Callable[[], None]) -> None:
+        """「Save」ボタン押下時に呼ばれるハンドラを登録する"""
+
+    @abstractmethod
+    def set_dirty(self, dirty: bool) -> None:
+        """save()していない変更があるかどうかの表示を切り替える"""

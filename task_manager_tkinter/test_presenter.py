@@ -34,12 +34,14 @@ class FakeTaskListView(TaskListView):
         self.delete_handler: Optional[Callable[[List[int]], None]] = None
         self.export_handler: Optional[Callable[[], None]] = None
         self.import_handler: Optional[Callable[[], None]] = None
+        self.save_handler: Optional[Callable[[], None]] = None
         self.sort_state: Optional[Tuple[Optional[str], bool]] = None
         self.selected_task_id: Optional[int] = None
         self.highlights: Dict[int, str] = {}
         self.save_path: Optional[str] = None
         self.open_path: Optional[str] = None
         self.messages: List[Tuple[str, str]] = []
+        self.dirty = False
 
     def show_tasks(self, tasks: List[Task]) -> None:
         self.shown_tasks = list(tasks)
@@ -79,6 +81,12 @@ class FakeTaskListView(TaskListView):
 
     def show_message(self, title: str, message: str) -> None:
         self.messages.append((title, message))
+
+    def set_on_save_click(self, handler: Callable[[], None]) -> None:
+        self.save_handler = handler
+
+    def set_dirty(self, dirty: bool) -> None:
+        self.dirty = dirty
 
 
 class FakeSettingsView(SettingsView):
@@ -500,6 +508,70 @@ def test_task_list_presenter_export_import_csv() -> None:
     print("test_task_list_presenter_export_import_csv: OK")
 
 
+def test_task_list_presenter_shows_dirty_state() -> None:
+    model = TaskModel(db_path=":memory:")
+    settings_model = SettingsModel(db_path=":memory:")
+    view = FakeTaskListView()
+    presenter = TaskListPresenter(model, settings_model, view)
+
+    # 初回起動時のデモデータは投入直後に自動保存されているので、未保存ではない
+    assert view.dirty is False
+
+    presenter.on_add_click()
+    assert view.dirty is True
+
+    presenter.on_save_click()
+    assert view.dirty is False
+    print("test_task_list_presenter_shows_dirty_state: OK")
+
+
+def test_task_list_presenter_has_unsaved_changes() -> None:
+    model = TaskModel(db_path=":memory:")
+    settings_model = SettingsModel(db_path=":memory:")
+    view = FakeTaskListView()
+    presenter = TaskListPresenter(model, settings_model, view)
+
+    assert presenter.has_unsaved_changes() is False
+
+    target = model.list_tasks()[0]
+    view.cell_edited_handler(target.id, "assignee", "Changed")
+    assert presenter.has_unsaved_changes() is True
+
+    view.save_handler()
+    assert presenter.has_unsaved_changes() is False
+    print("test_task_list_presenter_has_unsaved_changes: OK")
+
+
+def test_task_list_presenter_defers_db_write_until_save() -> None:
+    """Save()するまでは、別の接続(=再起動を模した新しいTaskModel)からは
+    変更が見えないことを確認する。保存前に操作を間違えても、保存しなければ
+    次回起動時には直前の保存状態に戻るという設計の裏付け。
+    """
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        db_path = os.path.join(tmp_dir, "test.db")
+
+        model = TaskModel(db_path=db_path)
+        settings_model = SettingsModel(db_path=":memory:")
+        view = FakeTaskListView()
+        TaskListPresenter(model, settings_model, view)
+
+        target = model.list_tasks()[0]
+        view.cell_edited_handler(target.id, "assignee", "Changed")
+        assert model.is_dirty() is True
+
+        # 保存前は、別の接続(再起動を模した新しいTaskModel)からはまだ見えない
+        reopened_before_save = TaskModel(db_path=db_path)
+        assert reopened_before_save.get_task(target.id).assignee != "Changed"
+
+        # Saveすると、その後に開いた接続からも見えるようになる
+        view.save_handler()
+        assert model.is_dirty() is False
+        reopened_after_save = TaskModel(db_path=db_path)
+        assert reopened_after_save.get_task(target.id).assignee == "Changed"
+
+    print("test_task_list_presenter_defers_db_write_until_save: OK")
+
+
 def test_settings_presenter_tracks_dirty_and_saves() -> None:
     settings_model = SettingsModel(db_path=":memory:")
     view = FakeSettingsView()
@@ -595,6 +667,9 @@ if __name__ == "__main__":
     test_task_list_presenter_auto_overdue_is_one_time_only()
     test_task_list_presenter_disables_highlight_when_notify_off()
     test_task_list_presenter_export_import_csv()
+    test_task_list_presenter_shows_dirty_state()
+    test_task_list_presenter_has_unsaved_changes()
+    test_task_list_presenter_defers_db_write_until_save()
     test_settings_presenter_tracks_dirty_and_saves()
     test_settings_presenter_calls_on_settings_saved_after_save()
     test_settings_presenter_highlight_toggle_applies_immediately_without_save()

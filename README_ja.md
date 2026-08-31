@@ -48,6 +48,13 @@ MVPパターン（Model / View / Presenter）で責務を分離して実装し�
     を編集するまではその選択が尊重される。
   - Statusを手動で「Overdue」にした行は、期限日が未来でも常に赤色でハイライトされる
     （完了(Done)のタスクは対象外）。
+  - タスクの追加・削除・編集はメモリ上にだけ反映され、ディスク（SQLite）へは
+    書き込まれない。表の下の「Save」ボタンを押すまで未保存の状態が続き、
+    未保存の変更があると「Unsaved changes」と表示される。保存前に操作を
+    間違えても、保存さえしなければ次回起動時には直前の保存状態にそのまま戻る
+    （アプリの再起動が「全部取り消し」の代わりになる）。ウィンドウを閉じようと
+    した時、未保存の変更があれば「保存する/破棄する/キャンセル」を確認する
+    ダイアログが出る。
 - **設定タブ**: 期限ハイライト（有効/無効・何日前から）を設定する。
   - 値を変更すると「Unsaved changes」と表示され、「Save Changes」を押すまで反映されない。
     ただし、ハイライトのON/OFFチェックボタン自体は例外で、切り替えた瞬間に一覧タブの
@@ -57,8 +64,10 @@ MVPパターン（Model / View / Presenter）で責務を分離して実装し�
 
 タブ自体・ボタンの見た目はあえてOS標準に近いスタイル（`ttk.Notebook`/`ttk.Button`のデフォルト）のままにしている。
 
-タスク・設定はいずれもSQLite（標準ライブラリの`sqlite3`、追加インストール不要）に自動保存される。
-アプリを終了して再度起動しても、前回の状態がそのまま復元される（詳細は下記フォルダ構成を参照）。
+タスク・設定はいずれもSQLite（標準ライブラリの`sqlite3`、追加インストール不要）で永続化される
+（詳細は下記フォルダ構成を参照）。設定タブは値を変更するたびに「未保存」扱いになり明示的な
+「Save Changes」が必要、タスク一覧タブも同様に明示的な「Save」が必要（上記参照）。
+アプリを終了して再度起動すると、最後に保存した状態が復元される。
 
 ## フォルダ構成
 
@@ -72,7 +81,8 @@ task_manager_tkinter/
         task/
             task.py             Task（データクラス）
             task_model.py       TaskModel
-            task_db.py           タスクの永続化(SQLite)。tkinterに依存しない純粋なI/O
+            task_db.py           タスクの永続化(SQLite)。tkinterに依存しない純粋なI/O。
+                                  save()時にメモリ上の状態をまるごと書き込む方式
             csv_io.py            CSV書き出し/読み込み（tkinterに依存しない純粋なI/O）
         settings/
             settings_model.py   Settings（データクラス）/ SettingsModel
@@ -100,7 +110,7 @@ Model/View/Presenterのいずれも、タブの種類（`task`/`settings`）ご�
 
 | 層 | クラス | 責務 | 依存先 |
 |---|---|---|---|
-| Model | `TaskModel` | タスクの保持・追加（空欄タスクの追加を含む）・更新・削除のドメインロジック。永続化の詳細（SQLite）は`task_db`に委譲し、自身はSQLを知らない。UIのことも一切知らない。 | `task_db` |
+| Model | `TaskModel` | タスクの保持・追加（空欄タスクの追加を含む）・更新・削除のドメインロジック。編集操作はメモリ上の状態だけを書き換え、`save()`が呼ばれた時だけ`task_db`へ永続化を委譲する（自身はSQLを知らない）。UIのことも一切知らない。 | `task_db` |
 | Model | `SettingsModel` | 設定値の保持・更新のドメインロジック。永続化の詳細（SQLite）は`settings_db`に委譲し、自身はSQLを知らない。 | `settings_db` |
 | Model | `task_db` / `settings_db` | タスク・設定をSQLiteに保存/読み込みする。tkinterに依存しない純粋なI/O関数。 | `db_path`（DBファイルの場所） |
 | Model | `csv_io` | タスクのCSV書き出し/読み込み。純粋なI/O関数。 | なし |
@@ -109,7 +119,8 @@ Model/View/Presenterのいずれも、タブの種類（`task`/`settings`）ご�
 | Presenter | `TaskListPresenter` / `SettingsPresenter` | 各タブの「画面の振る舞い」のロジック。バリデーション・Model更新・一覧のソート状態管理・タスクの追加/削除/CSV入出力・期限ハイライトの判定を担う。`TaskListPresenter`は期限ハイライトの判定基準（有効/無効・何日前から）を得るため`SettingsModel`も参照する。 | 対応するModel（`TaskListPresenter`は`TaskModel`と`SettingsModel`の両方）, 対応するView（抽象のみ） |
 
 各PresenterはそれぞれのView抽象にしか依存していないため、View側の実装を差し替えても（Tkinter／別のGUIライブラリ／テスト用のFakeViewなど）Presenterのコードは変更不要。
-同様に、`TaskModel`/`SettingsModel`は永続化方法を`task_db`/`settings_db`に隠蔽しているため、メモリ上のみの実装からSQLiteへ切り替えた際もPresenter・Viewのコードは一切変更していない。
+同様に、`TaskModel`/`SettingsModel`は永続化方法を`task_db`/`settings_db`に隠蔽している。実際、メモリ上のみの実装からSQLite（即時書き込み）へ切り替えた際は、Presenter・Viewのコードを一切変更しなかった。
+その後、「保存前の誤操作をアプリ再起動だけで取り消せるようにしたい」という理由で即時書き込みをやめ、明示的な`save()`を待つ方式に設計変更した際は、これはユーザーから見える新しい振る舞い（Saveボタン・未保存表示・終了時の確認ダイアログ）の追加なので、`TaskListPresenter`・`TaskListView`・`TkTaskListFrame`・`TkMainWindow`にも相応の変更が必要だった。
 
 ## データフロー（「+ Add」を押した時）
 

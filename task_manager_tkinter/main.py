@@ -36,7 +36,11 @@ Model / View / Presenter の各フォルダから読み込んで組み立てて�
         python3 main.py
 ※ GUIなので、Tcl/Tkが使えるお手元のPCで実行してください。
 ※ タスク・設定はSQLite(標準ライブラリのsqlite3、追加インストール不要)で
-  自動的に永続化される。DBファイルは初回実行時にdata/app.dbとして作成される。
+  永続化される。DBファイルは初回実行時にdata/app.dbとして作成される。
+  ただしタスク一覧タブの追加/削除/編集は、一覧タブの「Save」ボタンを押すまで
+  DBには書き込まれない（保存前に間違えても、保存しなければ次回起動時には
+  直前の保存状態に戻る）。ウィンドウを閉じようとした時、未保存の変更が
+  あれば保存するかどうかを確認するダイアログを出す。
 """
 
 from Model.settings.settings_model import SettingsModel
@@ -58,6 +62,26 @@ def main() -> None:
         window.settings_frame,
         on_settings_saved=task_list_presenter.refresh,
     )
+
+    def handle_close_request() -> None:
+        """ウィンドウを閉じようとした時に呼ばれる。未保存の変更があれば
+        保存する/破棄する/キャンセルの3択を確認してから閉じる。
+        """
+        if not task_list_presenter.has_unsaved_changes():
+            window.close()
+            return
+        choice = window.ask_save_discard_cancel(
+            "Unsaved Changes",
+            "You have unsaved changes in the task list.\nSave before closing?",
+        )
+        if choice is True:  # 保存する
+            task_list_presenter.on_save_click()
+            window.close()
+        elif choice is False:  # 破棄する
+            window.close()
+        # choice is None（キャンセル）の場合は何もせず、ウィンドウを開いたままにする
+
+    window.set_on_close_requested(handle_close_request)
 
     window.run()
 
