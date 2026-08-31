@@ -484,7 +484,7 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
         )
         self._days_spinbox.grid(row=0, column=0)
         # 単位(日)を明示する
-        self._days_unit_label = ttk.Label(days_row, text="days before")
+        self._days_unit_label = ttk.Label(days_row, text="days before due date")
         self._days_unit_label.grid(row=0, column=1, padx=(6, 0))
         row += 1
 
