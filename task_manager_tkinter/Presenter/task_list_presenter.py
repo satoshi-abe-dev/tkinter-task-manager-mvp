@@ -70,7 +70,9 @@ class TaskListPresenter:
         self.refresh()
         self.view.select_task(task.id)
 
-    def on_delete_click(self, task_id: int) -> None:
-        """「削除」ボタン押下時に呼ばれる（確認ポップアップで「はい」が選ばれた後）"""
-        self.model.delete_task(task_id)
+    def on_delete_click(self, task_ids: List[int]) -> None:
+        """「削除」ボタン押下時に呼ばれる（確認ポップアップで「はい」が選ばれた後）。
+        複数選択している場合は選択中の全件が渡される。
+        """
+        self.model.delete_tasks(task_ids)
         self.refresh()

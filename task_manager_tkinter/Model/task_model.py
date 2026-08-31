@@ -4,7 +4,7 @@ Model
 タスクの保持・追加・更新のみを行う。View や Presenter のことは一切知らない。
 """
 
-from typing import List
+from typing import Iterable, List
 
 from Model.task import Task
 
@@ -51,9 +51,10 @@ class TaskModel:
         task.name = f"タスク{task.id}"
         return task
 
-    def delete_task(self, task_id: int) -> None:
-        """指定したタスクを削除する（一覧タブの「削除」ボタン用）"""
-        self._tasks = [t for t in self._tasks if t.id != task_id]
+    def delete_tasks(self, task_ids: Iterable[int]) -> None:
+        """指定した複数のタスクを削除する（一覧タブの「削除」ボタン用。複数選択に対応）"""
+        ids = set(task_ids)
+        self._tasks = [t for t in self._tasks if t.id not in ids]
 
     def update_task_field(self, task_id: int, field: str, value: str) -> None:
         """指定したタスクの1項目を書き換える（一覧タブのインライン編集用）"""

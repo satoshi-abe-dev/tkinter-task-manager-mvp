@@ -49,7 +49,7 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
         self._on_cell_edited: Optional[Callable[[int, str, str], None]] = None
         self._on_column_clicked: Optional[Callable[[str], None]] = None
         self._on_add_click: Optional[Callable[[], None]] = None
-        self._on_delete_click: Optional[Callable[[int], None]] = None
+        self._on_delete_click: Optional[Callable[[List[int]], None]] = None
         self._editor: Optional[tk.Widget] = None
         self._date_picker: Optional[tk.Toplevel] = None
 
@@ -139,7 +139,7 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
         self._on_add_click = handler
 
     # Override
-    def set_on_delete_click(self, handler: Callable[[int], None]) -> None:
+    def set_on_delete_click(self, handler: Callable[[List[int]], None]) -> None:
         self._on_delete_click = handler
 
     # Override
@@ -159,19 +159,22 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
             self._on_add_click()
 
     def _handle_delete_click(self) -> None:
+        # ttk.Treeviewは既定(selectmode="extended")で複数選択に対応しており、
+        # Shift/Cmdクリックで選択した行はすべてselection()に含まれる。
         selection = self._tree.selection()
         if not selection:
             return
-        row_id = selection[0]
-        task_id = int(row_id)
-        name = self._tree.set(row_id, "name")
+        task_ids = [int(row_id) for row_id in selection]
 
-        confirmed = messagebox.askyesno(
-            "確認",
-            f"「{name}」を削除しますか？\nこの操作は取り消せません。",
-        )
+        if len(selection) == 1:
+            name = self._tree.set(selection[0], "name")
+            message = f"「{name}」を削除しますか？\nこの操作は取り消せません。"
+        else:
+            message = f"選択中の{len(selection)}件を削除しますか？\nこの操作は取り消せません。"
+
+        confirmed = messagebox.askyesno("確認", message)
         if confirmed and self._on_delete_click:
-            self._on_delete_click(task_id)
+            self._on_delete_click(task_ids)
 
     def _on_click(self, event: tk.Event) -> None:
         # 行の無い領域（表の下の余白など）をクリックした時は選択を解除する。

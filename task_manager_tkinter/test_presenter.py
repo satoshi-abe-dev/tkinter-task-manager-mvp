@@ -29,7 +29,7 @@ class FakeTaskListView(TaskListView):
         self.cell_edited_handler: Optional[Callable[[int, str, str], None]] = None
         self.column_clicked_handler: Optional[Callable[[str], None]] = None
         self.add_handler: Optional[Callable[[], None]] = None
-        self.delete_handler: Optional[Callable[[int], None]] = None
+        self.delete_handler: Optional[Callable[[List[int]], None]] = None
         self.sort_state: Optional[Tuple[Optional[str], bool]] = None
         self.selected_task_id: Optional[int] = None
 
@@ -48,7 +48,7 @@ class FakeTaskListView(TaskListView):
     def set_on_add_click(self, handler: Callable[[], None]) -> None:
         self.add_handler = handler
 
-    def set_on_delete_click(self, handler: Callable[[int], None]) -> None:
+    def set_on_delete_click(self, handler: Callable[[List[int]], None]) -> None:
         self.delete_handler = handler
 
     def select_task(self, task_id: int) -> None:
@@ -197,7 +197,7 @@ def test_task_list_presenter_add_name_survives_deletion_without_duplicate() -> N
 
     view.add_handler()
     first_new = model.list_tasks()[-1]
-    view.delete_handler(first_new.id)
+    view.delete_handler([first_new.id])
     view.add_handler()
     second_new = model.list_tasks()[-1]
 
@@ -213,11 +213,27 @@ def test_task_list_presenter_deletes_task() -> None:
 
     target = model.list_tasks()[0]
     before = len(model.list_tasks())
-    view.delete_handler(target.id)
+    view.delete_handler([target.id])
 
     assert len(model.list_tasks()) == before - 1
     assert all(t.id != target.id for t in model.list_tasks())
     print("test_task_list_presenter_deletes_task: OK")
+
+
+def test_task_list_presenter_deletes_multiple_tasks() -> None:
+    model = TaskModel()
+    view = FakeTaskListView()
+    presenter = TaskListPresenter(model, view)
+
+    targets = model.list_tasks()[:2]  # 複数選択のシミュレーション
+    target_ids = [t.id for t in targets]
+    before = len(model.list_tasks())
+    view.delete_handler(target_ids)
+
+    assert len(model.list_tasks()) == before - 2
+    remaining_ids = {t.id for t in model.list_tasks()}
+    assert not remaining_ids & set(target_ids)
+    print("test_task_list_presenter_deletes_multiple_tasks: OK")
 
 
 def test_settings_presenter_tracks_dirty_and_saves() -> None:
@@ -281,5 +297,6 @@ if __name__ == "__main__":
     test_task_list_presenter_adds_blank_task_with_id_based_name()
     test_task_list_presenter_add_name_survives_deletion_without_duplicate()
     test_task_list_presenter_deletes_task()
+    test_task_list_presenter_deletes_multiple_tasks()
     test_settings_presenter_tracks_dirty_and_saves()
     test_settings_presenter_export_import_csv()

@@ -40,10 +40,11 @@ class TaskListView(ABC):
         """「追加」ボタン押下時に呼ばれるハンドラを登録する"""
 
     @abstractmethod
-    def set_on_delete_click(self, handler: Callable[[int], None]) -> None:
+    def set_on_delete_click(self, handler: Callable[[List[int]], None]) -> None:
         """「削除」ボタン押下時に呼ばれるハンドラを登録する。
-        引数: task_id（削除対象）。確認ポップアップの表示・選択行の特定はView側で行い、
-        「はい」が選ばれた場合のみこのハンドラを呼ぶ。
+        引数: task_ids（削除対象。複数選択している場合は選択中の全件）。
+        確認ポップアップの表示・選択行の特定はView側で行い、「はい」が選ばれた
+        場合のみこのハンドラを呼ぶ。
         """
 
     @abstractmethod
