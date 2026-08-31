@@ -406,17 +406,14 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
             self,
             text="期限が近い未完了のタスクをハイライトする",
             variable=self._notify_var,
-            command=self._changed,
+            command=self._on_notify_toggled,
         ).grid(row=row, column=0, columnspan=2, sticky="w", pady=2)
         row += 1
-        ttk.Label(self, text="何日前からハイライトするか").grid(
-            row=row, column=0, sticky="w", pady=2
-        )
         days_row = ttk.Frame(self)
-        days_row.grid(row=row, column=1, sticky="w", pady=2)
+        days_row.grid(row=row, column=0, columnspan=2, sticky="w", pady=2)
         # 0以上の整数のみを直接入力できるようにする(負の数・文字は弾く)。
         validate_digits = (self.register(self._validate_day_count), "%P")
-        ttk.Spinbox(
+        self._days_spinbox = ttk.Spinbox(
             days_row,
             from_=0,
             to=365,
@@ -425,9 +422,11 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
             width=5,
             validate="key",
             validatecommand=validate_digits,
-        ).grid(row=0, column=0)
+        )
+        self._days_spinbox.grid(row=0, column=0)
         # 単位(日)を明示する
-        ttk.Label(days_row, text="日前から").grid(row=0, column=1, padx=(6, 0))
+        self._days_unit_label = ttk.Label(days_row, text="日前から")
+        self._days_unit_label.grid(row=0, column=1, padx=(6, 0))
         row += 1
 
         ttk.Separator(self).grid(row=row, column=0, columnspan=2, sticky="we", pady=10)
@@ -486,11 +485,24 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
         ):
             var.trace_add("write", lambda *_: self._changed())
 
+        # チェックボタンの初期状態(既定でON)に日数欄を合わせる
+        self._update_days_row_state()
+
     def _changed(self) -> None:
         if self._loading:
             return
         if self._on_field_changed:
             self._on_field_changed()
+
+    def _on_notify_toggled(self) -> None:
+        self._update_days_row_state()
+        self._changed()
+
+    def _update_days_row_state(self) -> None:
+        """チェックボタンがOFFの間、日数欄をグレーアウトして編集できなくする"""
+        state = ["!disabled"] if self._notify_var.get() else ["disabled"]
+        self._days_spinbox.state(state)
+        self._days_unit_label.state(state)
 
     @staticmethod
     def _validate_day_count(proposed: str) -> bool:
@@ -523,6 +535,7 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
             self._theme_var.set(settings.theme)
         finally:
             self._loading = False
+        self._update_days_row_state()
 
     # Override
     def get_form_values(self) -> Settings:
