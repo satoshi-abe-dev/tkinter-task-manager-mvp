@@ -72,15 +72,25 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
         self._delete_button.pack(side="left", fill="x", expand=True)
         button_row.pack(side="bottom", fill="x", pady=(8, 0))
 
+        # 表とスクロールバーをまとめる専用フレーム。ボタン行(下端固定)を差し引いた
+        # 残りのスペースいっぱいに広がる。
+        tree_frame = ttk.Frame(self)
+        tree_frame.pack(fill="both", expand=True)
+
         self._tree = ttk.Treeview(
-            self, columns=_COLUMNS, show="headings", height=12, style="TaskList.Treeview"
+            tree_frame, columns=_COLUMNS, show="headings", height=12, style="TaskList.Treeview"
         )
         for col in _COLUMNS:
             self._tree.heading(
                 col, text=_COLUMN_LABELS[col], command=self._make_heading_handler(col)
             )
             self._tree.column(col, width=110, anchor="w")
-        self._tree.pack(fill="both", expand=True)
+
+        scrollbar = ttk.Scrollbar(tree_frame, orient="vertical", command=self._tree.yview)
+        self._tree.configure(yscrollcommand=scrollbar.set)
+
+        self._tree.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
 
         self._tree.bind("<Double-1>", self._on_double_click)
         self._tree.bind("<Button-1>", self._on_click)
@@ -322,7 +332,7 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
         if bbox:
             cell_x, cell_y, _cell_w, cell_h = bbox
             popup.geometry(
-                f"+{self.winfo_rootx() + cell_x}+{self.winfo_rooty() + cell_y + cell_h}"
+                f"+{self._tree.winfo_rootx() + cell_x}+{self._tree.winfo_rooty() + cell_y + cell_h}"
             )
 
         popup.lift()
