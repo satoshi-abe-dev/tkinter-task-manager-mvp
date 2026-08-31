@@ -57,19 +57,26 @@ MVPパターン（Model / View / Presenter）で責務を分離して実装し�
 
 タブ自体・ボタンの見た目はあえてOS標準に近いスタイル（`ttk.Notebook`/`ttk.Button`のデフォルト）のままにしている。
 
+タスク・設定はいずれもSQLite（標準ライブラリの`sqlite3`、追加インストール不要）に自動保存される。
+アプリを終了して再度起動しても、前回の状態がそのまま復元される（詳細は下記フォルダ構成を参照）。
+
 ## フォルダ構成
 
 ```
 task_manager_tkinter/
     main.py                   エントリーポイント（Model, View, Presenterと同じ階層）
     test_presenter.py         2つのPresenterの単体テスト（tkinter不要）
+    data/                     SQLiteデータベース(app.db)の置き場。実行時に自動作成される
     Model/
+        db_path.py            DBファイルの既定パス（task/settingsで共有）
         task/
             task.py             Task（データクラス）
             task_model.py       TaskModel
+            task_db.py           タスクの永続化(SQLite)。tkinterに依存しない純粋なI/O
             csv_io.py            CSV書き出し/読み込み（tkinterに依存しない純粋なI/O）
         settings/
             settings_model.py   Settings（データクラス）/ SettingsModel
+            settings_db.py       設定の永続化(SQLite)。tkinterに依存しない純粋なI/O
     View/
         task/
             task_list_view.py       TaskListView（抽象クラス）
@@ -87,19 +94,22 @@ task_manager_tkinter/
 
 Model/View/Presenterのいずれも、タブの種類（`task`/`settings`）ごとにサブフォルダで分けている。
 `View/tk_main_window.py`だけは両タブをまとめる存在なので`View/`直下に置いている。
+`Model/db_path.py`も同様に、`task`/`settings`の両方から共有される存在として`Model/`直下に置いている。
 
 ## 各層の責務
 
 | 層 | クラス | 責務 | 依存先 |
 |---|---|---|---|
-| Model | `TaskModel` | タスクの保持・追加（空欄タスクの追加を含む）・更新・削除のみ。UIのことは一切知らない。 | なし |
-| Model | `SettingsModel` | 設定値の保持・更新のみ（メモリ上のみ、永続化はしない）。 | なし |
+| Model | `TaskModel` | タスクの保持・追加（空欄タスクの追加を含む）・更新・削除のドメインロジック。永続化の詳細（SQLite）は`task_db`に委譲し、自身はSQLを知らない。UIのことも一切知らない。 | `task_db` |
+| Model | `SettingsModel` | 設定値の保持・更新のドメインロジック。永続化の詳細（SQLite）は`settings_db`に委譲し、自身はSQLを知らない。 | `settings_db` |
+| Model | `task_db` / `settings_db` | タスク・設定をSQLiteに保存/読み込みする。tkinterに依存しない純粋なI/O関数。 | `db_path`（DBファイルの場所） |
 | Model | `csv_io` | タスクのCSV書き出し/読み込み。純粋なI/O関数。 | なし |
 | View（抽象） | `TaskListView` / `SettingsView` | 各タブの「契約」（表示・入力取得・ハンドラ登録）を定義。 | なし |
 | View（実装） | `tk_task_list_frame.py`(`TkTaskListFrame`) / `tk_settings_frame.py`(`TkSettingsFrame`) / `tk_main_window.py`(`TkMainWindow`) | 上記の抽象をTkinter（`ttk.Notebook` + 標準ウィジェット）で実装。 | 各View抽象, tkinter |
 | Presenter | `TaskListPresenter` / `SettingsPresenter` | 各タブの「画面の振る舞い」のロジック。バリデーション・Model更新・一覧のソート状態管理・タスクの追加/削除/CSV入出力・期限ハイライトの判定を担う。`TaskListPresenter`は期限ハイライトの判定基準（有効/無効・何日前から）を得るため`SettingsModel`も参照する。 | 対応するModel（`TaskListPresenter`は`TaskModel`と`SettingsModel`の両方）, 対応するView（抽象のみ） |
 
 各PresenterはそれぞれのView抽象にしか依存していないため、View側の実装を差し替えても（Tkinter／別のGUIライブラリ／テスト用のFakeViewなど）Presenterのコードは変更不要。
+同様に、`TaskModel`/`SettingsModel`は永続化方法を`task_db`/`settings_db`に隠蔽しているため、メモリ上のみの実装からSQLiteへ切り替えた際もPresenter・Viewのコードは一切変更していない。
 
 ## データフロー（「+ Add」を押した時）
 
@@ -143,8 +153,12 @@ cd task_manager_tkinter
 `TkMainWindow`（および内部のFrame）の代わりにFakeView（各View抽象クラスの偽実装）を差し込むことで、
 Tkinterを一切起動せずに2つのPresenterのロジックを検証する。
 
-`test_presenter.py`は各`View.*_view`（抽象クラス）のみに依存し、`View.tk_main_window`（Tkinter実装）は
-読み込まないため、tkinterが入っていない環境でも実行可能。
+`test_presenter.py`は各`View.*_view`（抽象クラス）のみに依存し、View以下のTkinter実装
+（`tk_task_list_frame.py` / `tk_settings_frame.py` / `tk_main_window.py`）は読み込まないため、
+tkinterが入っていない環境でも実行可能。
+
+`TaskModel`/`SettingsModel`は`db_path=":memory:"`を渡してインメモリのSQLiteで動かしており、
+ディスクに何も残さず、テストどうしで状態が混ざらないようにしている。
 
 ```bash
 cd task_manager_tkinter
@@ -158,6 +172,7 @@ CIでも、PR作成時・`main`へのpush時に同じテストが自動実行さ
 - Python 3.14（Homebrew版）
 - tkinter利用には `brew install python-tk@3.14` が別途必要（macOS標準の`/usr/bin`側は非推奨のTcl/Tk 8.5.9のため使用しない）
 - GUIの実行には`tkcalendar`が必要（`requirements.txt`参照）。`test_presenter.py`の実行には不要
+- データの永続化には`sqlite3`（Python標準ライブラリ）を使っており、追加のインストールは不要
 
 ### Windowsでの動作について
 

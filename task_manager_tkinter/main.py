@@ -6,13 +6,17 @@ Model / View / Presenter の各フォルダから読み込んで組み立てて�
 フォルダ構成:
     task_manager_tkinter/
         main.py          <- これ（Model, View, Presenterと同じ階層）
+        data/            アプリのSQLiteデータベース(app.db)の置き場。実行時に自動作成される
         Model/
+            db_path.py            DBファイルの既定パス（task/settingsで共有）
             task/
                 task.py               Task（データクラス）
                 task_model.py         TaskModel
+                task_db.py            タスクの永続化(SQLite、純粋なI/O)
                 csv_io.py             CSV書き出し/読み込み（純粋なI/O）
             settings/
                 settings_model.py     Settings / SettingsModel
+                settings_db.py        設定の永続化(SQLite、純粋なI/O)
         View/
             task/
                 task_list_view.py     TaskListView（抽象クラス）
@@ -31,6 +35,8 @@ Model / View / Presenter の各フォルダから読み込んで組み立てて�
     このフォルダ(task_manager_tkinter)の直下で
         python3 main.py
 ※ GUIなので、Tcl/Tkが使えるお手元のPCで実行してください。
+※ タスク・設定はSQLite(標準ライブラリのsqlite3、追加インストール不要)で
+  自動的に永続化される。DBファイルは初回実行時にdata/app.dbとして作成される。
 """
 
 from Model.settings.settings_model import SettingsModel

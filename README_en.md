@@ -60,19 +60,27 @@ to the MVP pattern (Model / View / Presenter).
 
 Tabs and buttons deliberately keep the OS-native look (the default `ttk.Notebook` / `ttk.Button` style).
 
+Both tasks and settings are automatically persisted to SQLite (the standard-library `sqlite3` module —
+no extra install needed). Closing and reopening the app restores the previous state (see the folder
+structure below for details).
+
 ## Folder Structure
 
 ```
 task_manager_tkinter/
     main.py                   Entry point (same level as Model, View, Presenter)
     test_presenter.py         Unit tests for the two Presenters (no tkinter required)
+    data/                     Where the SQLite database (app.db) lives; created automatically at runtime
     Model/
+        db_path.py            The DB file's default path (shared by task/settings)
         task/
             task.py             Task (data class)
             task_model.py       TaskModel
+            task_db.py           Task persistence (SQLite), pure I/O, no tkinter dependency
             csv_io.py            CSV export/import (pure I/O, no tkinter dependency)
         settings/
             settings_model.py   Settings (data class) / SettingsModel
+            settings_db.py       Settings persistence (SQLite), pure I/O, no tkinter dependency
     View/
         task/
             task_list_view.py       TaskListView (abstract class)
@@ -90,19 +98,23 @@ task_manager_tkinter/
 
 Model, View, and Presenter are all split into per-tab subfolders (`task`/`settings`). The one
 exception is `View/tk_main_window.py`, which combines both tabs and so stays directly under `View/`.
+`Model/db_path.py` is likewise shared by both `task` and `settings`, so it stays directly under `Model/`.
 
 ## Responsibility of Each Layer
 
 | Layer | Class | Responsibility | Depends on |
 |---|---|---|---|
-| Model | `TaskModel` | Holds, adds (including blank tasks), updates, and deletes tasks only. Knows nothing about the UI. | none |
-| Model | `SettingsModel` | Holds and updates settings only (in-memory, not persisted). | none |
+| Model | `TaskModel` | Domain logic for holding, adding (including blank tasks), updating, and deleting tasks. Delegates the persistence details (SQLite) to `task_db` and doesn't know any SQL itself. Knows nothing about the UI either. | `task_db` |
+| Model | `SettingsModel` | Domain logic for holding and updating settings. Delegates the persistence details (SQLite) to `settings_db` and doesn't know any SQL itself. | `settings_db` |
+| Model | `task_db` / `settings_db` | Saves/loads tasks and settings to/from SQLite. Pure I/O functions, no tkinter dependency. | `db_path` (where the DB file lives) |
 | Model | `csv_io` | Exports/imports tasks to/from CSV. Pure I/O functions. | none |
 | View (abstract) | `TaskListView` / `SettingsView` | Define the "contract" for each tab (rendering, reading input, registering handlers). | none |
 | View (impl) | `tk_task_list_frame.py` (`TkTaskListFrame`) / `tk_settings_frame.py` (`TkSettingsFrame`) / `tk_main_window.py` (`TkMainWindow`) | Concrete implementation of the above abstractions using Tkinter (`ttk.Notebook` + standard widgets). | the View abstractions, tkinter |
 | Presenter | `TaskListPresenter` / `SettingsPresenter` | Holds the "screen behavior" logic for each tab: validation, updating the Model, tracking the list's sort state, adding/deleting tasks, CSV export/import, and determining the due-date highlight. `TaskListPresenter` also reads `SettingsModel` to get the highlight criteria (on/off, how many days ahead). | the corresponding Model(s) (`TaskListPresenter` depends on both `TaskModel` and `SettingsModel`), the corresponding View (abstract only) |
 
 Because each Presenter depends only on its View abstraction, swapping the View implementation (Tkinter / another GUI library / a fake View for testing) requires no change to the Presenter code.
+Likewise, `TaskModel`/`SettingsModel` hide their persistence behind `task_db`/`settings_db`, so switching
+from an in-memory-only implementation to SQLite required no changes to the Presenter or View code at all.
 
 ## Data Flow (clicking "+ Add")
 
@@ -146,8 +158,12 @@ cd task_manager_tkinter
 By swapping in fake Views (fake implementations of each View abstract class) instead of `TkMainWindow`
 (and its internal Frames), the two Presenters' logic can be verified without ever starting Tkinter.
 
-`test_presenter.py` depends only on the `View.*_view` abstract classes and never imports `View.tk_main_window`
-(the Tkinter implementation), so it runs fine even in environments without tkinter installed.
+`test_presenter.py` depends only on the `View.*_view` abstract classes and never imports the Tkinter
+implementation under View (`tk_task_list_frame.py` / `tk_settings_frame.py` / `tk_main_window.py`), so it
+runs fine even in environments without tkinter installed.
+
+`TaskModel`/`SettingsModel` are constructed with `db_path=":memory:"` in tests, which runs SQLite entirely
+in memory — nothing is written to disk, and each test gets its own isolated database.
 
 ```bash
 cd task_manager_tkinter
@@ -161,6 +177,7 @@ CI also runs the same tests automatically on every pull request and every push t
 - Python 3.14 (Homebrew build)
 - Using tkinter requires `brew install python-tk@3.14` separately (the deprecated Tcl/Tk 8.5.9 bundled with macOS's `/usr/bin` Python is not used)
 - Running the GUI requires `tkcalendar` (see `requirements.txt`). Not needed to run `test_presenter.py`.
+- Persistence uses `sqlite3` (Python's standard library), so no extra install is needed for that.
 
 ### A note on Windows
 

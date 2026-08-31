@@ -110,8 +110,8 @@ class FakeSettingsView(SettingsView):
 
 
 def test_task_list_presenter_shows_initial_tasks() -> None:
-    model = TaskModel()
-    settings_model = SettingsModel()
+    model = TaskModel(db_path=":memory:")
+    settings_model = SettingsModel(db_path=":memory:")
     view = FakeTaskListView()
     TaskListPresenter(model, settings_model, view)
 
@@ -120,8 +120,8 @@ def test_task_list_presenter_shows_initial_tasks() -> None:
 
 
 def test_task_list_presenter_edits_cell() -> None:
-    model = TaskModel()
-    settings_model = SettingsModel()
+    model = TaskModel(db_path=":memory:")
+    settings_model = SettingsModel(db_path=":memory:")
     view = FakeTaskListView()
     presenter = TaskListPresenter(model, settings_model, view)
 
@@ -135,8 +135,8 @@ def test_task_list_presenter_edits_cell() -> None:
 
 
 def test_task_list_presenter_rejects_empty_name_edit() -> None:
-    model = TaskModel()
-    settings_model = SettingsModel()
+    model = TaskModel(db_path=":memory:")
+    settings_model = SettingsModel(db_path=":memory:")
     view = FakeTaskListView()
     presenter = TaskListPresenter(model, settings_model, view)
 
@@ -149,8 +149,8 @@ def test_task_list_presenter_rejects_empty_name_edit() -> None:
 
 
 def test_task_list_presenter_sorts_by_column_and_toggles_direction() -> None:
-    model = TaskModel()
-    settings_model = SettingsModel()
+    model = TaskModel(db_path=":memory:")
+    settings_model = SettingsModel(db_path=":memory:")
     view = FakeTaskListView()
     presenter = TaskListPresenter(model, settings_model, view)
 
@@ -172,8 +172,8 @@ def test_task_list_presenter_sorts_by_column_and_toggles_direction() -> None:
 
 
 def test_task_list_presenter_sorts_priority_by_meaning_not_alphabetically() -> None:
-    model = TaskModel()
-    settings_model = SettingsModel()
+    model = TaskModel(db_path=":memory:")
+    settings_model = SettingsModel(db_path=":memory:")
     view = FakeTaskListView()
     presenter = TaskListPresenter(model, settings_model, view)
 
@@ -185,8 +185,8 @@ def test_task_list_presenter_sorts_priority_by_meaning_not_alphabetically() -> N
 
 
 def test_task_list_presenter_sort_keeps_blank_values_at_bottom() -> None:
-    model = TaskModel()
-    settings_model = SettingsModel()
+    model = TaskModel(db_path=":memory:")
+    settings_model = SettingsModel(db_path=":memory:")
     view = FakeTaskListView()
     presenter = TaskListPresenter(model, settings_model, view)
 
@@ -208,8 +208,8 @@ def test_task_list_presenter_sort_keeps_blank_values_at_bottom() -> None:
 
 
 def test_task_list_presenter_adds_blank_task_with_id_based_name() -> None:
-    model = TaskModel()
-    settings_model = SettingsModel()
+    model = TaskModel(db_path=":memory:")
+    settings_model = SettingsModel(db_path=":memory:")
     view = FakeTaskListView()
     presenter = TaskListPresenter(model, settings_model, view)
 
@@ -230,8 +230,8 @@ def test_task_list_presenter_adds_blank_task_with_id_based_name() -> None:
 
 
 def test_task_list_presenter_add_always_appears_at_bottom_even_when_sorted() -> None:
-    model = TaskModel()
-    settings_model = SettingsModel()
+    model = TaskModel(db_path=":memory:")
+    settings_model = SettingsModel(db_path=":memory:")
     view = FakeTaskListView()
     presenter = TaskListPresenter(model, settings_model, view)
 
@@ -251,8 +251,8 @@ def test_task_list_presenter_add_always_appears_at_bottom_even_when_sorted() -> 
 
 
 def test_task_list_presenter_add_preserves_order_across_further_edits() -> None:
-    model = TaskModel()
-    settings_model = SettingsModel()
+    model = TaskModel(db_path=":memory:")
+    settings_model = SettingsModel(db_path=":memory:")
     view = FakeTaskListView()
     presenter = TaskListPresenter(model, settings_model, view)
 
@@ -271,8 +271,8 @@ def test_task_list_presenter_add_preserves_order_across_further_edits() -> None:
 
 
 def test_task_list_presenter_two_consecutive_adds_keep_order() -> None:
-    model = TaskModel()
-    settings_model = SettingsModel()
+    model = TaskModel(db_path=":memory:")
+    settings_model = SettingsModel(db_path=":memory:")
     view = FakeTaskListView()
     presenter = TaskListPresenter(model, settings_model, view)
 
@@ -290,8 +290,8 @@ def test_task_list_presenter_two_consecutive_adds_keep_order() -> None:
 
 
 def test_task_list_presenter_add_name_survives_deletion_without_duplicate() -> None:
-    model = TaskModel()
-    settings_model = SettingsModel()
+    model = TaskModel(db_path=":memory:")
+    settings_model = SettingsModel(db_path=":memory:")
     view = FakeTaskListView()
     presenter = TaskListPresenter(model, settings_model, view)
 
@@ -307,8 +307,8 @@ def test_task_list_presenter_add_name_survives_deletion_without_duplicate() -> N
 
 
 def test_task_list_presenter_deletes_task() -> None:
-    model = TaskModel()
-    settings_model = SettingsModel()
+    model = TaskModel(db_path=":memory:")
+    settings_model = SettingsModel(db_path=":memory:")
     view = FakeTaskListView()
     presenter = TaskListPresenter(model, settings_model, view)
 
@@ -322,8 +322,8 @@ def test_task_list_presenter_deletes_task() -> None:
 
 
 def test_task_list_presenter_deletes_multiple_tasks() -> None:
-    model = TaskModel()
-    settings_model = SettingsModel()
+    model = TaskModel(db_path=":memory:")
+    settings_model = SettingsModel(db_path=":memory:")
     view = FakeTaskListView()
     presenter = TaskListPresenter(model, settings_model, view)
 
@@ -339,8 +339,8 @@ def test_task_list_presenter_deletes_multiple_tasks() -> None:
 
 
 def test_task_list_presenter_highlights_overdue_and_warning_tasks() -> None:
-    model = TaskModel()
-    settings_model = SettingsModel()
+    model = TaskModel(db_path=":memory:")
+    settings_model = SettingsModel(db_path=":memory:")
     settings_model.update(Settings(notify_enabled=True, notify_days_before=3))
     view = FakeTaskListView()
     presenter = TaskListPresenter(model, settings_model, view)
@@ -372,8 +372,8 @@ def test_task_list_presenter_highlights_overdue_and_warning_tasks() -> None:
 
 
 def test_task_list_presenter_excludes_completed_status_from_highlight() -> None:
-    model = TaskModel()
-    settings_model = SettingsModel()
+    model = TaskModel(db_path=":memory:")
+    settings_model = SettingsModel(db_path=":memory:")
     view = FakeTaskListView()
     presenter = TaskListPresenter(model, settings_model, view)
 
@@ -389,8 +389,8 @@ def test_task_list_presenter_excludes_completed_status_from_highlight() -> None:
 
 def test_task_list_presenter_highlights_manually_set_overdue_status() -> None:
     """Statusを手動でOverdueにしたタスクは、期限日が未来でも赤くなる"""
-    model = TaskModel()
-    settings_model = SettingsModel()
+    model = TaskModel(db_path=":memory:")
+    settings_model = SettingsModel(db_path=":memory:")
     view = FakeTaskListView()
     presenter = TaskListPresenter(model, settings_model, view)
 
@@ -406,8 +406,8 @@ def test_task_list_presenter_highlights_manually_set_overdue_status() -> None:
 
 def test_task_list_presenter_auto_sets_overdue_status_on_past_due_date_edit() -> None:
     """期限日を過去の日付にインライン編集した瞬間、自動でStatusがOverdueになる"""
-    model = TaskModel()
-    settings_model = SettingsModel()
+    model = TaskModel(db_path=":memory:")
+    settings_model = SettingsModel(db_path=":memory:")
     view = FakeTaskListView()
     presenter = TaskListPresenter(model, settings_model, view)
 
@@ -423,8 +423,8 @@ def test_task_list_presenter_auto_sets_overdue_status_on_past_due_date_edit() ->
 
 def test_task_list_presenter_auto_overdue_excludes_done_status() -> None:
     """Doneのタスクは、期限日を過去にしてもStatusをOverdueに自動変更しない"""
-    model = TaskModel()
-    settings_model = SettingsModel()
+    model = TaskModel(db_path=":memory:")
+    settings_model = SettingsModel(db_path=":memory:")
     view = FakeTaskListView()
     presenter = TaskListPresenter(model, settings_model, view)
 
@@ -440,8 +440,8 @@ def test_task_list_presenter_auto_overdue_excludes_done_status() -> None:
 
 def test_task_list_presenter_auto_overdue_is_one_time_only() -> None:
     """自動Overdueは編集した瞬間だけの一度きりで、その後の手動変更は上書きしない"""
-    model = TaskModel()
-    settings_model = SettingsModel()
+    model = TaskModel(db_path=":memory:")
+    settings_model = SettingsModel(db_path=":memory:")
     view = FakeTaskListView()
     presenter = TaskListPresenter(model, settings_model, view)
 
@@ -461,8 +461,8 @@ def test_task_list_presenter_auto_overdue_is_one_time_only() -> None:
 
 
 def test_task_list_presenter_disables_highlight_when_notify_off() -> None:
-    model = TaskModel()
-    settings_model = SettingsModel()
+    model = TaskModel(db_path=":memory:")
+    settings_model = SettingsModel(db_path=":memory:")
     settings_model.update(Settings(notify_enabled=False))
     view = FakeTaskListView()
     presenter = TaskListPresenter(model, settings_model, view)
@@ -478,8 +478,8 @@ def test_task_list_presenter_disables_highlight_when_notify_off() -> None:
 
 
 def test_task_list_presenter_export_import_csv() -> None:
-    model = TaskModel()
-    settings_model = SettingsModel()
+    model = TaskModel(db_path=":memory:")
+    settings_model = SettingsModel(db_path=":memory:")
     view = FakeTaskListView()
     presenter = TaskListPresenter(model, settings_model, view)
 
@@ -501,7 +501,7 @@ def test_task_list_presenter_export_import_csv() -> None:
 
 
 def test_settings_presenter_tracks_dirty_and_saves() -> None:
-    settings_model = SettingsModel()
+    settings_model = SettingsModel(db_path=":memory:")
     view = FakeSettingsView()
     SettingsPresenter(settings_model, view, on_settings_saved=lambda: None)
 
@@ -523,7 +523,7 @@ def test_settings_presenter_tracks_dirty_and_saves() -> None:
 
 
 def test_settings_presenter_calls_on_settings_saved_after_save() -> None:
-    settings_model = SettingsModel()
+    settings_model = SettingsModel(db_path=":memory:")
     view = FakeSettingsView()
     saved: List[bool] = []
     SettingsPresenter(settings_model, view, on_settings_saved=lambda: saved.append(True))
@@ -535,7 +535,7 @@ def test_settings_presenter_calls_on_settings_saved_after_save() -> None:
 
 
 def test_settings_presenter_highlight_toggle_applies_immediately_without_save() -> None:
-    settings_model = SettingsModel()
+    settings_model = SettingsModel(db_path=":memory:")
     view = FakeSettingsView()
     saved: List[bool] = []
     SettingsPresenter(settings_model, view, on_settings_saved=lambda: saved.append(True))
@@ -551,8 +551,8 @@ def test_settings_presenter_highlight_toggle_applies_immediately_without_save() 
 
 
 def test_task_list_presenter_highlight_disappears_immediately_when_toggled_off() -> None:
-    model = TaskModel()
-    settings_model = SettingsModel()
+    model = TaskModel(db_path=":memory:")
+    settings_model = SettingsModel(db_path=":memory:")
     task_view = FakeTaskListView()
     task_presenter = TaskListPresenter(model, settings_model, task_view)
 
