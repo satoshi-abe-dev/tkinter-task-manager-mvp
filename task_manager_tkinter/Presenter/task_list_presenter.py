@@ -104,8 +104,15 @@ class TaskListPresenter:
         self.refresh()
 
     def on_add_click(self) -> None:
-        """「追加」ボタン押下時に呼ばれる。空欄のタスクを1件追加して選択状態にする"""
+        """「追加」ボタン押下時に呼ばれる。空欄のタスクを1件追加して選択状態にする。
+
+        ソートが有効なままだと、タスク名などの並び順次第で新しい行が
+        一覧の途中や先頭に紛れ込んでしまう。追加した直後は必ず一覧の
+        末尾（Modelの追加順=一番下）に見えるよう、ソート状態を解除する。
+        """
         task = self.model.add_blank_task()
+        self._sort_field = None
+        self._sort_ascending = True
         self.refresh()
         self.view.select_task(task.id)
 

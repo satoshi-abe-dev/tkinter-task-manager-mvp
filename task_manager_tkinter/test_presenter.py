@@ -201,6 +201,26 @@ def test_task_list_presenter_adds_blank_task_with_id_based_name() -> None:
     print("test_task_list_presenter_adds_blank_task_with_id_based_name: OK")
 
 
+def test_task_list_presenter_add_always_appears_at_bottom_even_when_sorted() -> None:
+    model = TaskModel()
+    settings_model = SettingsModel()
+    view = FakeTaskListView()
+    presenter = TaskListPresenter(model, settings_model, view)
+
+    # タスク名で昇順ソートしておく（新しいタスク名「タスクN」は五十音順だと
+    # 先頭付近に来てしまい、そのままでは一覧の途中/先頭に紛れ込む）
+    view.column_clicked_handler("name")
+    assert view.sort_state == ("name", True)
+
+    view.add_handler()
+    new_task = model.list_tasks()[-1]
+
+    # 追加直後はソートが解除され、一覧の末尾（Model上の追加順）に見える
+    assert view.sort_state == (None, True)
+    assert view.shown_tasks[-1].id == new_task.id
+    print("test_task_list_presenter_add_always_appears_at_bottom_even_when_sorted: OK")
+
+
 def test_task_list_presenter_add_name_survives_deletion_without_duplicate() -> None:
     model = TaskModel()
     settings_model = SettingsModel()
@@ -380,6 +400,7 @@ if __name__ == "__main__":
     test_task_list_presenter_sorts_by_column_and_toggles_direction()
     test_task_list_presenter_sorts_priority_by_meaning_not_alphabetically()
     test_task_list_presenter_adds_blank_task_with_id_based_name()
+    test_task_list_presenter_add_always_appears_at_bottom_even_when_sorted()
     test_task_list_presenter_add_name_survives_deletion_without_duplicate()
     test_task_list_presenter_deletes_task()
     test_task_list_presenter_deletes_multiple_tasks()
