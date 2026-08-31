@@ -20,8 +20,15 @@ separated according to the MVP pattern (Model / View / Presenter).
 
 ## Features
 
-- **Task List tab**: shows all registered tasks in a table (`ttk.Treeview`). Double-click a cell to edit it
-  inline; the due date can be picked from a `tkcalendar` calendar popup.
+- **Task List tab**: shows all registered tasks in a table (`ttk.Treeview`).
+  - Double-click a cell to edit it inline (name, assignee, due date, priority, status). Priority and
+    status are edited through dropdowns so invalid values can't be entered.
+  - The due date is picked from a `tkcalendar` calendar popup. The popup always shows the "current due
+    date" as text, and a "Back to this date" button lets you find your way back after browsing to a
+    different month.
+  - Click a column header to sort by that column; click it again to toggle ascending/descending (shown
+    as ▲/▼ in the header). Priority and status sort by their meaningful order (low→mid→high,
+    not-started→...→overdue) rather than alphabetically.
 - **New Task tab**: register a task with a name, assignee, due date, priority, initial status, tags, and a memo.
   - If the task name is left empty, an error message is shown and the task is not registered.
   - "Cancel" clears the form.
@@ -57,12 +64,12 @@ task_manager_tkinter/
 
 | Layer | Class | Responsibility | Depends on |
 |---|---|---|---|
-| Model | `TaskModel` | Holds and adds tasks only. Knows nothing about the UI. | none |
+| Model | `TaskModel` | Holds, adds, and updates tasks (for inline editing in the list) only. Knows nothing about the UI. | none |
 | Model | `SettingsModel` | Holds and updates settings only (in-memory, not persisted). | none |
 | Model | `csv_io` | Exports/imports tasks to/from CSV. Pure I/O functions. | none |
 | View (abstract) | `TaskListView` / `NewTaskView` / `SettingsView` | Define the "contract" for each tab (rendering, reading input, registering handlers). | none |
 | View (impl) | `tk_main_window.py` (`TkTaskListFrame` / `TkNewTaskFrame` / `TkSettingsFrame` / `TkMainWindow`) | Concrete implementation of the above abstractions using Tkinter (`ttk.Notebook` + standard widgets). | the View abstractions, tkinter |
-| Presenter | `TaskListPresenter` / `NewTaskPresenter` / `SettingsPresenter` | Holds the "screen behavior" logic for each tab: validation, updating the Model, and coordinating between tabs (e.g. refreshing the list after a new task is registered). | the corresponding Model(s), the corresponding View (abstract only) |
+| Presenter | `TaskListPresenter` / `NewTaskPresenter` / `SettingsPresenter` | Holds the "screen behavior" logic for each tab: validation, updating the Model, coordinating between tabs (e.g. refreshing the list after a new task is registered), and tracking the list's sort state. | the corresponding Model(s), the corresponding View (abstract only) |
 
 Because each Presenter depends only on its View abstraction, swapping the View implementation (Tkinter / another GUI library / a fake View for testing) requires no change to the Presenter code.
 
