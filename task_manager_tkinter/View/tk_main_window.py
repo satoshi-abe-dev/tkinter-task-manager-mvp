@@ -58,24 +58,18 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
         style = ttk.Style(self)
         style.configure("TaskList.Treeview", rowheight=28)
 
-        # 「追加」「削除」ボタンは、隣接させて表の幅いっぱいに広げる
-        # (fill="x", expand=Trueで2つのボタンに幅を均等に分配)。
-        # 表より先にpack(side="bottom")しておくことで、下端に固定される。
-        button_row = ttk.Frame(self)
-        self._add_button = ttk.Button(
-            button_row, text="＋ 追加", command=self._handle_add_click
-        )
-        self._add_button.pack(side="left", fill="x", expand=True)
-        self._delete_button = ttk.Button(
-            button_row, text="－ 削除", command=self._handle_delete_click, state="disabled"
-        )
-        self._delete_button.pack(side="left", fill="x", expand=True)
-        button_row.pack(side="bottom", fill="x", pady=(8, 0))
+        # このフレーム自身のgrid構成: 行0(表+スクロールバー)が余白を吸収し、
+        # 行1(追加/削除ボタン)は内容ぶんの高さで下端に固定される。
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(0, weight=1)
+        self.rowconfigure(1, weight=0)
 
-        # 表とスクロールバーをまとめる専用フレーム。ボタン行(下端固定)を差し引いた
-        # 残りのスペースいっぱいに広がる。
+        # 表とスクロールバーをまとめる専用フレーム。
         tree_frame = ttk.Frame(self)
-        tree_frame.pack(fill="both", expand=True)
+        tree_frame.grid(row=0, column=0, sticky="nsew")
+        tree_frame.columnconfigure(0, weight=1)  # 表側の列が余白を吸収
+        tree_frame.columnconfigure(1, weight=0)  # スクロールバー側は内容幅のまま
+        tree_frame.rowconfigure(0, weight=1)
 
         self._tree = ttk.Treeview(
             tree_frame, columns=_COLUMNS, show="headings", height=12, style="TaskList.Treeview"
@@ -89,11 +83,24 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
         scrollbar = ttk.Scrollbar(tree_frame, orient="vertical", command=self._tree.yview)
         self._tree.configure(yscrollcommand=scrollbar.set)
 
-        # scrollbarを先にpackして右側の幅を確保してから、残りをtreeで埋める。
-        # 逆順(treeを先にexpand=Trueでpack)だと、treeが余白を独占してしまい
-        # scrollbar用の幅が残らず、見えなくなる。
-        scrollbar.pack(side="right", fill="y")
-        self._tree.pack(side="left", fill="both", expand=True)
+        self._tree.grid(row=0, column=0, sticky="nsew")
+        scrollbar.grid(row=0, column=1, sticky="ns")
+
+        # 「追加」「削除」ボタンは、隣接させて表の幅いっぱいに広げる
+        # (両列をweight=1にして幅を均等に分配)。
+        button_row = ttk.Frame(self)
+        button_row.grid(row=1, column=0, sticky="ew", pady=(8, 0))
+        button_row.columnconfigure(0, weight=1)
+        button_row.columnconfigure(1, weight=1)
+
+        self._add_button = ttk.Button(
+            button_row, text="＋ 追加", command=self._handle_add_click
+        )
+        self._add_button.grid(row=0, column=0, sticky="ew")
+        self._delete_button = ttk.Button(
+            button_row, text="－ 削除", command=self._handle_delete_click, state="disabled"
+        )
+        self._delete_button.grid(row=0, column=1, sticky="ew")
 
         self._tree.bind("<Double-1>", self._on_double_click)
         self._tree.bind("<Button-1>", self._on_click)
@@ -292,14 +299,18 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
         except ValueError:
             pass  # 既存の値が日付として解釈できない場合は今日の月をそのまま表示
 
+        popup.columnconfigure(0, weight=1)
+
         # 現在設定されている期限を常に文字で表示しておく。カレンダー側のハイライトは
         # 開いた直後の月にしか出ないため、月を送って見えなくなっても分かるようにする。
         info_row = ttk.Frame(popup)
-        info_row.pack(fill="x", padx=10, pady=(10, 0))
-        ttk.Label(info_row, text=f"現在の期限: {current_value or '未設定'}").pack(side="left")
+        info_row.grid(row=0, column=0, sticky="ew", padx=10, pady=(10, 0))
+        info_row.columnconfigure(0, weight=1)  # ラベル側が伸び、戻るボタンは右端に寄る
+        info_label = ttk.Label(info_row, text=f"現在の期限: {current_value or '未設定'}")
+        info_label.grid(row=0, column=0, sticky="w")
 
         calendar = Calendar(popup, **calendar_kwargs)
-        calendar.pack(padx=10, pady=10)
+        calendar.grid(row=1, column=0, padx=10, pady=10)
         # selectbackground(背景の塗りつぶし)やborderwidth/relief(枠線)は、Aquaでは
         # ttkカスタムスタイルとして値をセットしても描画に反映されない。確実に効く
         # 「文字色」「太さ」「大きさ」だけで選択中の日を強調する。
@@ -319,7 +330,7 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
                 text="この日に戻る",
                 command=lambda: calendar.selection_set(initial),
             )
-            back_button.pack(side="right")
+            back_button.grid(row=0, column=1, sticky="e")
 
         # ジオメトリ(位置)を計算する前に、ウィジェットの実サイズを確定させておく
         popup.update_idletasks()
@@ -430,17 +441,18 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
         data_row = ttk.Frame(self)
         data_row.grid(row=row, column=0, columnspan=2, sticky="w", pady=(6, 0))
         self._export_button = ttk.Button(data_row, text="書き出し")
-        self._export_button.pack(side="left", padx=(0, 8))
+        self._export_button.grid(row=0, column=0, padx=(0, 8))
         self._import_button = ttk.Button(data_row, text="読み込み")
-        self._import_button.pack(side="left")
+        self._import_button.grid(row=0, column=1)
         row += 1
 
         save_row = ttk.Frame(self)
         save_row.grid(row=row, column=0, columnspan=2, sticky="we", pady=(16, 0))
+        save_row.columnconfigure(0, weight=1)  # ステータス側が伸び、保存ボタンは右端に寄る
         self._status_label = ttk.Label(save_row, text="", foreground="#4a6cf7")
-        self._status_label.pack(side="left")
+        self._status_label.grid(row=0, column=0, sticky="w")
         self._save_button = ttk.Button(save_row, text="変更を保存")
-        self._save_button.pack(side="right")
+        self._save_button.grid(row=0, column=1, sticky="e")
 
         self.columnconfigure(1, weight=1)
 
@@ -524,8 +536,11 @@ class TkMainWindow:
         self._root.title("タスク管理")
         self._root.geometry("640x540")
 
+        self._root.columnconfigure(0, weight=1)
+        self._root.rowconfigure(0, weight=1)
+
         notebook = ttk.Notebook(self._root)
-        notebook.pack(fill="both", expand=True, padx=8, pady=8)
+        notebook.grid(row=0, column=0, sticky="nsew", padx=8, pady=8)
 
         self.task_list_frame = TkTaskListFrame(notebook)
         self.settings_frame = TkSettingsFrame(notebook)
