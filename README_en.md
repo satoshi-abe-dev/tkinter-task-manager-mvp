@@ -8,9 +8,6 @@ built around a more realistic, business-style, tabbed task-management app.
 
 ## Screenshots
 
-> ⚠️ These are from an older version that still had a "New Task" tab. The app now has just two tabs
-> (Task List / Settings) as described below. Screenshots will be replaced once retaken.
-
 | Task List | Settings |
 |---|---|
 | ![Task list tab](docs/screenshots/task-list.png) | ![Settings tab](docs/screenshots/settings.png) |
@@ -31,18 +28,25 @@ to the MVP pattern (Model / View / Presenter).
     different month.
   - Click a column header to sort by that column; click it again to toggle ascending/descending (shown
     as ▲/▼ in the header). Priority and status sort by their meaningful order (low→mid→high,
-    not-started→...→overdue) rather than alphabetically.
-  - "＋ Add" and "－ Delete" buttons sit below the table, joined together and stretched to span the
+    not-started→...→overdue) rather than alphabetically. Tasks with a blank value in the sorted
+    column always sink to the bottom, regardless of sort direction.
+  - "+ Add" and "− Delete" buttons sit below the table, joined together and stretched to span the
     table's full width. There is no separate registration form.
-    - "＋ Add" appends a task with every field blank and selects it. Only the task name isn't left
+    - "+ Add" appends a task with every field blank and selects it. Only the task name isn't left
       blank — it gets a placeholder name like "Task N", where N is the task's own unique id (so the
       name never collides with a previous one, even after deletions). From there you fill in the
-      assignee, due date, priority, and status the same way as any other row: inline editing.
-    - "－ Delete" is only enabled when a row is selected. It shows a native confirmation alert
-      ("Are you sure you want to delete this?"); choosing "Yes" deletes the selected row.
-- **Settings tab**: configure notifications (on/off and timing), the list page size, and the theme.
-  - Changing a value shows "You have unsaved changes"; nothing is applied until "Save changes" is clicked.
-  - Tasks can be exported to a CSV file, or imported from one.
+      assignee, due date, priority, and status the same way as any other row: inline editing. The
+      existing rows' order (including any active sort result) is left untouched — the new task is
+      always appended at the very end.
+    - "− Delete" is only enabled when at least one row is selected. It supports multi-select
+      (Shift/Cmd-click), and deletes every selected row at once. It shows a native confirmation
+      alert; choosing "Yes" deletes the selected row(s).
+  - "Export" and "Import" buttons (below the "+ Add" button) export tasks to a CSV file, or import
+    them from one.
+- **Settings tab**: configures the due-date highlight (on/off, and how many days ahead to warn).
+  - Changing a value shows "Unsaved changes"; nothing is applied until "Save Changes" is clicked.
+  - This setting directly drives the due-date highlight on the task list (rows for tasks that are
+    overdue or due soon are shaded orange/red). Tasks with a "Done" status are excluded.
 
 Tabs and buttons deliberately keep the OS-native look (the default `ttk.Notebook` / `ttk.Button` style).
 
@@ -75,17 +79,19 @@ task_manager_tkinter/
 | Model | `csv_io` | Exports/imports tasks to/from CSV. Pure I/O functions. | none |
 | View (abstract) | `TaskListView` / `SettingsView` | Define the "contract" for each tab (rendering, reading input, registering handlers). | none |
 | View (impl) | `tk_main_window.py` (`TkTaskListFrame` / `TkSettingsFrame` / `TkMainWindow`) | Concrete implementation of the above abstractions using Tkinter (`ttk.Notebook` + standard widgets). | the View abstractions, tkinter |
-| Presenter | `TaskListPresenter` / `SettingsPresenter` | Holds the "screen behavior" logic for each tab: validation, updating the Model, tracking the list's sort state, and adding/deleting tasks. | the corresponding Model(s), the corresponding View (abstract only) |
+| Presenter | `TaskListPresenter` / `SettingsPresenter` | Holds the "screen behavior" logic for each tab: validation, updating the Model, tracking the list's sort state, adding/deleting tasks, CSV export/import, and determining the due-date highlight. `TaskListPresenter` also reads `SettingsModel` to get the highlight criteria (on/off, how many days ahead). | the corresponding Model(s) (`TaskListPresenter` depends on both `TaskModel` and `SettingsModel`), the corresponding View (abstract only) |
 
 Because each Presenter depends only on its View abstraction, swapping the View implementation (Tkinter / another GUI library / a fake View for testing) requires no change to the Presenter code.
 
-## Data Flow (clicking "＋ Add")
+## Data Flow (clicking "+ Add")
 
-1. The user clicks "＋ Add" on the "Task List" tab.
+1. The user clicks "+ Add" on the "Task List" tab.
 2. The handler registered with `TkTaskListFrame` (`TaskListPresenter.on_add_click`) is invoked.
 3. The Presenter calls `TaskModel.add_blank_task()`. The Model adds a task with every field blank,
    automatically filling the name with a placeholder like "Task N" using the id it just assigned.
 4. It calls `refresh()` to update the list, then `view.select_task(task.id)` to select the new row.
+   The existing rows' order (including any active sort result) is left untouched — only the new
+   task is appended at the end.
 5. The user double-clicks cells on that selected row to fill in the assignee, due date, priority, and
    status via the same inline-editing mechanism used for any other task.
 
