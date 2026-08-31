@@ -33,16 +33,14 @@ class TkMainWindow:
         self._root.rowconfigure(0, weight=0)  # Save行
         self._root.rowconfigure(1, weight=1)  # タブ本体
 
-        # Saveボタンだけの行。タブの直前(Notebookの上)に置き、行の右端に寄せる
-        # (列0を空きスペース吸収用にし、ボタンだけ列1に置く)。
-        save_row = ttk.Frame(self._root)
-        save_row.grid(row=0, column=0, sticky="ew", padx=8, pady=(8, 0))
-        save_row.columnconfigure(0, weight=1)
-        self._save_button = ttk.Button(save_row, text="Save", command=self._handle_save_click)
-        self._save_button.grid(row=0, column=1, sticky="e")
+        # Saveボタン。タブの直前(Notebookの上)、行の右端に配置する。中間に空の
+        # Frameを挟まず直接gridし、sticky="ne"で右上に寄せることで、ボタン単体の
+        # 行が実際以上に広い余白の帯に見えないよう、上下の余白を切り詰めている。
+        self._save_button = ttk.Button(self._root, text="Save", command=self._handle_save_click)
+        self._save_button.grid(row=0, column=0, sticky="ne", padx=8, pady=(6, 4))
 
         notebook = ttk.Notebook(self._root)
-        notebook.grid(row=1, column=0, sticky="nsew", padx=8, pady=8)
+        notebook.grid(row=1, column=0, sticky="nsew", padx=8, pady=(0, 8))
 
         self.task_list_frame = TkTaskListFrame(notebook)
         self.settings_frame = TkSettingsFrame(notebook)
