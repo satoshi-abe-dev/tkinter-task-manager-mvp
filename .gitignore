@@ -9,3 +9,6 @@ __pycache__/
 .venv/
 venv/
 *.egg-info/
+
+# デバッグ用にやり取りしたスクリーンショットなどの置き場
+temp/

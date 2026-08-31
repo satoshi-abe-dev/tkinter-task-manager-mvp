@@ -9,14 +9,19 @@ TkMainWindowはそれらをttk.Notebookにまとめ、ウィンドウ全体の�
 """
 
 import tkinter as tk
+from datetime import datetime
 from tkinter import filedialog, messagebox, ttk
 from typing import Callable, List, Optional
 
+from tkcalendar import Calendar
+
 from Model.settings_model import Settings
-from Model.task import Task
+from Model.task import PRIORITIES, STATUSES, Task
 from View.new_task_view import NewTaskView
 from View.settings_view import SettingsView
 from View.task_list_view import TaskListView
+
+_DATE_PATTERN = "yyyy-mm-dd"
 
 _COLUMNS = ("name", "assignee", "due_date", "priority", "status")
 _COLUMN_LABELS = {
@@ -36,13 +41,15 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
     Presenterに委ねる（Viewはここで直接Modelを書き換えない）。
     """
 
-    PRIORITIES = ["低", "中", "高"]
-    STATUSES = ["未着手", "進行中", "完了", "遅延"]
+    PRIORITIES = PRIORITIES
+    STATUSES = STATUSES
 
     def __init__(self, master: tk.Widget) -> None:
         super().__init__(master, padding=16)
         self._on_cell_edited: Optional[Callable[[int, str, str], None]] = None
+        self._on_column_clicked: Optional[Callable[[str], None]] = None
         self._editor: Optional[tk.Widget] = None
+        self._date_picker: Optional[tk.Toplevel] = None
 
         # 既定の行高(18px前後)だとインライン編集用のEntry/Comboboxを重ねた時に
         # 上下が窮屈になり文字が見切れるため、この一覧専用のスタイルで広げる。
@@ -53,11 +60,20 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
             self, columns=_COLUMNS, show="headings", height=12, style="TaskList.Treeview"
         )
         for col in _COLUMNS:
-            self._tree.heading(col, text=_COLUMN_LABELS[col])
+            self._tree.heading(
+                col, text=_COLUMN_LABELS[col], command=self._make_heading_handler(col)
+            )
             self._tree.column(col, width=110, anchor="w")
         self._tree.pack(fill="both", expand=True)
 
         self._tree.bind("<Double-1>", self._on_double_click)
+
+    def _make_heading_handler(self, field: str) -> Callable[[], None]:
+        def handler() -> None:
+            if self._on_column_clicked:
+                self._on_column_clicked(field)
+
+        return handler
 
     # Override
     def show_tasks(self, tasks: List[Task]) -> None:
@@ -74,6 +90,18 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
     # Override
     def set_on_cell_edited(self, handler: Callable[[int, str, str], None]) -> None:
         self._on_cell_edited = handler
+
+    # Override
+    def set_on_column_clicked(self, handler: Callable[[str], None]) -> None:
+        self._on_column_clicked = handler
+
+    # Override
+    def show_sort_state(self, field: Optional[str], ascending: bool) -> None:
+        for col in _COLUMNS:
+            text = _COLUMN_LABELS[col]
+            if col == field:
+                text += " ▲" if ascending else " ▼"
+            self._tree.heading(col, text=text)
 
     def _on_double_click(self, event: tk.Event) -> None:
         if self._tree.identify_region(event.x, event.y) != "cell":
@@ -95,6 +123,15 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
         current_value = self._tree.set(row_id, field)
 
         self._destroy_editor()
+
+        # 期限欄だけは、セルに重ねるのではなく別ウィンドウのカレンダーで選ばせる。
+        # tkcalendar.DateEntryは装飾なしウィンドウ(overrideredirect)にカレンダーを
+        # 描画するが、macOSのAqua環境ではその中のttkウィジェットの文字色が正しく
+        # 描画されないことがある。装飾ありの通常のToplevelにCalendarを直接
+        # 埋め込むことで、この描画崩れと内部の後処理順序に起因するエラーの両方を避ける。
+        if field == "due_date":
+            self._open_date_picker(task_id, row_id, current_value)
+            return
 
         editor: tk.Widget
         if field in ("priority", "status"):
@@ -131,22 +168,123 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
             self._destroy_editor()
 
         editor.bind("<Return>", commit)
-        editor.bind("<FocusOut>", commit)
         editor.bind("<Escape>", cancel)
+        editor.bind("<FocusOut>", commit)
 
         self._editor = editor
+
+    def _open_date_picker(self, task_id: int, row_id: str, current_value: str) -> None:
+        # 既に開いている日付ピッカーがあれば、重ねて表示せず先に閉じる
+        # （前のポップアップを残したまま新しいものを開くと、ウィンドウが重なって
+        # 数字が崩れて見えることがある）。
+        self._destroy_editor()
+
+        popup = tk.Toplevel(self)
+        self._date_picker = popup
+        popup.bind(
+            "<Destroy>",
+            lambda e: setattr(self, "_date_picker", None) if e.widget is popup else None,
+        )
+        popup.title("期限を選択")
+        popup.transient(self.winfo_toplevel())
+        popup.resizable(False, False)
+
+        calendar_kwargs = {
+            "selectmode": "day",
+            "date_pattern": _DATE_PATTERN,
+            # 週番号列は使わないので非表示（先頭列に出る紛らわしい数字の正体はこれ）。
+            "showweeknumbers": False,
+            # macOSのAquaテーマはttkカスタムスタイル(TLabel)の背景色指定を無視するため、
+            # tkcalendarが標準で使う「白文字」がその場合は常に白背景の上に乗って
+            # 見えなくなる（月/年ヘッダーがこれで消えていた）。文字色を黒に統一する。
+            "foreground": "black",
+            # 選択中の日のハイライトも同じ理由でselectbackgroundが効かず、背景色では
+            # 目立たせられない。文字色を変えて目立たせる（フォントの太字化は下で追加）。
+            "selectforeground": "#d94f4f",
+            # 一方でTButton(月/年の矢印ボタン)の背景色はAquaでも反映されるため、
+            # 既定の濃いグレー(gray30)のままだと黒い矢印との見分けがつきにくい。
+            # 明るい背景にして矢印が見えるようにする。
+            "background": "white",
+        }
+        initial = None
+        try:
+            initial = datetime.strptime(current_value, "%Y-%m-%d").date()
+            calendar_kwargs.update(year=initial.year, month=initial.month, day=initial.day)
+        except ValueError:
+            pass  # 既存の値が日付として解釈できない場合は今日の月をそのまま表示
+
+        # 現在設定されている期限を常に文字で表示しておく。カレンダー側のハイライトは
+        # 開いた直後の月にしか出ないため、月を送って見えなくなっても分かるようにする。
+        info_row = ttk.Frame(popup)
+        info_row.pack(fill="x", padx=10, pady=(10, 0))
+        ttk.Label(info_row, text=f"現在の期限: {current_value or '未設定'}").pack(side="left")
+
+        calendar = Calendar(popup, **calendar_kwargs)
+        calendar.pack(padx=10, pady=10)
+        # selectbackground(背景の塗りつぶし)やborderwidth/relief(枠線)は、Aquaでは
+        # ttkカスタムスタイルとして値をセットしても描画に反映されない。確実に効く
+        # 「文字色」「太さ」「大きさ」だけで選択中の日を強調する。
+        # tkcalendarはスタイル名ごとのフォント上書きを構築時引数として公開していない
+        # ため、生成後にスタイルを直接書き換える。
+        base_font = calendar._font.actual()
+        base_size = base_font["size"]
+        larger_size = base_size + 4 if base_size >= 0 else base_size - 4
+        calendar.style.configure(
+            "sel.%s.TLabel" % calendar._style_prefixe,
+            font=(base_font["family"], larger_size, "bold"),
+        )
+
+        if initial is not None:
+            back_button = ttk.Button(
+                info_row,
+                text="この日に戻る",
+                command=lambda: calendar.selection_set(initial),
+            )
+            back_button.pack(side="right")
+
+        # ジオメトリ(位置)を計算する前に、ウィジェットの実サイズを確定させておく
+        popup.update_idletasks()
+
+        def on_selected(_event: Optional[tk.Event] = None) -> None:
+            new_value = calendar.get_date()
+            popup.destroy()
+            if new_value != current_value and self._on_cell_edited:
+                self._on_cell_edited(task_id, "due_date", new_value)
+
+        calendar.bind("<<CalendarSelected>>", on_selected)
+        popup.bind("<Escape>", lambda e: popup.destroy())
+        popup.protocol("WM_DELETE_WINDOW", popup.destroy)
+
+        bbox = self._tree.bbox(row_id, "due_date")
+        if bbox:
+            cell_x, cell_y, _cell_w, cell_h = bbox
+            popup.geometry(
+                f"+{self.winfo_rootx() + cell_x}+{self.winfo_rooty() + cell_y + cell_h}"
+            )
+
+        popup.lift()
+        popup.attributes("-topmost", True)
+        popup.after(200, lambda: popup.attributes("-topmost", False))
+        popup.grab_set()
+        popup.focus_set()
 
     def _destroy_editor(self) -> None:
         if self._editor is not None:
             self._editor.destroy()
             self._editor = None
+        if self._date_picker is not None:
+            self._date_picker.destroy()
+            self._date_picker = None
 
 
 class TkNewTaskFrame(ttk.Frame, NewTaskView):
     """「新規登録」タブの実装。"""
 
     ASSIGNEES = ["佐藤", "田中", "鈴木"]
-    PRIORITIES = ["低", "中", "高"]
+    PRIORITIES = PRIORITIES
+    # 新規登録時に選べる初期ステータスは、意図的に「未着手」「進行中」のみに
+    # 制限している（完了・遅延のタスクを新規登録できても実務上不自然なため）。
+    # 一覧側で扱う全ステータス(Model.task.STATUSES)とは別物。
     STATUSES = ["未着手", "進行中"]
 
     def __init__(self, master: tk.Widget) -> None:

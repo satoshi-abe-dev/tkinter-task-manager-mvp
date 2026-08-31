@@ -13,7 +13,8 @@ MVPパターン（Model / View / Presenter）で責務を分離して実装し�
 
 ## 機能
 
-- **タスク一覧タブ**: 登録済みタスクを表（`ttk.Treeview`）で一覧表示する。
+- **タスク一覧タブ**: 登録済みタスクを表（`ttk.Treeview`）で一覧表示する。セルをダブルクリックするとその場で編集でき、
+  期限は`tkcalendar`のカレンダーから選択できる。
 - **新規登録タブ**: タスク名・担当者・期限・優先度・初期ステータス・タグ・メモを入力して登録する。
   - タスク名が未入力の場合はエラーメッセージを表示し、登録を行わない。
   - 「キャンセル」でフォームをクリアする。
@@ -68,11 +69,15 @@ task_manager_tkinter/
 
 ## 実行方法
 
-このフォルダ(`task_manager_tkinter`)の直下で以下を実行する。GUIを使うため、Tcl/Tkが使える環境で実行すること。
+`tkcalendar`（期限のカレンダー選択に使用）が必要なため、リポジトリ直下に仮想環境を作ってから実行する。
+GUIを使うため、Tcl/Tkが使える環境で実行すること。
 
 ```bash
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+
 cd task_manager_tkinter
-python3 main.py
+../.venv/bin/python main.py
 ```
 
 ## テスト方法
@@ -94,3 +99,4 @@ CIでも、PR作成時・`main`へのpush時に同じテストが自動実行さ
 
 - Python 3.14（Homebrew版）
 - tkinter利用には `brew install python-tk@3.14` が別途必要（macOS標準の`/usr/bin`側は非推奨のTcl/Tk 8.5.9のため使用しない）
+- GUIの実行には`tkcalendar`が必要（`requirements.txt`参照）。`test_presenter.py`の実行には不要

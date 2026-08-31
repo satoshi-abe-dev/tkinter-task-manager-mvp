@@ -7,6 +7,11 @@ Task（データクラス）
 from dataclasses import dataclass, field
 from typing import List
 
+# 優先度・ステータスの取りうる値と、意味のある並び順（低い方から高い方へ など）。
+# フォームの選択肢や一覧のソート順など、複数箇所から共通で参照する。
+PRIORITIES = ["低", "中", "高"]
+STATUSES = ["未着手", "進行中", "完了", "遅延"]
+
 
 @dataclass
 class Task:

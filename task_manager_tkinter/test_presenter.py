@@ -29,12 +29,20 @@ class FakeTaskListView(TaskListView):
     def __init__(self) -> None:
         self.shown_tasks: List[Task] = []
         self.cell_edited_handler: Optional[Callable[[int, str, str], None]] = None
+        self.column_clicked_handler: Optional[Callable[[str], None]] = None
+        self.sort_state: Optional[Tuple[Optional[str], bool]] = None
 
     def show_tasks(self, tasks: List[Task]) -> None:
         self.shown_tasks = list(tasks)
 
     def set_on_cell_edited(self, handler: Callable[[int, str, str], None]) -> None:
         self.cell_edited_handler = handler
+
+    def set_on_column_clicked(self, handler: Callable[[str], None]) -> None:
+        self.column_clicked_handler = handler
+
+    def show_sort_state(self, field: Optional[str], ascending: bool) -> None:
+        self.sort_state = (field, ascending)
 
 
 class FakeNewTaskView(NewTaskView):
@@ -149,6 +157,40 @@ def test_task_list_presenter_rejects_empty_name_edit() -> None:
     print("test_task_list_presenter_rejects_empty_name_edit: OK")
 
 
+def test_task_list_presenter_sorts_by_column_and_toggles_direction() -> None:
+    model = TaskModel()
+    view = FakeTaskListView()
+    presenter = TaskListPresenter(model, view)
+
+    assert view.sort_state == (None, True)  # 初期状態はソートなし
+
+    view.column_clicked_handler("due_date")
+    dates = [t.due_date for t in view.shown_tasks]
+    assert dates == sorted(dates)  # 昇順
+    assert view.sort_state == ("due_date", True)
+
+    view.column_clicked_handler("due_date")  # 同じ列を再クリック→降順に切り替え
+    dates = [t.due_date for t in view.shown_tasks]
+    assert dates == sorted(dates, reverse=True)
+    assert view.sort_state == ("due_date", False)
+
+    view.column_clicked_handler("name")  # 別の列をクリック→昇順から
+    assert view.sort_state == ("name", True)
+    print("test_task_list_presenter_sorts_by_column_and_toggles_direction: OK")
+
+
+def test_task_list_presenter_sorts_priority_by_meaning_not_alphabetically() -> None:
+    model = TaskModel()
+    view = FakeTaskListView()
+    presenter = TaskListPresenter(model, view)
+
+    view.column_clicked_handler("priority")
+
+    priorities = [t.priority for t in view.shown_tasks]
+    assert priorities == ["低", "中", "中", "高", "高"]
+    print("test_task_list_presenter_sorts_priority_by_meaning_not_alphabetically: OK")
+
+
 def test_new_task_presenter_rejects_empty_name() -> None:
     model = TaskModel()
     view = FakeNewTaskView()
@@ -251,6 +293,8 @@ if __name__ == "__main__":
     test_task_list_presenter_shows_initial_tasks()
     test_task_list_presenter_edits_cell()
     test_task_list_presenter_rejects_empty_name_edit()
+    test_task_list_presenter_sorts_by_column_and_toggles_direction()
+    test_task_list_presenter_sorts_priority_by_meaning_not_alphabetically()
     test_new_task_presenter_rejects_empty_name()
     test_new_task_presenter_adds_task_and_notifies()
     test_new_task_presenter_cancel_clears_form()

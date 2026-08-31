@@ -14,7 +14,8 @@ separated according to the MVP pattern (Model / View / Presenter).
 
 ## Features
 
-- **Task List tab**: shows all registered tasks in a table (`ttk.Treeview`).
+- **Task List tab**: shows all registered tasks in a table (`ttk.Treeview`). Double-click a cell to edit it
+  inline; the due date can be picked from a `tkcalendar` calendar popup.
 - **New Task tab**: register a task with a name, assignee, due date, priority, initial status, tags, and a memo.
   - If the task name is left empty, an error message is shown and the task is not registered.
   - "Cancel" clears the form.
@@ -69,11 +70,15 @@ Because each Presenter depends only on its View abstraction, swapping the View i
 
 ## How to Run
 
-Run the following from inside the `task_manager_tkinter` folder. Since this is a GUI app, run it in an environment where Tcl/Tk is available.
+`tkcalendar` is required (used for the due-date calendar picker), so set up a virtual environment at the
+repository root first. Since this is a GUI app, run it in an environment where Tcl/Tk is available.
 
 ```bash
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+
 cd task_manager_tkinter
-python3 main.py
+../.venv/bin/python main.py
 ```
 
 ## How to Test
@@ -95,3 +100,4 @@ CI also runs the same tests automatically on every pull request and every push t
 
 - Python 3.14 (Homebrew build)
 - Using tkinter requires `brew install python-tk@3.14` separately (the deprecated Tcl/Tk 8.5.9 bundled with macOS's `/usr/bin` Python is not used)
+- Running the GUI requires `tkcalendar` (see `requirements.txt`). Not needed to run `test_presenter.py`.
