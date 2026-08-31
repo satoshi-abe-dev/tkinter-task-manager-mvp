@@ -382,7 +382,6 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
 class TkSettingsFrame(ttk.Frame, SettingsView):
     """「設定」タブの実装。"""
 
-    DAYS_OPTIONS = ["1", "3", "7"]
     PAGE_SIZE_OPTIONS = ["10", "25", "50"]
     THEME_OPTIONS = ["ライト", "ダーク", "システムに合わせる"]
 
@@ -399,25 +398,36 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
         self._theme_var = tk.StringVar(value="システムに合わせる")
 
         row = 0
-        ttk.Label(self, text="通知", font=("Helvetica", 10, "bold")).grid(
+        ttk.Label(self, text="期限ハイライト", font=("Helvetica", 10, "bold")).grid(
             row=row, column=0, columnspan=2, sticky="w", pady=(0, 4)
         )
         row += 1
         ttk.Checkbutton(
             self,
-            text="期限が近いタスクを通知する",
+            text="期限が近い未完了のタスクをハイライトする",
             variable=self._notify_var,
             command=self._changed,
         ).grid(row=row, column=0, columnspan=2, sticky="w", pady=2)
         row += 1
-        ttk.Label(self, text="通知するタイミング").grid(row=row, column=0, sticky="w", pady=2)
-        ttk.Combobox(
-            self,
+        ttk.Label(self, text="何日前からハイライトするか").grid(
+            row=row, column=0, sticky="w", pady=2
+        )
+        days_row = ttk.Frame(self)
+        days_row.grid(row=row, column=1, sticky="w", pady=2)
+        # 0以上の整数のみを直接入力できるようにする(負の数・文字は弾く)。
+        validate_digits = (self.register(self._validate_day_count), "%P")
+        ttk.Spinbox(
+            days_row,
+            from_=0,
+            to=365,
+            increment=1,
             textvariable=self._notify_days_var,
-            values=self.DAYS_OPTIONS,
-            state="readonly",
-            width=8,
-        ).grid(row=row, column=1, sticky="w", pady=2)
+            width=5,
+            validate="key",
+            validatecommand=validate_digits,
+        ).grid(row=0, column=0)
+        # 単位(日)を明示する
+        ttk.Label(days_row, text="日前から").grid(row=0, column=1, padx=(6, 0))
         row += 1
 
         ttk.Separator(self).grid(row=row, column=0, columnspan=2, sticky="we", pady=10)
@@ -481,6 +491,11 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
             return
         if self._on_field_changed:
             self._on_field_changed()
+
+    @staticmethod
+    def _validate_day_count(proposed: str) -> bool:
+        """日数欄への入力を0以上の整数（または編集途中の空欄）だけに制限する"""
+        return proposed == "" or proposed.isdigit()
 
     # Override
     def set_on_field_changed(self, handler: Callable[[], None]) -> None:
