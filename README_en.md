@@ -42,9 +42,19 @@ to the MVP pattern (Model / View / Presenter).
       (Shift/Cmd-click), and deletes every selected row at once. It shows a native confirmation
       alert; choosing "Yes" deletes the selected row(s).
   - "Export" and "Import" buttons (below the "+ Add" button) export tasks to a CSV file, or import
-    them from one.
+    them from one. CSV import keeps whatever status is written in the file as-is — the auto-set
+    behavior described below does not run on import (the visual highlight is still applied
+    separately, based on the due date).
+  - Editing the due date inline to a past date auto-sets that task's status to "Overdue" — but only
+    at that one moment (excluding "Done" tasks). It isn't enforced continuously: if the user later
+    changes the status to something else manually, that choice is respected until the due date is
+    edited again.
+  - A row whose status is manually set to "Overdue" is always highlighted red, regardless of its due
+    date (excluding "Done" tasks).
 - **Settings tab**: configures the due-date highlight (on/off, and how many days ahead to warn).
   - Changing a value shows "Unsaved changes"; nothing is applied until "Save Changes" is clicked.
+    The one exception is the highlight on/off checkbox itself — toggling it applies immediately to
+    the task list's highlighting, without waiting for "Save Changes".
   - This setting directly drives the due-date highlight on the task list (rows for tasks that are
     overdue or due soon are shaded orange/red). Tasks with a "Done" status are excluded.
 
