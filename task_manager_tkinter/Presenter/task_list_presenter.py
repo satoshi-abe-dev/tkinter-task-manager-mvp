@@ -70,11 +70,21 @@ class TaskListPresenter:
         return self._sorted_tasks(tasks)
 
     def _sorted_tasks(self, tasks: List[Task]) -> List[Task]:
-        """現在のソート列に従ってタスクを並べ替える（列が未指定ならそのまま）"""
+        """現在のソート列に従ってタスクを並べ替える（列が未指定ならそのまま）。
+
+        値が空欄のタスクは、昇順/降順のどちらでも常に末尾に置く
+        （reverse=Trueにすると単純なキー比較だけでは空欄が先頭に来てしまう
+        ため、空欄かどうかを別扱いにする必要がある）。
+        """
         if self._sort_field is None:
             return tasks
-        key = _SORT_KEYS[self._sort_field]
-        return sorted(tasks, key=key, reverse=not self._sort_ascending)
+        field = self._sort_field
+        key = _SORT_KEYS[field]
+        tasks = sorted(tasks, key=key, reverse=not self._sort_ascending)
+        # sorted()は安定ソートなので、この後「空欄かどうか」だけで並べ替えれば、
+        # 空欄以外の順序(昇順/降順の結果)は保ったまま、空欄だけを末尾に押し出せる。
+        tasks = sorted(tasks, key=lambda t: not getattr(t, field).strip())
+        return tasks
 
     def _apply_manual_order(self, tasks: List[Task]) -> List[Task]:
         """_manual_orderで固定した並び順を適用する。

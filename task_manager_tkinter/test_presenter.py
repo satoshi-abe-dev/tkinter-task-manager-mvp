@@ -179,6 +179,29 @@ def test_task_list_presenter_sorts_priority_by_meaning_not_alphabetically() -> N
     print("test_task_list_presenter_sorts_priority_by_meaning_not_alphabetically: OK")
 
 
+def test_task_list_presenter_sort_keeps_blank_values_at_bottom() -> None:
+    model = TaskModel()
+    settings_model = SettingsModel()
+    view = FakeTaskListView()
+    presenter = TaskListPresenter(model, settings_model, view)
+
+    # 「追加」で作った空欄タスクを1件混ぜる
+    view.add_handler()
+    blank_task = model.list_tasks()[-1]
+
+    # 昇順: 空欄は末尾
+    view.column_clicked_handler("assignee")
+    assert view.shown_tasks[-1].id == blank_task.id
+    assert all(t.assignee.strip() for t in view.shown_tasks[:-1])
+
+    # 降順に切り替えても、空欄は引き続き末尾（先頭に来てはいけない）
+    view.column_clicked_handler("assignee")
+    assert view.sort_state == ("assignee", False)
+    assert view.shown_tasks[-1].id == blank_task.id
+    assert all(t.assignee.strip() for t in view.shown_tasks[:-1])
+    print("test_task_list_presenter_sort_keeps_blank_values_at_bottom: OK")
+
+
 def test_task_list_presenter_adds_blank_task_with_id_based_name() -> None:
     model = TaskModel()
     settings_model = SettingsModel()
@@ -439,6 +462,7 @@ if __name__ == "__main__":
     test_task_list_presenter_rejects_empty_name_edit()
     test_task_list_presenter_sorts_by_column_and_toggles_direction()
     test_task_list_presenter_sorts_priority_by_meaning_not_alphabetically()
+    test_task_list_presenter_sort_keeps_blank_values_at_bottom()
     test_task_list_presenter_adds_blank_task_with_id_based_name()
     test_task_list_presenter_add_always_appears_at_bottom_even_when_sorted()
     test_task_list_presenter_add_preserves_order_across_further_edits()
