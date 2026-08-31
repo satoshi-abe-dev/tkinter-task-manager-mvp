@@ -13,12 +13,10 @@ Model / View / Presenter の各フォルダから読み込んで組み立てて�
             csv_io.py             CSV書き出し/読み込み（純粋なI/O）
         View/
             task_list_view.py     TaskListView（抽象クラス）
-            new_task_view.py      NewTaskView（抽象クラス）
             settings_view.py      SettingsView（抽象クラス）
-            tk_main_window.py     Tkinter実装（3タブぶんのFrame + TkMainWindow）
+            tk_main_window.py     Tkinter実装（2タブぶんのFrame + TkMainWindow）
         Presenter/
             task_list_presenter.py
-            new_task_presenter.py
             settings_presenter.py
 
 実行方法:
@@ -29,7 +27,6 @@ Model / View / Presenter の各フォルダから読み込んで組み立てて�
 
 from Model.settings_model import SettingsModel
 from Model.task_model import TaskModel
-from Presenter.new_task_presenter import NewTaskPresenter
 from Presenter.settings_presenter import SettingsPresenter
 from Presenter.task_list_presenter import TaskListPresenter
 from View.tk_main_window import TkMainWindow
@@ -42,11 +39,6 @@ def main() -> None:
     window = TkMainWindow()
 
     task_list_presenter = TaskListPresenter(task_model, window.task_list_frame)
-    NewTaskPresenter(
-        task_model,
-        window.new_task_frame,
-        on_task_added=task_list_presenter.refresh,
-    )
     SettingsPresenter(
         settings_model,
         task_model,

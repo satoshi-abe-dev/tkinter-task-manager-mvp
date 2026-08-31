@@ -40,6 +40,21 @@ class TaskModel:
         """タスクを1件追加する。idを採番して返す"""
         return self._register(task)
 
+    def add_blank_task(self) -> Task:
+        """全項目が空のタスクを1件追加する（一覧タブの「追加」ボタン用）。
+
+        タスク名だけは空のままにせず、採番したidを使って「タスクN」という
+        仮の名前を入れる。件数を数えて連番にすると、削除後に追加した時に
+        番号が重複しうるため、idベースで一意性を保つ。
+        """
+        task = self._register(Task(name="", assignee="", due_date="", priority="", status=""))
+        task.name = f"タスク{task.id}"
+        return task
+
+    def delete_task(self, task_id: int) -> None:
+        """指定したタスクを削除する（一覧タブの「削除」ボタン用）"""
+        self._tasks = [t for t in self._tasks if t.id != task_id]
+
     def update_task_field(self, task_id: int, field: str, value: str) -> None:
         """指定したタスクの1項目を書き換える（一覧タブのインライン編集用）"""
         if field not in EDITABLE_FIELDS:

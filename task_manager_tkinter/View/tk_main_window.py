@@ -1,7 +1,7 @@
 """
 View（Tkinter実装層）
 ---------------------
-task_list_view / new_task_view / settings_view の3つの抽象クラスを、
+task_list_view / settings_view の2つの抽象クラスを、
 Tkinterを使って具体的に実装する層。Tkinterへの依存はこのファイルだけに閉じ込める。
 
 タブ1枚 = 1つのフレームクラスとして実装し、それぞれ対応する抽象Viewを継承する。
@@ -17,7 +17,6 @@ from tkcalendar import Calendar
 
 from Model.settings_model import Settings
 from Model.task import PRIORITIES, STATUSES, Task
-from View.new_task_view import NewTaskView
 from View.settings_view import SettingsView
 from View.task_list_view import TaskListView
 
@@ -39,6 +38,7 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
 
     セルをダブルクリックするとインライン編集ができる。編集内容の確定は
     Presenterに委ねる（Viewはここで直接Modelを書き換えない）。
+    表の下の「追加」「削除」ボタンで、タスクの追加・削除を行う。
     """
 
     PRIORITIES = PRIORITIES
@@ -48,6 +48,8 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
         super().__init__(master, padding=16)
         self._on_cell_edited: Optional[Callable[[int, str, str], None]] = None
         self._on_column_clicked: Optional[Callable[[str], None]] = None
+        self._on_add_click: Optional[Callable[[], None]] = None
+        self._on_delete_click: Optional[Callable[[int], None]] = None
         self._editor: Optional[tk.Widget] = None
         self._date_picker: Optional[tk.Toplevel] = None
 
@@ -55,6 +57,20 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
         # 上下が窮屈になり文字が見切れるため、この一覧専用のスタイルで広げる。
         style = ttk.Style(self)
         style.configure("TaskList.Treeview", rowheight=28)
+
+        # 「追加」「削除」ボタンは、隣接させて表の幅いっぱいに広げる
+        # (fill="x", expand=Trueで2つのボタンに幅を均等に分配)。
+        # 表より先にpack(side="bottom")しておくことで、下端に固定される。
+        button_row = ttk.Frame(self)
+        self._add_button = ttk.Button(
+            button_row, text="＋ 追加", command=self._handle_add_click
+        )
+        self._add_button.pack(side="left", fill="x", expand=True)
+        self._delete_button = ttk.Button(
+            button_row, text="－ 削除", command=self._handle_delete_click, state="disabled"
+        )
+        self._delete_button.pack(side="left", fill="x", expand=True)
+        button_row.pack(side="bottom", fill="x", pady=(8, 0))
 
         self._tree = ttk.Treeview(
             self, columns=_COLUMNS, show="headings", height=12, style="TaskList.Treeview"
@@ -67,6 +83,7 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
         self._tree.pack(fill="both", expand=True)
 
         self._tree.bind("<Double-1>", self._on_double_click)
+        self._tree.bind("<<TreeviewSelect>>", self._on_selection_changed)
 
     def _make_heading_handler(self, field: str) -> Callable[[], None]:
         def handler() -> None:
@@ -102,6 +119,45 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
             if col == field:
                 text += " ▲" if ascending else " ▼"
             self._tree.heading(col, text=text)
+
+    # Override
+    def set_on_add_click(self, handler: Callable[[], None]) -> None:
+        self._on_add_click = handler
+
+    # Override
+    def set_on_delete_click(self, handler: Callable[[int], None]) -> None:
+        self._on_delete_click = handler
+
+    # Override
+    def select_task(self, task_id: int) -> None:
+        iid = str(task_id)
+        if self._tree.exists(iid):
+            self._tree.selection_set(iid)
+            self._tree.see(iid)
+            self._tree.focus(iid)
+
+    def _on_selection_changed(self, event: tk.Event) -> None:
+        state = "normal" if self._tree.selection() else "disabled"
+        self._delete_button.config(state=state)
+
+    def _handle_add_click(self) -> None:
+        if self._on_add_click:
+            self._on_add_click()
+
+    def _handle_delete_click(self) -> None:
+        selection = self._tree.selection()
+        if not selection:
+            return
+        row_id = selection[0]
+        task_id = int(row_id)
+        name = self._tree.set(row_id, "name")
+
+        confirmed = messagebox.askyesno(
+            "確認",
+            f"「{name}」を削除しますか？\nこの操作は取り消せません。",
+        )
+        if confirmed and self._on_delete_click:
+            self._on_delete_click(task_id)
 
     def _on_double_click(self, event: tk.Event) -> None:
         if self._tree.identify_region(event.x, event.y) != "cell":
@@ -277,122 +333,9 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
             self._date_picker = None
 
 
-class TkNewTaskFrame(ttk.Frame, NewTaskView):
-    """「新規登録」タブの実装。"""
-
-    ASSIGNEES = ["佐藤", "田中", "鈴木"]
-    PRIORITIES = PRIORITIES
-    # 新規登録時に選べる初期ステータスは、意図的に「未着手」「進行中」のみに
-    # 制限している（完了・遅延のタスクを新規登録できても実務上不自然なため）。
-    # 一覧側で扱う全ステータス(Model.task.STATUSES)とは別物。
-    STATUSES = ["未着手", "進行中"]
-
-    def __init__(self, master: tk.Widget) -> None:
-        super().__init__(master, padding=16)
-
-        self._name_var = tk.StringVar()
-        self._assignee_var = tk.StringVar(value=self.ASSIGNEES[0])
-        self._due_date_var = tk.StringVar()
-        self._priority_var = tk.StringVar(value="中")
-        self._status_var = tk.StringVar(value=self.STATUSES[0])
-        self._tags_var = tk.StringVar()
-
-        row = 0
-        ttk.Label(self, text="タスク名 *").grid(row=row, column=0, sticky="w", pady=4)
-        ttk.Entry(self, textvariable=self._name_var, width=32).grid(
-            row=row, column=1, sticky="we", pady=4
-        )
-        row += 1
-        self._name_error_label = ttk.Label(self, text="", foreground="#d94f4f")
-        self._name_error_label.grid(row=row, column=1, sticky="w")
-        row += 1
-
-        ttk.Label(self, text="担当者").grid(row=row, column=0, sticky="w", pady=4)
-        ttk.Combobox(
-            self, textvariable=self._assignee_var, values=self.ASSIGNEES, state="readonly"
-        ).grid(row=row, column=1, sticky="we", pady=4)
-        row += 1
-
-        ttk.Label(self, text="期限 (YYYY-MM-DD)").grid(row=row, column=0, sticky="w", pady=4)
-        ttk.Entry(self, textvariable=self._due_date_var).grid(
-            row=row, column=1, sticky="we", pady=4
-        )
-        row += 1
-
-        ttk.Label(self, text="優先度").grid(row=row, column=0, sticky="w", pady=4)
-        priority_frame = ttk.Frame(self)
-        priority_frame.grid(row=row, column=1, sticky="w", pady=4)
-        for p in self.PRIORITIES:
-            ttk.Radiobutton(
-                priority_frame, text=p, value=p, variable=self._priority_var
-            ).pack(side="left", padx=(0, 10))
-        row += 1
-
-        ttk.Label(self, text="初期ステータス").grid(row=row, column=0, sticky="w", pady=4)
-        ttk.Combobox(
-            self, textvariable=self._status_var, values=self.STATUSES, state="readonly"
-        ).grid(row=row, column=1, sticky="we", pady=4)
-        row += 1
-
-        ttk.Label(self, text="タグ（カンマ区切り）").grid(row=row, column=0, sticky="w", pady=4)
-        ttk.Entry(self, textvariable=self._tags_var).grid(
-            row=row, column=1, sticky="we", pady=4
-        )
-        row += 1
-
-        ttk.Label(self, text="メモ").grid(row=row, column=0, sticky="nw", pady=4)
-        self._memo_text = tk.Text(self, width=32, height=4)
-        self._memo_text.grid(row=row, column=1, sticky="we", pady=4)
-        row += 1
-
-        btn_row = ttk.Frame(self)
-        btn_row.grid(row=row, column=1, sticky="e", pady=(12, 0))
-        self._cancel_button = ttk.Button(btn_row, text="キャンセル")
-        self._cancel_button.pack(side="left", padx=(0, 8))
-        self._register_button = ttk.Button(btn_row, text="登録")
-        self._register_button.pack(side="left")
-
-        self.columnconfigure(1, weight=1)
-
-    # Override
-    def set_on_register_click(self, handler: Callable[[], None]) -> None:
-        self._register_button.config(command=handler)
-
-    # Override
-    def set_on_cancel_click(self, handler: Callable[[], None]) -> None:
-        self._cancel_button.config(command=handler)
-
-    # Override
-    def get_form_values(self) -> dict:
-        return {
-            "name": self._name_var.get(),
-            "assignee": self._assignee_var.get(),
-            "due_date": self._due_date_var.get(),
-            "priority": self._priority_var.get(),
-            "status": self._status_var.get(),
-            "tags": self._tags_var.get(),
-            "memo": self._memo_text.get("1.0", "end").strip(),
-        }
-
-    # Override
-    def show_name_error(self, message: Optional[str]) -> None:
-        self._name_error_label.config(text=message or "")
-
-    # Override
-    def clear_form(self) -> None:
-        self._name_var.set("")
-        self._assignee_var.set(self.ASSIGNEES[0])
-        self._due_date_var.set("")
-        self._priority_var.set("中")
-        self._status_var.set(self.STATUSES[0])
-        self._tags_var.set("")
-        self._memo_text.delete("1.0", "end")
-
-
 class TkSettingsFrame(ttk.Frame, SettingsView):
     """「設定」タブの実装。"""
 
-    ASSIGNEE_OPTIONS = ["指定なし", "佐藤", "田中", "鈴木"]
     DAYS_OPTIONS = ["1", "3", "7"]
     PAGE_SIZE_OPTIONS = ["10", "25", "50"]
     THEME_OPTIONS = ["ライト", "ダーク", "システムに合わせる"]
@@ -406,7 +349,6 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
 
         self._notify_var = tk.BooleanVar(value=True)
         self._notify_days_var = tk.StringVar(value="3")
-        self._default_assignee_var = tk.StringVar(value="指定なし")
         self._page_size_var = tk.StringVar(value="25")
         self._theme_var = tk.StringVar(value="システムに合わせる")
 
@@ -438,14 +380,6 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
         ttk.Label(self, text="既定値", font=("Helvetica", 10, "bold")).grid(
             row=row, column=0, columnspan=2, sticky="w", pady=(0, 4)
         )
-        row += 1
-        ttk.Label(self, text="新規登録時の既定の担当者").grid(row=row, column=0, sticky="w", pady=2)
-        ttk.Combobox(
-            self,
-            textvariable=self._default_assignee_var,
-            values=self.ASSIGNEE_OPTIONS,
-            state="readonly",
-        ).grid(row=row, column=1, sticky="w", pady=2)
         row += 1
         ttk.Label(self, text="一覧の表示件数").grid(row=row, column=0, sticky="w", pady=2)
         ttk.Combobox(
@@ -490,7 +424,6 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
         # プルダウン系は値の変更をtraceで検知する（load_settings中は_loadingで抑制）
         for var in (
             self._notify_days_var,
-            self._default_assignee_var,
             self._page_size_var,
             self._theme_var,
         ):
@@ -524,7 +457,6 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
         try:
             self._notify_var.set(settings.notify_enabled)
             self._notify_days_var.set(str(settings.notify_days_before))
-            self._default_assignee_var.set(settings.default_assignee)
             self._page_size_var.set(str(settings.page_size))
             self._theme_var.set(settings.theme)
         finally:
@@ -535,7 +467,6 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
         return Settings(
             notify_enabled=self._notify_var.get(),
             notify_days_before=int(self._notify_days_var.get()),
-            default_assignee=self._default_assignee_var.get(),
             page_size=int(self._page_size_var.get()),
             theme=self._theme_var.get(),
         )
@@ -563,7 +494,7 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
 
 # Called at main.py > def main()
 class TkMainWindow:
-    """3タブ(タスク一覧/新規登録/設定)をまとめるメインウィンドウ"""
+    """2タブ(タスク一覧/設定)をまとめるメインウィンドウ"""
 
     def __init__(self) -> None:
         self._root = tk.Tk()
@@ -574,11 +505,9 @@ class TkMainWindow:
         notebook.pack(fill="both", expand=True, padx=8, pady=8)
 
         self.task_list_frame = TkTaskListFrame(notebook)
-        self.new_task_frame = TkNewTaskFrame(notebook)
         self.settings_frame = TkSettingsFrame(notebook)
 
         notebook.add(self.task_list_frame, text="タスク一覧")
-        notebook.add(self.new_task_frame, text="新規登録")
         notebook.add(self.settings_frame, text="設定")
 
     def run(self) -> None:

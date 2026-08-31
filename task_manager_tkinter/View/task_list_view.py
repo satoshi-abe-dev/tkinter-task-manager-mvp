@@ -34,3 +34,18 @@ class TaskListView(ABC):
         """現在のソート対象列・昇順/降順を見た目に反映する（列見出しの矢印など）。
         field が None の場合はソートされていない状態を表す。
         """
+
+    @abstractmethod
+    def set_on_add_click(self, handler: Callable[[], None]) -> None:
+        """「追加」ボタン押下時に呼ばれるハンドラを登録する"""
+
+    @abstractmethod
+    def set_on_delete_click(self, handler: Callable[[int], None]) -> None:
+        """「削除」ボタン押下時に呼ばれるハンドラを登録する。
+        引数: task_id（削除対象）。確認ポップアップの表示・選択行の特定はView側で行い、
+        「はい」が選ばれた場合のみこのハンドラを呼ぶ。
+        """
+
+    @abstractmethod
+    def select_task(self, task_id: int) -> None:
+        """指定したタスクを選択状態にする（追加直後に一覧を最新化した後などに使う）"""

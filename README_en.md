@@ -8,15 +8,18 @@ built around a more realistic, business-style, tabbed task-management app.
 
 ## Screenshots
 
-| Task List | New Task | Settings |
-|---|---|---|
-| ![Task list tab](docs/screenshots/task-list.png) | ![New task tab](docs/screenshots/new-task.png) | ![Settings tab](docs/screenshots/settings.png) |
+> ⚠️ These are from an older version that still had a "New Task" tab. The app now has just two tabs
+> (Task List / Settings) as described below. Screenshots will be replaced once retaken.
+
+| Task List | Settings |
+|---|---|
+| ![Task list tab](docs/screenshots/task-list.png) | ![Settings tab](docs/screenshots/settings.png) |
 
 ## Purpose
 
 A sample project built around a Tkinter desktop app that could plausibly exist in a real workplace —
-one with tabs for a task list, a registration form, and settings — implemented with responsibilities
-separated according to the MVP pattern (Model / View / Presenter).
+one with tabs for a task list and settings — implemented with responsibilities separated according
+to the MVP pattern (Model / View / Presenter).
 
 ## Features
 
@@ -29,21 +32,26 @@ separated according to the MVP pattern (Model / View / Presenter).
   - Click a column header to sort by that column; click it again to toggle ascending/descending (shown
     as ▲/▼ in the header). Priority and status sort by their meaningful order (low→mid→high,
     not-started→...→overdue) rather than alphabetically.
-- **New Task tab**: register a task with a name, assignee, due date, priority, initial status, tags, and a memo.
-  - If the task name is left empty, an error message is shown and the task is not registered.
-  - "Cancel" clears the form.
-- **Settings tab**: configure notifications (on/off and timing), the default assignee, the list page size, and the theme.
+  - "＋ Add" and "－ Delete" buttons sit below the table, joined together and stretched to span the
+    table's full width. There is no separate registration form.
+    - "＋ Add" appends a task with every field blank and selects it. Only the task name isn't left
+      blank — it gets a placeholder name like "Task N", where N is the task's own unique id (so the
+      name never collides with a previous one, even after deletions). From there you fill in the
+      assignee, due date, priority, and status the same way as any other row: inline editing.
+    - "－ Delete" is only enabled when a row is selected. It shows a native confirmation alert
+      ("Are you sure you want to delete this?"); choosing "Yes" deletes the selected row.
+- **Settings tab**: configure notifications (on/off and timing), the list page size, and the theme.
   - Changing a value shows "You have unsaved changes"; nothing is applied until "Save changes" is clicked.
   - Tasks can be exported to a CSV file, or imported from one.
 
-Tabs deliberately keep the OS-native look (the default `ttk.Notebook` style).
+Tabs and buttons deliberately keep the OS-native look (the default `ttk.Notebook` / `ttk.Button` style).
 
 ## Folder Structure
 
 ```
 task_manager_tkinter/
     main.py                   Entry point (same level as Model, View, Presenter)
-    test_presenter.py         Unit tests for the three Presenters (no tkinter required)
+    test_presenter.py         Unit tests for the two Presenters (no tkinter required)
     Model/
         task.py                Task (data class)
         task_model.py          TaskModel
@@ -51,12 +59,10 @@ task_manager_tkinter/
         csv_io.py               CSV export/import (pure I/O, no tkinter dependency)
     View/
         task_list_view.py      TaskListView (abstract class)
-        new_task_view.py       NewTaskView (abstract class)
         settings_view.py       SettingsView (abstract class)
-        tk_main_window.py      Tkinter implementation (the three tab Frames + the window)
+        tk_main_window.py      Tkinter implementation (the two tab Frames + the window)
     Presenter/
         task_list_presenter.py
-        new_task_presenter.py
         settings_presenter.py
 ```
 
@@ -64,22 +70,24 @@ task_manager_tkinter/
 
 | Layer | Class | Responsibility | Depends on |
 |---|---|---|---|
-| Model | `TaskModel` | Holds, adds, and updates tasks (for inline editing in the list) only. Knows nothing about the UI. | none |
+| Model | `TaskModel` | Holds, adds (including blank tasks), updates, and deletes tasks only. Knows nothing about the UI. | none |
 | Model | `SettingsModel` | Holds and updates settings only (in-memory, not persisted). | none |
 | Model | `csv_io` | Exports/imports tasks to/from CSV. Pure I/O functions. | none |
-| View (abstract) | `TaskListView` / `NewTaskView` / `SettingsView` | Define the "contract" for each tab (rendering, reading input, registering handlers). | none |
-| View (impl) | `tk_main_window.py` (`TkTaskListFrame` / `TkNewTaskFrame` / `TkSettingsFrame` / `TkMainWindow`) | Concrete implementation of the above abstractions using Tkinter (`ttk.Notebook` + standard widgets). | the View abstractions, tkinter |
-| Presenter | `TaskListPresenter` / `NewTaskPresenter` / `SettingsPresenter` | Holds the "screen behavior" logic for each tab: validation, updating the Model, coordinating between tabs (e.g. refreshing the list after a new task is registered), and tracking the list's sort state. | the corresponding Model(s), the corresponding View (abstract only) |
+| View (abstract) | `TaskListView` / `SettingsView` | Define the "contract" for each tab (rendering, reading input, registering handlers). | none |
+| View (impl) | `tk_main_window.py` (`TkTaskListFrame` / `TkSettingsFrame` / `TkMainWindow`) | Concrete implementation of the above abstractions using Tkinter (`ttk.Notebook` + standard widgets). | the View abstractions, tkinter |
+| Presenter | `TaskListPresenter` / `SettingsPresenter` | Holds the "screen behavior" logic for each tab: validation, updating the Model, tracking the list's sort state, and adding/deleting tasks. | the corresponding Model(s), the corresponding View (abstract only) |
 
 Because each Presenter depends only on its View abstraction, swapping the View implementation (Tkinter / another GUI library / a fake View for testing) requires no change to the Presenter code.
 
-## Data Flow (registering a task from the New Task tab)
+## Data Flow (clicking "＋ Add")
 
-1. The user fills in the task name and other fields on the "New Task" tab and clicks "Register".
-2. The handler registered with `TkNewTaskFrame` (`NewTaskPresenter.on_register_click`) is invoked.
-3. The Presenter validates the task name; if it's empty, it calls `view.show_name_error(...)` and stops.
-4. Otherwise, it adds the task via `TaskModel.add_task()` and clears the form with `view.clear_form()`.
-5. It calls the `on_task_added` callback passed into its constructor (`TaskListPresenter.refresh`), which updates the Task List tab.
+1. The user clicks "＋ Add" on the "Task List" tab.
+2. The handler registered with `TkTaskListFrame` (`TaskListPresenter.on_add_click`) is invoked.
+3. The Presenter calls `TaskModel.add_blank_task()`. The Model adds a task with every field blank,
+   automatically filling the name with a placeholder like "Task N" using the id it just assigned.
+4. It calls `refresh()` to update the list, then `view.select_task(task.id)` to select the new row.
+5. The user double-clicks cells on that selected row to fill in the assignee, due date, priority, and
+   status via the same inline-editing mechanism used for any other task.
 
 ## How to Run
 
@@ -97,7 +105,7 @@ cd task_manager_tkinter
 ## How to Test
 
 By swapping in fake Views (fake implementations of each View abstract class) instead of `TkMainWindow`
-(and its three internal Frames), the three Presenters' logic can be verified without ever starting Tkinter.
+(and its internal Frames), the two Presenters' logic can be verified without ever starting Tkinter.
 
 `test_presenter.py` depends only on the `View.*_view` abstract classes and never imports `View.tk_main_window`
 (the Tkinter implementation), so it runs fine even in environments without tkinter installed.

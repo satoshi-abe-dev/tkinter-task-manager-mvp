@@ -33,6 +33,8 @@ class TaskListPresenter:
         self._sort_ascending = True
         self.view.set_on_cell_edited(self.on_cell_edited)
         self.view.set_on_column_clicked(self.on_column_clicked)
+        self.view.set_on_add_click(self.on_add_click)
+        self.view.set_on_delete_click(self.on_delete_click)
         self.refresh()
 
     def refresh(self) -> None:
@@ -60,4 +62,15 @@ class TaskListPresenter:
         else:
             self._sort_field = field
             self._sort_ascending = True
+        self.refresh()
+
+    def on_add_click(self) -> None:
+        """「追加」ボタン押下時に呼ばれる。空欄のタスクを1件追加して選択状態にする"""
+        task = self.model.add_blank_task()
+        self.refresh()
+        self.view.select_task(task.id)
+
+    def on_delete_click(self, task_id: int) -> None:
+        """「削除」ボタン押下時に呼ばれる（確認ポップアップで「はい」が選ばれた後）"""
+        self.model.delete_task(task_id)
         self.refresh()

@@ -2,7 +2,7 @@
 Presenterの単体テスト例
 -----------------------
 FakeView（各View抽象クラスの偽実装）を差し込むことで、Tkinterを一切起動せずに
-3つのPresenterのロジックを検証する。View.tk_main_window（Tkinter実装）は
+2つのPresenterのロジックを検証する。View.tk_main_window（Tkinter実装）は
 読み込まないため、tkinterがインストールされていない環境でもこのテストは実行できる。
 
 実行方法:
@@ -17,10 +17,8 @@ from typing import Callable, List, Optional, Tuple
 from Model.settings_model import Settings, SettingsModel
 from Model.task import Task
 from Model.task_model import TaskModel
-from Presenter.new_task_presenter import NewTaskPresenter
 from Presenter.settings_presenter import SettingsPresenter
 from Presenter.task_list_presenter import TaskListPresenter
-from View.new_task_view import NewTaskView
 from View.settings_view import SettingsView
 from View.task_list_view import TaskListView
 
@@ -30,7 +28,10 @@ class FakeTaskListView(TaskListView):
         self.shown_tasks: List[Task] = []
         self.cell_edited_handler: Optional[Callable[[int, str, str], None]] = None
         self.column_clicked_handler: Optional[Callable[[str], None]] = None
+        self.add_handler: Optional[Callable[[], None]] = None
+        self.delete_handler: Optional[Callable[[int], None]] = None
         self.sort_state: Optional[Tuple[Optional[str], bool]] = None
+        self.selected_task_id: Optional[int] = None
 
     def show_tasks(self, tasks: List[Task]) -> None:
         self.shown_tasks = list(tasks)
@@ -44,37 +45,14 @@ class FakeTaskListView(TaskListView):
     def show_sort_state(self, field: Optional[str], ascending: bool) -> None:
         self.sort_state = (field, ascending)
 
+    def set_on_add_click(self, handler: Callable[[], None]) -> None:
+        self.add_handler = handler
 
-class FakeNewTaskView(NewTaskView):
-    def __init__(self) -> None:
-        self.register_handler: Optional[Callable[[], None]] = None
-        self.cancel_handler: Optional[Callable[[], None]] = None
-        self.form_values: dict = {
-            "name": "",
-            "assignee": "佐藤",
-            "due_date": "",
-            "priority": "中",
-            "status": "未着手",
-            "tags": "",
-            "memo": "",
-        }
-        self.name_error: Optional[str] = None
-        self.cleared = False
+    def set_on_delete_click(self, handler: Callable[[int], None]) -> None:
+        self.delete_handler = handler
 
-    def set_on_register_click(self, handler: Callable[[], None]) -> None:
-        self.register_handler = handler
-
-    def set_on_cancel_click(self, handler: Callable[[], None]) -> None:
-        self.cancel_handler = handler
-
-    def get_form_values(self) -> dict:
-        return self.form_values
-
-    def show_name_error(self, message: Optional[str]) -> None:
-        self.name_error = message
-
-    def clear_form(self) -> None:
-        self.cleared = True
+    def select_task(self, task_id: int) -> None:
+        self.selected_task_id = task_id
 
 
 class FakeSettingsView(SettingsView):
@@ -191,49 +169,55 @@ def test_task_list_presenter_sorts_priority_by_meaning_not_alphabetically() -> N
     print("test_task_list_presenter_sorts_priority_by_meaning_not_alphabetically: OK")
 
 
-def test_new_task_presenter_rejects_empty_name() -> None:
+def test_task_list_presenter_adds_blank_task_with_id_based_name() -> None:
     model = TaskModel()
-    view = FakeNewTaskView()
-    NewTaskPresenter(model, view, on_task_added=lambda: None)
+    view = FakeTaskListView()
+    presenter = TaskListPresenter(model, view)
 
     before = len(model.list_tasks())
-    view.form_values["name"] = "   "
-    view.register_handler()
+    view.add_handler()
 
-    assert view.name_error == "タスク名を入力してください"
-    assert len(model.list_tasks()) == before
-    print("test_new_task_presenter_rejects_empty_name: OK")
-
-
-def test_new_task_presenter_adds_task_and_notifies() -> None:
-    model = TaskModel()
-    view = FakeNewTaskView()
-    added: List[bool] = []
-    NewTaskPresenter(model, view, on_task_added=lambda: added.append(True))
-
-    before = len(model.list_tasks())
-    view.form_values.update({"name": "新規タスク", "tags": "経理, 月次"})
-    view.register_handler()
-
-    assert view.name_error is None
-    assert view.cleared is True
-    assert len(added) == 1
     assert len(model.list_tasks()) == before + 1
-
     new_task = model.list_tasks()[-1]
-    assert new_task.name == "新規タスク"
-    assert new_task.tags == ["経理", "月次"]
-    print("test_new_task_presenter_adds_task_and_notifies: OK")
+    # タスク名は件数ベースではなく、id基準の連番（削除後に追加しても重複しない）
+    assert new_task.name == f"タスク{new_task.id}"
+    assert new_task.assignee == ""
+    assert new_task.due_date == ""
+    assert new_task.priority == ""
+    assert new_task.status == ""
+    # 追加後、その行が選択状態になる
+    assert view.selected_task_id == new_task.id
+    print("test_task_list_presenter_adds_blank_task_with_id_based_name: OK")
 
 
-def test_new_task_presenter_cancel_clears_form() -> None:
+def test_task_list_presenter_add_name_survives_deletion_without_duplicate() -> None:
     model = TaskModel()
-    view = FakeNewTaskView()
-    NewTaskPresenter(model, view, on_task_added=lambda: None)
+    view = FakeTaskListView()
+    presenter = TaskListPresenter(model, view)
 
-    view.cancel_handler()
-    assert view.cleared is True
-    print("test_new_task_presenter_cancel_clears_form: OK")
+    view.add_handler()
+    first_new = model.list_tasks()[-1]
+    view.delete_handler(first_new.id)
+    view.add_handler()
+    second_new = model.list_tasks()[-1]
+
+    # 同じ名前(id基準)が使い回されず、常に一意になる
+    assert first_new.name != second_new.name
+    print("test_task_list_presenter_add_name_survives_deletion_without_duplicate: OK")
+
+
+def test_task_list_presenter_deletes_task() -> None:
+    model = TaskModel()
+    view = FakeTaskListView()
+    presenter = TaskListPresenter(model, view)
+
+    target = model.list_tasks()[0]
+    before = len(model.list_tasks())
+    view.delete_handler(target.id)
+
+    assert len(model.list_tasks()) == before - 1
+    assert all(t.id != target.id for t in model.list_tasks())
+    print("test_task_list_presenter_deletes_task: OK")
 
 
 def test_settings_presenter_tracks_dirty_and_saves() -> None:
@@ -251,7 +235,6 @@ def test_settings_presenter_tracks_dirty_and_saves() -> None:
     view.form_values = Settings(
         notify_enabled=False,
         notify_days_before=7,
-        default_assignee="佐藤",
         page_size=50,
         theme="ダーク",
     )
@@ -295,8 +278,8 @@ if __name__ == "__main__":
     test_task_list_presenter_rejects_empty_name_edit()
     test_task_list_presenter_sorts_by_column_and_toggles_direction()
     test_task_list_presenter_sorts_priority_by_meaning_not_alphabetically()
-    test_new_task_presenter_rejects_empty_name()
-    test_new_task_presenter_adds_task_and_notifies()
-    test_new_task_presenter_cancel_clears_form()
+    test_task_list_presenter_adds_blank_task_with_id_based_name()
+    test_task_list_presenter_add_name_survives_deletion_without_duplicate()
+    test_task_list_presenter_deletes_task()
     test_settings_presenter_tracks_dirty_and_saves()
     test_settings_presenter_export_import_csv()

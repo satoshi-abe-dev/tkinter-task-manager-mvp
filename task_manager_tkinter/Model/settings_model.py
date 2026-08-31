@@ -11,7 +11,6 @@ from dataclasses import dataclass
 class Settings:
     notify_enabled: bool = True
     notify_days_before: int = 3
-    default_assignee: str = "指定なし"
     page_size: int = 25
     theme: str = "システムに合わせる"
 
