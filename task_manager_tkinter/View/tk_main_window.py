@@ -11,7 +11,7 @@ TkMainWindowはそれらをttk.Notebookにまとめ、ウィンドウ全体の�
 import tkinter as tk
 from datetime import datetime
 from tkinter import filedialog, messagebox, ttk
-from typing import Callable, List, Optional
+from typing import Callable, Dict, List, Optional
 
 from tkcalendar import Calendar
 
@@ -82,6 +82,12 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
 
         scrollbar = ttk.Scrollbar(tree_frame, orient="vertical", command=self._tree.yview)
         self._tree.configure(yscrollcommand=scrollbar.set)
+
+        # 期限が近い/過ぎているタスクの行ハイライト用タグ。
+        # ttk.Labelの背景色指定はAquaで無視されることがあるが、Treeviewの行タグは
+        # 別の描画経路のため背景色が確実に反映される。
+        self._tree.tag_configure("warning", background="#fbeed7", foreground="#b8790f")
+        self._tree.tag_configure("overdue", background="#fbe4e4", foreground="#d94f4f")
 
         self._tree.grid(row=0, column=0, sticky="nsew")
         scrollbar.grid(row=0, column=1, sticky="ns")
@@ -156,6 +162,12 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
             self._tree.selection_set(iid)
             self._tree.see(iid)
             self._tree.focus(iid)
+
+    # Override
+    def show_due_date_highlights(self, highlights: Dict[int, str]) -> None:
+        for iid in self._tree.get_children():
+            tag = highlights.get(int(iid))
+            self._tree.item(iid, tags=(tag,) if tag else ())
 
     def _on_selection_changed(self, event: tk.Event) -> None:
         state = "normal" if self._tree.selection() else "disabled"

@@ -5,7 +5,7 @@ Presenterが依存する「契約」だけを定義する。
 """
 
 from abc import ABC, abstractmethod
-from typing import Callable, List, Optional
+from typing import Callable, Dict, List, Optional
 
 from Model.task import Task
 
@@ -50,3 +50,10 @@ class TaskListView(ABC):
     @abstractmethod
     def select_task(self, task_id: int) -> None:
         """指定したタスクを選択状態にする（追加直後に一覧を最新化した後などに使う）"""
+
+    @abstractmethod
+    def show_due_date_highlights(self, highlights: Dict[int, str]) -> None:
+        """期限が近い/過ぎているタスクの行を見た目で強調する。
+        引数: task_id → "warning"（期限が近い）または "overdue"（期限超過）の対応表。
+        表に含まれないtask_idは通常表示に戻す。
+        """

@@ -2,11 +2,13 @@
 Presenter — タスク一覧タブ
 --------------------------
 Modelのタスク一覧をViewに反映する橋渡し役。
-一覧のインライン編集・カラムヘッダークリックによるソートを扱う。
+一覧のインライン編集・カラムヘッダークリックによるソート・期限接近のハイライトを扱う。
 """
 
+from datetime import date, datetime, timedelta
 from typing import Callable, Dict, List, Optional
 
+from Model.settings_model import SettingsModel
 from Model.task import PRIORITIES, STATUSES, Task
 from Model.task_model import TaskModel
 from View.task_list_view import TaskListView
@@ -24,10 +26,16 @@ _SORT_KEYS: Dict[str, Callable[[Task], object]] = {
     "status": lambda t: _STATUS_ORDER.get(t.status, len(STATUSES)),
 }
 
+# 完了したタスクは、期限が過ぎていてもハイライト対象から除外する
+_EXCLUDED_STATUS = "完了"
+
 
 class TaskListPresenter:
-    def __init__(self, model: TaskModel, view: TaskListView) -> None:
+    def __init__(
+        self, model: TaskModel, settings_model: SettingsModel, view: TaskListView
+    ) -> None:
         self.model = model
+        self.settings_model = settings_model
         self.view = view
         self._sort_field: Optional[str] = None
         self._sort_ascending = True
@@ -45,6 +53,34 @@ class TaskListPresenter:
             tasks.sort(key=key, reverse=not self._sort_ascending)
         self.view.show_tasks(tasks)
         self.view.show_sort_state(self._sort_field, self._sort_ascending)
+        self.view.show_due_date_highlights(self._compute_due_date_highlights(tasks))
+
+    def _compute_due_date_highlights(self, tasks: List[Task]) -> Dict[int, str]:
+        """期限が近い/過ぎているタスクをハイライトするための、id→種別の対応表を作る。
+
+        「設定」タブの通知設定（有効/無効・何日前から知らせるか）をそのまま
+        判定基準として使う。通知が無効になっている間はハイライトしない。
+        """
+        settings = self.settings_model.get()
+        if not settings.notify_enabled:
+            return {}
+
+        today = date.today()
+        warning_cutoff = today + timedelta(days=settings.notify_days_before)
+
+        highlights: Dict[int, str] = {}
+        for task in tasks:
+            if task.status == _EXCLUDED_STATUS:
+                continue
+            try:
+                due = datetime.strptime(task.due_date, "%Y-%m-%d").date()
+            except ValueError:
+                continue  # 期限未設定・解釈できない値はハイライトしない
+            if due < today:
+                highlights[task.id] = "overdue"
+            elif due <= warning_cutoff:
+                highlights[task.id] = "warning"
+        return highlights
 
     def on_cell_edited(self, task_id: int, field: str, value: str) -> None:
         """一覧タブでのインライン編集が確定した時に呼ばれる"""

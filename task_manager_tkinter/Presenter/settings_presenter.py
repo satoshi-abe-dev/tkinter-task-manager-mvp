@@ -20,11 +20,13 @@ class SettingsPresenter:
         task_model: TaskModel,
         view: SettingsView,
         on_tasks_imported: Callable[[], None],
+        on_settings_saved: Callable[[], None],
     ) -> None:
         self.settings_model = settings_model
         self.task_model = task_model
         self.view = view
         self.on_tasks_imported = on_tasks_imported
+        self.on_settings_saved = on_settings_saved
 
         self.view.load_settings(self.settings_model.get())
         self.view.set_dirty(False)
@@ -40,6 +42,9 @@ class SettingsPresenter:
         settings = self.view.get_form_values()
         self.settings_model.update(settings)
         self.view.set_dirty(False)
+        # 通知設定（有効/無効・何日前から）が一覧タブの期限ハイライトに使われて
+        # いるため、保存直後に一覧タブへ再評価させる。
+        self.on_settings_saved()
 
     def on_export_click(self) -> None:
         path = self.view.ask_save_path()

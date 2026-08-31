@@ -12,7 +12,8 @@ FakeView（各View抽象クラスの偽実装）を差し込むことで、Tkint
 
 import os
 import tempfile
-from typing import Callable, List, Optional, Tuple
+from datetime import date, timedelta
+from typing import Callable, Dict, List, Optional, Tuple
 
 from Model.settings_model import Settings, SettingsModel
 from Model.task import Task
@@ -32,6 +33,7 @@ class FakeTaskListView(TaskListView):
         self.delete_handler: Optional[Callable[[List[int]], None]] = None
         self.sort_state: Optional[Tuple[Optional[str], bool]] = None
         self.selected_task_id: Optional[int] = None
+        self.highlights: Dict[int, str] = {}
 
     def show_tasks(self, tasks: List[Task]) -> None:
         self.shown_tasks = list(tasks)
@@ -53,6 +55,9 @@ class FakeTaskListView(TaskListView):
 
     def select_task(self, task_id: int) -> None:
         self.selected_task_id = task_id
+
+    def show_due_date_highlights(self, highlights: Dict[int, str]) -> None:
+        self.highlights = dict(highlights)
 
 
 class FakeSettingsView(SettingsView):
@@ -101,8 +106,9 @@ class FakeSettingsView(SettingsView):
 
 def test_task_list_presenter_shows_initial_tasks() -> None:
     model = TaskModel()
+    settings_model = SettingsModel()
     view = FakeTaskListView()
-    TaskListPresenter(model, view)
+    TaskListPresenter(model, settings_model, view)
 
     assert len(view.shown_tasks) == len(model.list_tasks())
     print("test_task_list_presenter_shows_initial_tasks: OK")
@@ -110,8 +116,9 @@ def test_task_list_presenter_shows_initial_tasks() -> None:
 
 def test_task_list_presenter_edits_cell() -> None:
     model = TaskModel()
+    settings_model = SettingsModel()
     view = FakeTaskListView()
-    presenter = TaskListPresenter(model, view)
+    presenter = TaskListPresenter(model, settings_model, view)
 
     target = model.list_tasks()[0]
     view.cell_edited_handler(target.id, "assignee", "鈴木")
@@ -124,8 +131,9 @@ def test_task_list_presenter_edits_cell() -> None:
 
 def test_task_list_presenter_rejects_empty_name_edit() -> None:
     model = TaskModel()
+    settings_model = SettingsModel()
     view = FakeTaskListView()
-    presenter = TaskListPresenter(model, view)
+    presenter = TaskListPresenter(model, settings_model, view)
 
     target = model.list_tasks()[0]
     original_name = target.name
@@ -137,8 +145,9 @@ def test_task_list_presenter_rejects_empty_name_edit() -> None:
 
 def test_task_list_presenter_sorts_by_column_and_toggles_direction() -> None:
     model = TaskModel()
+    settings_model = SettingsModel()
     view = FakeTaskListView()
-    presenter = TaskListPresenter(model, view)
+    presenter = TaskListPresenter(model, settings_model, view)
 
     assert view.sort_state == (None, True)  # 初期状態はソートなし
 
@@ -159,8 +168,9 @@ def test_task_list_presenter_sorts_by_column_and_toggles_direction() -> None:
 
 def test_task_list_presenter_sorts_priority_by_meaning_not_alphabetically() -> None:
     model = TaskModel()
+    settings_model = SettingsModel()
     view = FakeTaskListView()
-    presenter = TaskListPresenter(model, view)
+    presenter = TaskListPresenter(model, settings_model, view)
 
     view.column_clicked_handler("priority")
 
@@ -171,8 +181,9 @@ def test_task_list_presenter_sorts_priority_by_meaning_not_alphabetically() -> N
 
 def test_task_list_presenter_adds_blank_task_with_id_based_name() -> None:
     model = TaskModel()
+    settings_model = SettingsModel()
     view = FakeTaskListView()
-    presenter = TaskListPresenter(model, view)
+    presenter = TaskListPresenter(model, settings_model, view)
 
     before = len(model.list_tasks())
     view.add_handler()
@@ -192,8 +203,9 @@ def test_task_list_presenter_adds_blank_task_with_id_based_name() -> None:
 
 def test_task_list_presenter_add_name_survives_deletion_without_duplicate() -> None:
     model = TaskModel()
+    settings_model = SettingsModel()
     view = FakeTaskListView()
-    presenter = TaskListPresenter(model, view)
+    presenter = TaskListPresenter(model, settings_model, view)
 
     view.add_handler()
     first_new = model.list_tasks()[-1]
@@ -208,8 +220,9 @@ def test_task_list_presenter_add_name_survives_deletion_without_duplicate() -> N
 
 def test_task_list_presenter_deletes_task() -> None:
     model = TaskModel()
+    settings_model = SettingsModel()
     view = FakeTaskListView()
-    presenter = TaskListPresenter(model, view)
+    presenter = TaskListPresenter(model, settings_model, view)
 
     target = model.list_tasks()[0]
     before = len(model.list_tasks())
@@ -222,8 +235,9 @@ def test_task_list_presenter_deletes_task() -> None:
 
 def test_task_list_presenter_deletes_multiple_tasks() -> None:
     model = TaskModel()
+    settings_model = SettingsModel()
     view = FakeTaskListView()
-    presenter = TaskListPresenter(model, view)
+    presenter = TaskListPresenter(model, settings_model, view)
 
     targets = model.list_tasks()[:2]  # 複数選択のシミュレーション
     target_ids = [t.id for t in targets]
@@ -236,11 +250,83 @@ def test_task_list_presenter_deletes_multiple_tasks() -> None:
     print("test_task_list_presenter_deletes_multiple_tasks: OK")
 
 
+def test_task_list_presenter_highlights_overdue_and_warning_tasks() -> None:
+    model = TaskModel()
+    settings_model = SettingsModel()
+    settings_model.update(Settings(notify_enabled=True, notify_days_before=3))
+    view = FakeTaskListView()
+    presenter = TaskListPresenter(model, settings_model, view)
+
+    today = date.today()
+    overdue_task, warning_task, safe_task = model.list_tasks()[:3]
+
+    model.update_task_field(
+        overdue_task.id, "due_date", (today - timedelta(days=1)).strftime("%Y-%m-%d")
+    )
+    model.update_task_field(overdue_task.id, "status", "進行中")
+
+    model.update_task_field(
+        warning_task.id, "due_date", (today + timedelta(days=2)).strftime("%Y-%m-%d")
+    )
+    model.update_task_field(warning_task.id, "status", "未着手")
+
+    model.update_task_field(
+        safe_task.id, "due_date", (today + timedelta(days=30)).strftime("%Y-%m-%d")
+    )
+    model.update_task_field(safe_task.id, "status", "未着手")
+
+    presenter.refresh()
+
+    assert view.highlights.get(overdue_task.id) == "overdue"
+    assert view.highlights.get(warning_task.id) == "warning"
+    assert safe_task.id not in view.highlights
+    print("test_task_list_presenter_highlights_overdue_and_warning_tasks: OK")
+
+
+def test_task_list_presenter_excludes_completed_status_from_highlight() -> None:
+    model = TaskModel()
+    settings_model = SettingsModel()
+    view = FakeTaskListView()
+    presenter = TaskListPresenter(model, settings_model, view)
+
+    task = model.list_tasks()[0]
+    yesterday = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+    model.update_task_field(task.id, "due_date", yesterday)
+    model.update_task_field(task.id, "status", "完了")
+    presenter.refresh()
+
+    assert task.id not in view.highlights
+    print("test_task_list_presenter_excludes_completed_status_from_highlight: OK")
+
+
+def test_task_list_presenter_disables_highlight_when_notify_off() -> None:
+    model = TaskModel()
+    settings_model = SettingsModel()
+    settings_model.update(Settings(notify_enabled=False))
+    view = FakeTaskListView()
+    presenter = TaskListPresenter(model, settings_model, view)
+
+    task = model.list_tasks()[0]
+    yesterday = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+    model.update_task_field(task.id, "due_date", yesterday)
+    model.update_task_field(task.id, "status", "進行中")
+    presenter.refresh()
+
+    assert view.highlights == {}
+    print("test_task_list_presenter_disables_highlight_when_notify_off: OK")
+
+
 def test_settings_presenter_tracks_dirty_and_saves() -> None:
     settings_model = SettingsModel()
     task_model = TaskModel()
     view = FakeSettingsView()
-    SettingsPresenter(settings_model, task_model, view, on_tasks_imported=lambda: None)
+    SettingsPresenter(
+        settings_model,
+        task_model,
+        view,
+        on_tasks_imported=lambda: None,
+        on_settings_saved=lambda: None,
+    )
 
     assert view.loaded == Settings()
     assert view.dirty is False
@@ -261,13 +347,36 @@ def test_settings_presenter_tracks_dirty_and_saves() -> None:
     print("test_settings_presenter_tracks_dirty_and_saves: OK")
 
 
+def test_settings_presenter_calls_on_settings_saved_after_save() -> None:
+    settings_model = SettingsModel()
+    task_model = TaskModel()
+    view = FakeSettingsView()
+    saved: List[bool] = []
+    SettingsPresenter(
+        settings_model,
+        task_model,
+        view,
+        on_tasks_imported=lambda: None,
+        on_settings_saved=lambda: saved.append(True),
+    )
+
+    view.save_handler()
+
+    assert len(saved) == 1
+    print("test_settings_presenter_calls_on_settings_saved_after_save: OK")
+
+
 def test_settings_presenter_export_import_csv() -> None:
     settings_model = SettingsModel()
     task_model = TaskModel()
     view = FakeSettingsView()
     imported: List[bool] = []
     SettingsPresenter(
-        settings_model, task_model, view, on_tasks_imported=lambda: imported.append(True)
+        settings_model,
+        task_model,
+        view,
+        on_tasks_imported=lambda: imported.append(True),
+        on_settings_saved=lambda: None,
     )
 
     with tempfile.TemporaryDirectory() as tmp_dir:
@@ -298,5 +407,9 @@ if __name__ == "__main__":
     test_task_list_presenter_add_name_survives_deletion_without_duplicate()
     test_task_list_presenter_deletes_task()
     test_task_list_presenter_deletes_multiple_tasks()
+    test_task_list_presenter_highlights_overdue_and_warning_tasks()
+    test_task_list_presenter_excludes_completed_status_from_highlight()
+    test_task_list_presenter_disables_highlight_when_notify_off()
     test_settings_presenter_tracks_dirty_and_saves()
+    test_settings_presenter_calls_on_settings_saved_after_save()
     test_settings_presenter_export_import_csv()
