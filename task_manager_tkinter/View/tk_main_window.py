@@ -83,6 +83,7 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
         self._tree.pack(fill="both", expand=True)
 
         self._tree.bind("<Double-1>", self._on_double_click)
+        self._tree.bind("<Button-1>", self._on_click)
         self._tree.bind("<<TreeviewSelect>>", self._on_selection_changed)
 
     def _make_heading_handler(self, field: str) -> Callable[[], None]:
@@ -158,6 +159,12 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
         )
         if confirmed and self._on_delete_click:
             self._on_delete_click(task_id)
+
+    def _on_click(self, event: tk.Event) -> None:
+        # 行の無い領域（表の下の余白など）をクリックした時は選択を解除する。
+        # ヘッダー部分("heading")はソート用クリックなので対象外。
+        if self._tree.identify_region(event.x, event.y) == "nothing":
+            self._tree.selection_remove(*self._tree.selection())
 
     def _on_double_click(self, event: tk.Event) -> None:
         if self._tree.identify_region(event.x, event.y) != "cell":
