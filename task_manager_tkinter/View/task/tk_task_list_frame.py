@@ -56,14 +56,12 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
         style.configure("TaskList.Treeview", rowheight=28)
 
         # このフレーム自身のgrid構成: 行0(表+スクロールバー)が余白を吸収し、
-        # 行1(追加/削除ボタン)・行2(書き出し/読み込みボタン)・行3(未保存表示)は
-        # 内容ぶんの高さで下端に固定される。Saveボタン自体はタブの外
-        # (TkMainWindow側、Notebookの直前の行)にあるため、ここには無い。
+        # 行1(追加/削除ボタン)・行2(書き出し/読み込みボタン)は内容ぶんの
+        # 高さで下端に固定される。
         self.columnconfigure(0, weight=1)
         self.rowconfigure(0, weight=1)
         self.rowconfigure(1, weight=0)
         self.rowconfigure(2, weight=0)
-        self.rowconfigure(3, weight=0)
 
         # 表とスクロールバーをまとめる専用フレーム。
         tree_frame = ttk.Frame(self)
@@ -121,11 +119,6 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
             csv_row, text="Import", command=self._handle_import_click
         )
         self._import_button.grid(row=0, column=1)
-
-        # 未保存の変更があるかどうかの表示（ボタンはタブの外の共通Saveボタンを使う
-        # ため、ここには置かない）。
-        self._status_label = ttk.Label(self, text="", foreground="#4a6cf7")
-        self._status_label.grid(row=3, column=0, sticky="w", pady=(8, 0))
 
         self._tree.bind("<Double-1>", self._on_double_click)
         self._tree.bind("<Button-1>", self._on_click)
@@ -211,10 +204,6 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
     # Override
     def show_message(self, title: str, message: str) -> None:
         messagebox.showinfo(title=title, message=message)
-
-    # Override
-    def set_dirty(self, dirty: bool) -> None:
-        self._status_label.config(text="● Unsaved changes" if dirty else "")
 
     def _handle_export_click(self) -> None:
         if self._on_export_click:

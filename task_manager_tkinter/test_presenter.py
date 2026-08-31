@@ -41,7 +41,6 @@ class FakeTaskListView(TaskListView):
         self.save_path: Optional[str] = None
         self.open_path: Optional[str] = None
         self.messages: List[Tuple[str, str]] = []
-        self.dirty = False
 
     def show_tasks(self, tasks: List[Task]) -> None:
         self.shown_tasks = list(tasks)
@@ -82,17 +81,12 @@ class FakeTaskListView(TaskListView):
     def show_message(self, title: str, message: str) -> None:
         self.messages.append((title, message))
 
-    def set_dirty(self, dirty: bool) -> None:
-        self.dirty = dirty
-
 
 class FakeSettingsView(SettingsView):
     def __init__(self) -> None:
         self.field_changed_handler: Optional[Callable[[], None]] = None
         self.highlight_toggled_handler: Optional[Callable[[bool], None]] = None
-        self.auto_save_toggled_handler: Optional[Callable[[bool], None]] = None
         self.loaded: Optional[Settings] = None
-        self.dirty = False
         self.form_values = Settings()
 
     def set_on_field_changed(self, handler: Callable[[], None]) -> None:
@@ -101,20 +95,11 @@ class FakeSettingsView(SettingsView):
     def set_on_highlight_toggled(self, handler: Callable[[bool], None]) -> None:
         self.highlight_toggled_handler = handler
 
-    def set_on_auto_save_toggled(self, handler: Callable[[bool], None]) -> None:
-        self.auto_save_toggled_handler = handler
-
     def load_settings(self, settings: Settings) -> None:
         self.loaded = settings
 
     def get_form_values(self) -> Settings:
         return self.form_values
-
-    def set_dirty(self, dirty: bool) -> None:
-        self.dirty = dirty
-
-    def is_dirty(self) -> bool:
-        return self.dirty
 
 
 def test_task_list_presenter_shows_initial_tasks() -> None:
@@ -508,92 +493,42 @@ def test_task_list_presenter_export_import_csv() -> None:
     print("test_task_list_presenter_export_import_csv: OK")
 
 
-def test_task_list_presenter_shows_dirty_state() -> None:
-    """Auto SaveがOFFの間は、これまで通りSaveするまで「Unsaved changes」が
-    表示され続ける。
+def test_task_list_presenter_auto_saves_on_add() -> None:
+    """編集操作(ここでは追加)のたびに即座に保存され、model.is_dirty()が
+    Falseに戻る(Auto Save)。
     """
     model = TaskModel(db_path=":memory:")
     settings_model = SettingsModel(db_path=":memory:")
-    settings_model.set_auto_save_enabled(False)
     view = FakeTaskListView()
     presenter = TaskListPresenter(model, settings_model, view)
 
-    # 初回起動時のデモデータは投入直後に自動保存されているので、未保存ではない
-    assert view.dirty is False
-
-    presenter.on_add_click()
-    assert view.dirty is True
-
-    presenter.on_save_click()
-    assert view.dirty is False
-    print("test_task_list_presenter_shows_dirty_state: OK")
-
-
-def test_task_list_presenter_auto_saves_when_enabled() -> None:
-    """Auto SaveがON（既定値）の間は、編集のたびに即座に保存され、
-    「Unsaved changes」状態が残らない。
-    """
-    model = TaskModel(db_path=":memory:")
-    settings_model = SettingsModel(db_path=":memory:")  # auto_save_enabledは既定でTrue
-    view = FakeTaskListView()
-    presenter = TaskListPresenter(model, settings_model, view)
-
-    assert view.dirty is False
-
-    presenter.on_add_click()
-    # Saveボタンを押していないのに、既に保存済み(未保存表示が出ない)
-    assert view.dirty is False
     assert model.is_dirty() is False
-    print("test_task_list_presenter_auto_saves_when_enabled: OK")
+
+    presenter.on_add_click()
+    assert model.is_dirty() is False
+    print("test_task_list_presenter_auto_saves_on_add: OK")
 
 
-def test_task_list_presenter_has_unsaved_changes() -> None:
-    model = TaskModel(db_path=":memory:")
-    settings_model = SettingsModel(db_path=":memory:")
-    settings_model.set_auto_save_enabled(False)
-    view = FakeTaskListView()
-    presenter = TaskListPresenter(model, settings_model, view)
-
-    assert presenter.has_unsaved_changes() is False
-
-    target = model.list_tasks()[0]
-    view.cell_edited_handler(target.id, "assignee", "Changed")
-    assert presenter.has_unsaved_changes() is True
-
-    presenter.on_save_click()
-    assert presenter.has_unsaved_changes() is False
-    print("test_task_list_presenter_has_unsaved_changes: OK")
-
-
-def test_task_list_presenter_defers_db_write_until_save() -> None:
-    """Auto SaveがOFFの間、Save()するまでは別の接続(=再起動を模した新しい
-    TaskModel)からは変更が見えないことを確認する。保存前に操作を間違えても、
-    保存しなければ次回起動時には直前の保存状態に戻るという設計の裏付け。
+def test_task_list_presenter_edit_is_immediately_persisted() -> None:
+    """セル編集した内容が、別の接続(=再起動を模した新しいTaskModel)からも
+    即座に見えることを確認する(Save操作を挟まない)。
     """
     with tempfile.TemporaryDirectory() as tmp_dir:
         db_path = os.path.join(tmp_dir, "test.db")
 
         model = TaskModel(db_path=db_path)
         settings_model = SettingsModel(db_path=":memory:")
-        settings_model.set_auto_save_enabled(False)
         view = FakeTaskListView()
         presenter = TaskListPresenter(model, settings_model, view)
 
         target = model.list_tasks()[0]
         view.cell_edited_handler(target.id, "assignee", "Changed")
-        assert model.is_dirty() is True
-
-        # 保存前は、別の接続(再起動を模した新しいTaskModel)からはまだ見えない
-        reopened_before_save = TaskModel(db_path=db_path)
-        assert reopened_before_save.get_task(target.id).assignee != "Changed"
-
-        # Saveすると、その後に開いた接続からも見えるようになる
-        presenter.on_save_click()
         assert model.is_dirty() is False
-        reopened_after_save = TaskModel(db_path=db_path)
-        assert reopened_after_save.get_task(target.id).assignee == "Changed"
 
-    print("test_task_list_presenter_defers_db_write_until_save: OK")
+        reopened = TaskModel(db_path=db_path)
+        assert reopened.get_task(target.id).assignee == "Changed"
+
+    print("test_task_list_presenter_edit_is_immediately_persisted: OK")
 
 
 def test_backup_and_rotate_copies_current_db_contents() -> None:
@@ -670,118 +605,47 @@ def test_backup_and_rotate_skips_memory_and_missing_files() -> None:
     print("test_backup_and_rotate_skips_memory_and_missing_files: OK")
 
 
-def test_settings_presenter_tracks_dirty_and_saves() -> None:
-    """Auto SaveがOFFの間は、これまで通りSaveするまで「Unsaved changes」が
-    表示され続ける。
+def test_settings_presenter_saves_field_changes_immediately() -> None:
+    """フィールドを変更した瞬間に、Saveボタンを介さず即座にDBへ保存される
+    （Auto Save）。
     """
     settings_model = SettingsModel(db_path=":memory:")
-    view = FakeSettingsView()
-    presenter = SettingsPresenter(settings_model, view, on_settings_saved=lambda: None)
-
-    assert view.loaded == Settings()
-    assert view.dirty is False
-
-    settings_model.set_auto_save_enabled(False)
-
-    view.field_changed_handler()
-    assert view.dirty is True
-    assert presenter.has_unsaved_changes() is True
-
-    view.form_values = Settings(
-        notify_enabled=False,
-        notify_days_before=7,
-        auto_save_enabled=False,
-    )
-    presenter.on_save_click()
-
-    assert view.dirty is False
-    assert presenter.has_unsaved_changes() is False
-    assert settings_model.get().notify_days_before == 7
-    print("test_settings_presenter_tracks_dirty_and_saves: OK")
-
-
-def test_settings_presenter_auto_saves_field_changes_when_enabled() -> None:
-    """Auto SaveがON（既定値）の間は、フィールドを変更した瞬間に保存され、
-    「Unsaved changes」状態が残らない。
-    """
-    settings_model = SettingsModel(db_path=":memory:")  # auto_save_enabledは既定でTrue
     view = FakeSettingsView()
     SettingsPresenter(settings_model, view, on_settings_saved=lambda: None)
 
-    view.form_values = Settings(notify_enabled=False, notify_days_before=7, auto_save_enabled=True)
+    assert view.loaded == Settings()
+
+    view.form_values = Settings(notify_enabled=False, notify_days_before=7)
     view.field_changed_handler()
 
-    assert view.dirty is False  # 保存済みなので未保存表示は出ない
     assert settings_model.get().notify_days_before == 7
-    print("test_settings_presenter_auto_saves_field_changes_when_enabled: OK")
+    assert settings_model.get().notify_enabled is False
+    print("test_settings_presenter_saves_field_changes_immediately: OK")
 
 
-def test_settings_presenter_turning_auto_save_on_flushes_pending_changes() -> None:
-    """Auto SaveをOFF→ONに切り替えた瞬間、それまで溜まっていた未保存の
-    変更もまとめて保存される（「ONにしたのに何か未保存のまま」を避けるため）。
-    """
-    settings_model = SettingsModel(db_path=":memory:")
-    settings_model.set_auto_save_enabled(False)
-    view = FakeSettingsView()
-    presenter = SettingsPresenter(settings_model, view, on_settings_saved=lambda: None)
-
-    # Auto SaveがOFFの間に、日数欄を編集する(まだ未保存)
-    view.form_values = Settings(notify_enabled=True, notify_days_before=9, auto_save_enabled=False)
-    view.field_changed_handler()
-    assert view.dirty is True
-    assert settings_model.get().notify_days_before == 3  # まだ反映されていない
-
-    # ここでAuto SaveをONに切り替える
-    view.form_values = Settings(notify_enabled=True, notify_days_before=9, auto_save_enabled=True)
-    view.auto_save_toggled_handler(True)
-
-    assert settings_model.get().auto_save_enabled is True
-    assert settings_model.get().notify_days_before == 9  # 溜まっていた変更も保存された
-    assert view.dirty is False
-    print("test_settings_presenter_turning_auto_save_on_flushes_pending_changes: OK")
-
-
-def test_settings_presenter_turning_auto_save_off_does_not_force_save() -> None:
-    """Auto SaveをOFFにする操作自体は、他の未保存フィールドを巻き込んで
-    保存したりはしない（トグル自体だけが即時反映・保存される）。
-    """
-    settings_model = SettingsModel(db_path=":memory:")  # 既定でON
-    view = FakeSettingsView()
-    presenter = SettingsPresenter(settings_model, view, on_settings_saved=lambda: None)
-
-    view.auto_save_toggled_handler(False)
-
-    assert settings_model.get().auto_save_enabled is False
-    assert presenter.has_unsaved_changes() is False  # 何も編集していないので未保存は無い
-    print("test_settings_presenter_turning_auto_save_off_does_not_force_save: OK")
-
-
-def test_settings_presenter_calls_on_settings_saved_after_save() -> None:
-    settings_model = SettingsModel(db_path=":memory:")
-    view = FakeSettingsView()
-    saved: List[bool] = []
-    presenter = SettingsPresenter(settings_model, view, on_settings_saved=lambda: saved.append(True))
-
-    presenter.on_save_click()
-
-    assert len(saved) == 1
-    print("test_settings_presenter_calls_on_settings_saved_after_save: OK")
-
-
-def test_settings_presenter_highlight_toggle_applies_immediately_without_save() -> None:
+def test_settings_presenter_calls_on_settings_saved_after_field_change() -> None:
     settings_model = SettingsModel(db_path=":memory:")
     view = FakeSettingsView()
     saved: List[bool] = []
     SettingsPresenter(settings_model, view, on_settings_saved=lambda: saved.append(True))
 
-    # チェックボタンをOFFにしても「保存」ボタンは押していない
+    view.field_changed_handler()
+
+    assert len(saved) == 1
+    print("test_settings_presenter_calls_on_settings_saved_after_field_change: OK")
+
+
+def test_settings_presenter_highlight_toggle_applies_immediately() -> None:
+    settings_model = SettingsModel(db_path=":memory:")
+    view = FakeSettingsView()
+    saved: List[bool] = []
+    SettingsPresenter(settings_model, view, on_settings_saved=lambda: saved.append(True))
+
     view.highlight_toggled_handler(False)
 
     assert settings_model.get().notify_enabled is False
     assert len(saved) == 1  # 一覧タブの再評価(ハイライトOFF反映)が即座に呼ばれる
-    # 保存操作ではないので「未保存」表示は変化しない
-    assert view.dirty is False
-    print("test_settings_presenter_highlight_toggle_applies_immediately_without_save: OK")
+    print("test_settings_presenter_highlight_toggle_applies_immediately: OK")
 
 
 def test_task_list_presenter_highlight_disappears_immediately_when_toggled_off() -> None:
@@ -829,18 +693,13 @@ if __name__ == "__main__":
     test_task_list_presenter_auto_overdue_is_one_time_only()
     test_task_list_presenter_disables_highlight_when_notify_off()
     test_task_list_presenter_export_import_csv()
-    test_task_list_presenter_shows_dirty_state()
-    test_task_list_presenter_auto_saves_when_enabled()
-    test_task_list_presenter_has_unsaved_changes()
-    test_task_list_presenter_defers_db_write_until_save()
+    test_task_list_presenter_auto_saves_on_add()
+    test_task_list_presenter_edit_is_immediately_persisted()
     test_backup_and_rotate_copies_current_db_contents()
     test_backup_and_rotate_keeps_backups_within_retention_window()
     test_backup_and_rotate_prunes_backups_older_than_retention_window()
     test_backup_and_rotate_skips_memory_and_missing_files()
-    test_settings_presenter_tracks_dirty_and_saves()
-    test_settings_presenter_auto_saves_field_changes_when_enabled()
-    test_settings_presenter_turning_auto_save_on_flushes_pending_changes()
-    test_settings_presenter_turning_auto_save_off_does_not_force_save()
-    test_settings_presenter_calls_on_settings_saved_after_save()
-    test_settings_presenter_highlight_toggle_applies_immediately_without_save()
+    test_settings_presenter_saves_field_changes_immediately()
+    test_settings_presenter_calls_on_settings_saved_after_field_change()
+    test_settings_presenter_highlight_toggle_applies_immediately()
     test_task_list_presenter_highlight_disappears_immediately_when_toggled_off()

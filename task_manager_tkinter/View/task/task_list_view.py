@@ -77,10 +77,3 @@ class TaskListView(ABC):
     @abstractmethod
     def show_message(self, title: str, message: str) -> None:
         """メッセージをポップアップ表示する"""
-
-    @abstractmethod
-    def set_dirty(self, dirty: bool) -> None:
-        """save()していない変更があるかどうかの表示を切り替える。
-        Saveボタン自体はこのタブの外(TkMainWindow側)にあるため、ここでは
-        あくまで表示のみを行う。
-        """

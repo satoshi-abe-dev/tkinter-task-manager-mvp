@@ -39,17 +39,11 @@ Model / View / Presenter の各フォルダから読み込んで組み立てて�
 ※ GUIなので、Tcl/Tkが使えるお手元のPCで実行してください。
 ※ タスク・設定はSQLite(標準ライブラリのsqlite3、追加インストール不要)で
   永続化される。DBファイルは初回実行時にdata/app.dbとして作成される。
-※ 設定タブの「Automatically save changes」がONの間は、編集のたびに即座に
-  DBへ保存される。OFFの間は、タブの外（Notebookの直前の行、右端）にある
-  共通の「Save」ボタンを押すまでDBに書き込まれない（保存前に間違えても、
-  保存しなければ次回起動時には直前の保存状態に戻る）。ウィンドウを閉じよう
-  とした時、未保存の変更があれば保存するかどうかを確認するダイアログを出す
-  （Auto Save中は基本的に未保存の変更が残らないため、通常はこのダイアログは
-  出ない）。
-※ Auto Saveの設定に関わらず、15分おきにapp.dbへの変更を検知して自動的に
-  バックアップを取る（前回のバックアップ以降に変更が無ければスキップする）。
-  直近24時間分だけ残し、古いものは自動的に削除する。ディスク破損など、
-  DBファイル自体が壊れてしまった場合の保険。
+  編集は常に即座にDBへ保存される(Auto Save)。Saveボタンや「未保存」表示は無い。
+※ 15分おきに、app.dbへの変更を検知して自動的にバックアップを取る（前回の
+  バックアップ以降に変更が無ければスキップする）。直近24時間分だけ残し、
+  古いものは自動的に削除する。ディスク破損など、DBファイル自体が壊れて
+  しまった場合の保険。
 """
 
 import os
@@ -72,48 +66,15 @@ def main() -> None:
     window = TkMainWindow()
 
     task_list_presenter = TaskListPresenter(task_model, settings_model, window.task_list_frame)
-    settings_presenter = SettingsPresenter(
+    SettingsPresenter(
         settings_model,
         window.settings_frame,
         on_settings_saved=task_list_presenter.refresh,
     )
 
-    def save_all() -> None:
-        """共通の「Save」ボタン用。どちらのタブが今表示されているかに関わらず、
-        両タブの未保存の変更をまとめて保存する（Auto SaveがOFFの時のための
-        手動保存の手段）。
-        """
-        task_list_presenter.on_save_click()
-        settings_presenter.on_save_click()
-
-    def has_any_unsaved_changes() -> bool:
-        return task_list_presenter.has_unsaved_changes() or settings_presenter.has_unsaved_changes()
-
-    def handle_close_request() -> None:
-        """ウィンドウを閉じようとした時に呼ばれる。どちらかのタブに未保存の
-        変更があれば、保存する/破棄する/キャンセルの3択を確認してから閉じる。
-        """
-        if not has_any_unsaved_changes():
-            window.close()
-            return
-        choice = window.ask_save_discard_cancel(
-            "Unsaved Changes",
-            "You have unsaved changes.\nSave before closing?",
-        )
-        if choice is True:  # 保存する
-            save_all()
-            window.close()
-        elif choice is False:  # 破棄する
-            window.close()
-        # choice is None（キャンセル）の場合は何もせず、ウィンドウを開いたままにする
-
-    window.set_on_save_click(save_all)
-    window.set_on_close_requested(handle_close_request)
-
     # 15分おきに、app.dbが前回のバックアップ以降に変更されていないか確認し、
     # 変更があればバックアップを取る。ファイルの更新日時(mtime)を比較するだけ
-    # なので、Auto Saveによる自動書き込みか、Saveボタンによる手動保存かは
-    # 区別しない（どちらの経路で書き込まれても等しく保護する）。
+    # なので、どの編集操作が書き込んだかは区別しない。
     last_backup_mtime = None
 
     def check_and_backup() -> None:

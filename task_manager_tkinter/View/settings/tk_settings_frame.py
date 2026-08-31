@@ -21,33 +21,16 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
         super().__init__(master, padding=16)
         self._on_field_changed: Optional[Callable[[], None]] = None
         self._on_highlight_toggled: Optional[Callable[[bool], None]] = None
-        self._on_auto_save_toggled: Optional[Callable[[bool], None]] = None
         # load_settings() でフォームに値をセットする際、trace経由でon_field_changedが
         # 誤って発火しないようにするためのガード。
         self._loading = False
-        # is_dirty()で外部(共通Saveボタン・終了時の確認)から問い合わせられるように、
-        # ラベルの文字列だけでなく真偽値としても保持しておく。
-        self._dirty = False
 
         self._notify_var = tk.BooleanVar(value=True)
         self._notify_days_var = tk.StringVar(value="3")
-        self._auto_save_var = tk.BooleanVar(value=True)
 
         row = 0
-        ttk.Label(self, text="Saving", font=("Helvetica", 10, "bold")).grid(
-            row=row, column=0, columnspan=2, sticky="w", pady=(0, 4)
-        )
-        row += 1
-        ttk.Checkbutton(
-            self,
-            text="Automatically save changes",
-            variable=self._auto_save_var,
-            command=self._on_auto_save_changed,
-        ).grid(row=row, column=0, columnspan=2, sticky="w", pady=2)
-        row += 1
-
         ttk.Label(self, text="Due Date Highlight", font=("Helvetica", 10, "bold")).grid(
-            row=row, column=0, columnspan=2, sticky="w", pady=(16, 4)
+            row=row, column=0, columnspan=2, sticky="w", pady=(0, 4)
         )
         row += 1
         notify_checkbox = ttk.Checkbutton(
@@ -88,11 +71,6 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
         self._days_unit_label.grid(row=0, column=1, padx=(6, 0))
         row += 1
 
-        # 未保存の変更があるかどうかの表示（ボタンはタブの外の共通Saveボタンを使う
-        # ため、ここには置かない）。
-        self._status_label = ttk.Label(self, text="", foreground="#4a6cf7")
-        self._status_label.grid(row=row, column=0, columnspan=2, sticky="w", pady=(16, 0))
-
         self.columnconfigure(1, weight=1)
 
         # 日数欄の値変更をtraceで検知する（load_settings中は_loadingで抑制）
@@ -109,14 +87,9 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
 
     def _on_notify_toggled(self) -> None:
         self._update_days_row_state()
-        # ハイライトON/OFFは「保存」を待たず、一覧タブへ即座に反映する
+        # ハイライトON/OFFは一覧タブへ即座に反映する
         if self._on_highlight_toggled:
             self._on_highlight_toggled(self._notify_var.get())
-
-    def _on_auto_save_changed(self) -> None:
-        # Auto Saveのスイッチ自体は「保存」を待たず即座に反映・保存する
-        if self._on_auto_save_toggled:
-            self._on_auto_save_toggled(self._auto_save_var.get())
 
     def _update_days_row_state(self) -> None:
         """チェックボタンがOFFの間、日数欄をグレーアウトして編集できなくする"""
@@ -152,16 +125,11 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
         self._on_highlight_toggled = handler
 
     # Override
-    def set_on_auto_save_toggled(self, handler: Callable[[bool], None]) -> None:
-        self._on_auto_save_toggled = handler
-
-    # Override
     def load_settings(self, settings: Settings) -> None:
         self._loading = True
         try:
             self._notify_var.set(settings.notify_enabled)
             self._notify_days_var.set(str(settings.notify_days_before))
-            self._auto_save_var.set(settings.auto_save_enabled)
         finally:
             self._loading = False
         self._update_days_row_state()
@@ -171,14 +139,4 @@ class TkSettingsFrame(ttk.Frame, SettingsView):
         return Settings(
             notify_enabled=self._notify_var.get(),
             notify_days_before=int(self._notify_days_var.get()),
-            auto_save_enabled=self._auto_save_var.get(),
         )
-
-    # Override
-    def set_dirty(self, dirty: bool) -> None:
-        self._dirty = dirty
-        self._status_label.config(text="● Unsaved changes" if dirty else "")
-
-    # Override
-    def is_dirty(self) -> bool:
-        return self._dirty

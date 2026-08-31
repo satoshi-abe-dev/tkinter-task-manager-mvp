@@ -51,38 +51,25 @@ to the MVP pattern (Model / View / Presenter).
     edited again.
   - A row whose status is manually set to "Overdue" is always highlighted red, regardless of its due
     date (excluding "Done" tasks).
-- **Settings tab**:
-  - **"Automatically save changes"** (Auto Save): while on (the default), every edit on either tab is
-    written to the database immediately — no need to click "Save". Turning it off defers writes:
-    edits only change the in-memory state until the shared "Save" button (below) is clicked. If you
-    make a mistake before saving, just don't save — quitting (without saving) and reopening the app
-    restores the last saved state, since nothing wrong ever reached the database (quitting the app
-    effectively acts as an "undo everything since the last save"). This switch itself always applies
-    (and saves) immediately when toggled; turning it on also flushes any other pending unsaved changes
-    at that moment.
-  - **Due-date highlight** (on/off, and how many days ahead to warn): changing a value shows "Unsaved
-    changes" while Auto Save is off. The highlight on/off checkbox itself is always the exception,
-    regardless of the Auto Save setting — toggling it applies to (and persists) the task list's
-    highlighting immediately, without waiting for "Save". This setting directly drives the due-date
-    highlight on the task list (rows for tasks that are overdue or due soon are shaded orange/red).
-    Tasks with a "Done" status are excluded.
+- **Settings tab**: configures the due-date highlight (on/off, and how many days ahead to warn).
+  - Changing a value is saved to the database immediately (Auto Save — there's no Save button).
+  - The highlight on/off checkbox applies to the task list's highlighting immediately when toggled.
+    This setting directly drives the due-date highlight on the task list (rows for tasks that are
+    overdue or due soon are shaded orange/red). Tasks with a "Done" status are excluded.
 
 Tabs and buttons deliberately keep the OS-native look (the default `ttk.Notebook` / `ttk.Button` style).
 
 Both tasks and settings are persisted to SQLite (the standard-library `sqlite3` module — no extra
-install needed; see the folder structure below for details). The shared "Save" button (used when Auto
-Save is off) lives outside both tabs — a single button in the row just above the tab bar
-(right-aligned) — and clicking it saves any unsaved changes in both tabs at once, regardless of which
-tab is currently showing. If you try to close the window while either tab has unsaved changes, a
-dialog asks whether to save, discard, or cancel (with Auto Save on, there's normally nothing unsaved,
-so this dialog rarely appears).
+install needed; see the folder structure below for details). **Edits are always saved to the database
+immediately** (Auto Save). There's no Save button, no "unsaved changes" indicator, and no
+confirm-on-quit dialog — you never have to think about saving, but there's also no way to undo a
+mistake by simply not saving (the periodic backup below is the only safety net for that).
 
-Regardless of the Auto Save setting, **every 15 minutes the app checks whether `app.db` has changed
-and, if so, backs it up** (skipped if nothing changed since the last backup). Backups go to
-`data/backups/`, keeping only the newest **24 hours** and deleting anything older (retention by
-elapsed time, not by count — so changing the backup interval later doesn't break the "one day of
-history" guarantee). This is a separate safety net from "just don't save to undo" above — it protects
-against the actual database *file* becoming unreadable (disk failure, filesystem corruption, etc.).
+**Every 15 minutes the app checks whether `app.db` has changed and, if so, backs it up** (skipped if
+nothing changed since the last backup). Backups go to `data/backups/`, keeping only the newest
+**24 hours** and deleting anything older (retention by elapsed time, not by count — so changing the
+backup interval later doesn't break the "one day of history" guarantee). This protects against the
+actual database *file* becoming unreadable (disk failure, filesystem corruption, etc.).
 SQLite's own transactions already guard reasonably well against a crash mid-write leaving the file
 half-written, but they can't help if the file itself gets corrupted or lost outright.
 
@@ -113,8 +100,7 @@ task_manager_tkinter/
         settings/
             settings_view.py        SettingsView (abstract class)
             tk_settings_frame.py    Tkinter implementation (Settings tab)
-        tk_main_window.py      Tkinter implementation (the window that combines both tabs;
-                               also owns the shared Save button, in the row just above the tabs)
+        tk_main_window.py      Tkinter implementation (the window that combines both tabs)
     Presenter/
         task/
             task_list_presenter.py
@@ -137,26 +123,19 @@ exception is `View/tk_main_window.py`, which combines both tabs and so stays dir
 | Model | `csv_io` | Exports/imports tasks to/from CSV. Pure I/O functions. | none |
 | View (abstract) | `TaskListView` / `SettingsView` | Define the "contract" for each tab (rendering, reading input, registering handlers). | none |
 | View (impl) | `tk_task_list_frame.py` (`TkTaskListFrame`) / `tk_settings_frame.py` (`TkSettingsFrame`) / `tk_main_window.py` (`TkMainWindow`) | Concrete implementation of the above abstractions using Tkinter (`ttk.Notebook` + standard widgets). | the View abstractions, tkinter |
-| Presenter | `TaskListPresenter` / `SettingsPresenter` | Holds the "screen behavior" logic for each tab: validation, updating the Model, tracking the list's sort state, adding/deleting tasks, CSV export/import, and determining the due-date highlight. On every `refresh()` (or `on_field_changed()`), checks `SettingsModel.get().auto_save_enabled` and calls `save()` immediately if it's on. `TaskListPresenter` also reads `SettingsModel` to get the highlight criteria (on/off, how many days ahead). | the corresponding Model(s) (`TaskListPresenter` depends on both `TaskModel` and `SettingsModel`), the corresponding View (abstract only) |
+| Presenter | `TaskListPresenter` / `SettingsPresenter` | Holds the "screen behavior" logic for each tab: validation, updating the Model, tracking the list's sort state, adding/deleting tasks, CSV export/import, and determining the due-date highlight. On every `refresh()` (or `on_field_changed()`), saves immediately if there's anything unsaved (Auto Save). `TaskListPresenter` also reads `SettingsModel` to get the highlight criteria (on/off, how many days ahead). | the corresponding Model(s) (`TaskListPresenter` depends on both `TaskModel` and `SettingsModel`), the corresponding View (abstract only) |
 
 Because each Presenter depends only on its View abstraction, swapping the View implementation (Tkinter / another GUI library / a fake View for testing) requires no change to the Presenter code.
 Likewise, `TaskModel`/`SettingsModel` hide their persistence behind `task_db`/`settings_db`. Switching
 from an in-memory-only implementation to SQLite (writing through on every change) required no changes
-to the Presenter or View code at all. Later, the write-through behavior was replaced with an explicit
-`save()` — so that a mistake made before saving can simply be discarded by not saving and restarting
-the app. Since that introduced new user-facing behavior (a Save button, an "unsaved changes" indicator,
-and a confirm-on-quit dialog), it did require corresponding changes to both Presenters, both Views, and
-`TkMainWindow`.
-A further redesign moved the Save button out of both tabs into one shared button on `TkMainWindow`
-that saves both tabs at once. The decision of "what needs saving, across both tabs" was kept out of
-either Presenter or View and placed in `main.py` (the composition root) instead — each Presenter/View
-pair still only needs to know about its own tab's save state; nothing needed to learn about the other
-tab.
-Finally, since deciding where to put a Save button had turned into its own recurring design problem,
-an Auto Save toggle was added to the Settings tab instead. Rather than rebuilding the deferred-save
-mechanism, it was kept exactly as-is for when Auto Save is off; when it's on, the Presenter layer
-(`refresh()` / `on_field_changed()`) simply calls `save()` on its own — one conditional, reusing
-everything already built, rather than two separate code paths.
+to the Presenter or View code at all. A later redesign replaced that write-through behavior with an
+explicit `save()` behind a Save button (plus an "unsaved changes" indicator and a confirm-on-quit
+dialog), so a mistake could be discarded by simply not saving — but deciding where that button should
+live turned into its own recurring design problem. In the end, the simplest option won: go back to
+saving immediately on every change (Auto Save, no button at all), and rely on the periodic backup
+below as the safety net instead. Across all of this, Presenter/View changes were only ever needed when
+the *user-facing* behavior changed (adding or removing a button, a dialog, an indicator) — the Model's
+persistence mechanism itself (in-memory vs. SQLite) never required touching the Presenter or View.
 
 ## Data Flow (clicking "+ Add")
 
