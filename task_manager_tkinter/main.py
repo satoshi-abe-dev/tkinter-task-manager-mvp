@@ -1,41 +1,47 @@
 """
 エントリーポイント
 ------------------
-Model / View / Presenter の各フォルダから読み込んで組み立てて起動する。
+model / view / presenter の各フォルダから読み込んで組み立てて起動する。
+フォルダ階層がそのままクラスの名前空間になっている
+（例: model/task/ ⇔ task_manager_tkinter.model.task.TaskModel）。
 
-フォルダ構成:
-    task_manager_tkinter/
-        main.py          <- これ（Model, View, Presenterと同じ階層）
+フォルダ構成（ファイル名は役割を表し、フォルダ名は繰り返さない）:
+    task_manager_tkinter/          ルートパッケージ
+        main.py          <- これ（model, view, presenterと同じ階層）
         data/            アプリのSQLiteデータベース(app.db)の置き場。実行時に自動作成される
             backups/           設定した間隔(既定15分)ごとの自動バックアップ(直近24時間分)の置き場
-        Model/
-            db_path.py            DBファイルの既定パス（task/settingsで共有）
-            db_backup.py           app.dbのバックアップ・世代管理（純粋なI/O）
+        model/
+            lib/            クラスを持たない純粋I/Oモジュールの置き場
+                db_path.py        DBファイルの既定パス（task/settingsで共有）
+                db_backup.py      app.dbのバックアップ・世代管理（純粋なI/O）
+                task_db.py        タスクの永続化(SQLite、純粋なI/O)
+                settings_db.py    設定の永続化(SQLite、純粋なI/O)
+                csv_io.py         CSV書き出し/読み込み（純粋なI/O）
             task/
-                task.py               Task（データクラス）
-                task_model.py         TaskModel
-                task_db.py            タスクの永続化(SQLite、純粋なI/O)
-                csv_io.py             CSV書き出し/読み込み（純粋なI/O）
+                entity.py         Task（データクラス）＋ PRIORITIES / STATUSES
+                store.py          TaskModel（メモリ上のタスク集合を保持し永続化を委譲）
             settings/
-                settings_model.py     Settings / SettingsModel
-                settings_db.py        設定の永続化(SQLite、純粋なI/O)
-        View/
+                entity.py         Settings（データクラス）
+                store.py          SettingsModel
+        view/
             task/
-                task_list_view.py     TaskListView（抽象クラス）
-                tk_task_list_frame.py Tkinter実装（タスク一覧タブ）
+                contract.py       TaskListView（抽象クラス＝Presenterが依存する契約）
+                tk_frame.py       Tkinter実装（タスク一覧タブ）
             settings/
-                settings_view.py      SettingsView（抽象クラス）
-                tk_settings_frame.py  Tkinter実装（設定タブ）
-            tk_main_window.py         Tkinter実装（2タブをまとめるTkMainWindow）
-        Presenter/
-            task/
-                task_list_presenter.py
-            settings/
-                settings_presenter.py
+                contract.py       SettingsView（抽象クラス＝Presenterが依存する契約）
+                tk_frame.py       Tkinter実装（設定タブ）
+            tk_main_window.py     Tkinter実装（2タブをまとめるTkMainWindow）
+        presenter/            （タブごとにファイル1個。サブフォルダは作らない）
+            task.py               TaskListPresenter
+            settings.py           SettingsPresenter
 
-実行方法:
-    このフォルダ(task_manager_tkinter)の直下で
-        python3 main.py
+実行方法（どちらでも可）:
+    - リポジトリのルート（task_manager_tkinter/ の親フォルダ）で
+        python3 -m task_manager_tkinter.main
+    - ファイル指定で直接
+        python3 task_manager_tkinter/main.py
+      または  cd task_manager_tkinter && python3 main.py
+      （下の sys.path ブートストラップが絶対 import を通す）
 ※ GUIなので、Tcl/Tkが使えるお手元のPCで実行してください。
 ※ タスク・設定はSQLite(標準ライブラリのsqlite3、追加インストール不要)で
   永続化される。DBファイルは初回実行時にdata/app.dbとして作成される。
@@ -49,14 +55,25 @@ Model / View / Presenter の各フォルダから読み込んで組み立てて�
 """
 
 import os
+import sys
 
-from Model.db_backup import backup_and_rotate
-from Model.db_path import DEFAULT_DB_PATH
-from Model.settings.settings_model import SettingsModel
-from Model.task.task_model import TaskModel
-from Presenter.settings.settings_presenter import SettingsPresenter
-from Presenter.task.task_list_presenter import TaskListPresenter
-from View.tk_main_window import TkMainWindow
+# `python main.py` / `python task_manager_tkinter/main.py` のようにファイル指定で
+# 直接起動されると、この時点では task_manager_tkinter パッケージが import パスに
+# 無い（__package__ が未設定）。リポジトリのルート（このファイルの2つ上）を
+# sys.path に足して、`python -m task_manager_tkinter.main` と同じ絶対 import が
+# 通るようにする。-m で起動された場合は __package__ が設定済みなので何もしない。
+if __package__ in (None, ""):
+    sys.path.insert(
+        0, os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    )
+
+from task_manager_tkinter.model.lib.db_backup import backup_and_rotate  # noqa: E402
+from task_manager_tkinter.model.lib.db_path import DEFAULT_DB_PATH  # noqa: E402
+from task_manager_tkinter.model.settings import SettingsModel  # noqa: E402
+from task_manager_tkinter.model.task import TaskModel  # noqa: E402
+from task_manager_tkinter.presenter.settings import SettingsPresenter  # noqa: E402
+from task_manager_tkinter.presenter.task import TaskListPresenter  # noqa: E402
+from task_manager_tkinter.view.tk_main_window import TkMainWindow  # noqa: E402
 
 _MIN_BACKUP_INTERVAL_MINUTES = 1  # 0以下が設定されても暴走しないようにする下限
 

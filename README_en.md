@@ -80,41 +80,53 @@ half-written, but they can't help if the file itself gets corrupted or lost outr
 ## Folder Structure
 
 ```
-task_manager_tkinter/
-    main.py                   Entry point (same level as Model, View, Presenter)
+task_manager_tkinter/         Root package (folder hierarchy == class namespace)
+    main.py                   Entry point (same level as model, view, presenter)
     test_presenter.py         Unit tests for the two Presenters (no tkinter required)
     data/                     Where the SQLite database (app.db) lives; created automatically at runtime
         backups/               Backups of app.db, made automatically at the configured interval (last 24h kept)
-    Model/
-        db_path.py            The DB file's default path (shared by task/settings)
-        db_backup.py           Backs up and rotates app.db (pure I/O)
-        task/
-            task.py             Task (data class)
-            task_model.py       TaskModel
-            task_db.py           Task persistence (SQLite), pure I/O, no tkinter dependency.
-                                  save() writes the whole in-memory state at once
-            csv_io.py            CSV export/import (pure I/O, no tkinter dependency)
-        settings/
-            settings_model.py   Settings (data class) / SettingsModel
+    model/
+        lib/                  Home for pure-I/O modules that hold no class
+            db_path.py            The DB file's default path (shared by task/settings)
+            db_backup.py          Backs up and rotates app.db (pure I/O)
+            task_db.py            Task persistence (SQLite), pure I/O, no tkinter dependency.
+                                   save() writes the whole in-memory state at once
             settings_db.py       Settings persistence (SQLite), pure I/O, no tkinter dependency
-    View/
+            csv_io.py            CSV export/import (pure I/O, no tkinter dependency)
         task/
-            task_list_view.py       TaskListView (abstract class)
-            tk_task_list_frame.py   Tkinter implementation (Task List tab)
+            entity.py           Task (data class) + PRIORITIES / STATUSES
+            store.py            TaskModel (holds the in-memory task set, delegates persistence)
         settings/
-            settings_view.py        SettingsView (abstract class)
-            tk_settings_frame.py    Tkinter implementation (Settings tab)
+            entity.py           Settings (data class)
+            store.py            SettingsModel
+    view/
+        task/
+            contract.py         TaskListView (abstract class = the contract the Presenter depends on)
+            tk_frame.py         Tkinter implementation (Task List tab)
+        settings/
+            contract.py         SettingsView (abstract class = the contract the Presenter depends on)
+            tk_frame.py         Tkinter implementation (Settings tab)
         tk_main_window.py      Tkinter implementation (the window that combines both tabs)
-    Presenter/
-        task/
-            task_list_presenter.py
-        settings/
-            settings_presenter.py
+    presenter/               (one file per tab; no subfolders)
+        task.py                TaskListPresenter
+        settings.py            SettingsPresenter
 ```
 
-Model, View, and Presenter are all split into per-tab subfolders (`task`/`settings`). The one
-exception is `View/tk_main_window.py`, which combines both tabs and so stays directly under `View/`.
-`Model/db_path.py` is likewise shared by both `task` and `settings`, so it stays directly under `Model/`.
+Under `model` / `view`, file names carry only the **role** (`entity` / `store` / `contract` /
+`tk_frame`); which tab they belong to is shown by the **folder** (`task` / `settings`). Neither
+the folder name nor the layer name (`view`, …) is repeated in the file name. `presenter` has just
+one class per tab, so it skips the subfolder and puts `task.py` / `settings.py` directly under
+`presenter/`.
+
+The `model` / `view` subfolders are directly the import namespace of the classes inside them
+(e.g. `model/task/` ⇔ `task_manager_tkinter.model.task.TaskModel`). Each subpackage's
+`__init__.py` re-exports its public classes, so callers import by the dotted path of the
+containing folder (`from task_manager_tkinter.model.task import TaskModel`). For presenter it is
+`from task_manager_tkinter.presenter.task import TaskListPresenter` (straight from
+`presenter/task.py`).
+
+`view/tk_main_window.py` combines both tabs and so stays directly under `view/`.
+**Pure-I/O modules that hold no class** (`db_path` and friends) are collected under `model/lib/`.
 
 ## Responsibility of Each Layer
 
@@ -122,11 +134,11 @@ exception is `View/tk_main_window.py`, which combines both tabs and so stays dir
 |---|---|---|---|
 | Model | `TaskModel` | Domain logic for holding, adding (including blank tasks), updating, and deleting tasks. Edits only change the in-memory state; persistence is delegated to `task_db` only when `save()` is called (and `TaskModel` doesn't know any SQL itself). Knows nothing about the UI either. | `task_db` |
 | Model | `SettingsModel` | Domain logic for holding and updating settings. Delegates the persistence details (SQLite) to `settings_db` and doesn't know any SQL itself. | `settings_db` |
-| Model | `task_db` / `settings_db` | Saves/loads tasks and settings to/from SQLite. Pure I/O functions, no tkinter dependency. | `db_path` (where the DB file lives) |
+| Model | `task_db` / `settings_db` (`model/lib/`) | Saves/loads tasks and settings to/from SQLite. Pure I/O functions, no tkinter dependency. | `db_path` (where the DB file lives) |
 | Model | `db_backup` | Backs up `app.db` with a timestamp and deletes backups older than a given retention window (default 24h). Pure I/O functions; main.py owns the call cadence, read from `SettingsModel` (default 15 minutes). | none |
 | Model | `csv_io` | Exports/imports tasks to/from CSV. Pure I/O functions. | none |
 | View (abstract) | `TaskListView` / `SettingsView` | Define the "contract" for each tab (rendering, reading input, registering handlers). | none |
-| View (impl) | `tk_task_list_frame.py` (`TkTaskListFrame`) / `tk_settings_frame.py` (`TkSettingsFrame`) / `tk_main_window.py` (`TkMainWindow`) | Concrete implementation of the above abstractions using Tkinter (`ttk.Notebook` + standard widgets). | the View abstractions, tkinter |
+| View (impl) | `view/task/tk_frame.py` (`TkTaskListFrame`) / `view/settings/tk_frame.py` (`TkSettingsFrame`) / `view/tk_main_window.py` (`TkMainWindow`) | Concrete implementation of the above abstractions using Tkinter (`ttk.Notebook` + standard widgets). | the View abstractions, tkinter |
 | Presenter | `TaskListPresenter` / `SettingsPresenter` | Holds the "screen behavior" logic for each tab: validation, updating the Model, tracking the list's sort state, adding/deleting tasks, CSV export/import, and determining the due-date highlight. On every `refresh()` (or `on_field_changed()`), saves immediately if there's anything unsaved (Auto Save). `TaskListPresenter` also reads `SettingsModel` to get the highlight criteria (on/off, how many days ahead). | the corresponding Model(s) (`TaskListPresenter` depends on both `TaskModel` and `SettingsModel`), the corresponding View (abstract only) |
 
 Because each Presenter depends only on its View abstraction, swapping the View implementation (Tkinter / another GUI library / a fake View for testing) requires no change to the Presenter code.
@@ -164,8 +176,11 @@ macOS / Linux:
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 
-cd task_manager_tkinter
-../.venv/bin/python main.py
+# Any of these work (from the repository root, the parent of task_manager_tkinter/)
+.venv/bin/python -m task_manager_tkinter.main
+.venv/bin/python task_manager_tkinter/main.py
+# or
+cd task_manager_tkinter && ../.venv/bin/python main.py
 ```
 
 Windows (Command Prompt / PowerShell):
@@ -174,25 +189,32 @@ Windows (Command Prompt / PowerShell):
 python -m venv .venv
 .venv\Scripts\pip install -r requirements.txt
 
-cd task_manager_tkinter
-..\.venv\Scripts\python main.py
+REM Any of these work (from the repository root)
+.venv\Scripts\python -m task_manager_tkinter.main
+.venv\Scripts\python task_manager_tkinter\main.py
 ```
+
+`main.py` / `test_presenter.py` prepend the repository root to `sys.path` only when they
+detect they were run as a plain script (`__package__` unset), so the same absolute imports
+resolve whether you use `-m` or a file path.
 
 ## How to Test
 
 By swapping in fake Views (fake implementations of each View abstract class) instead of `TkMainWindow`
 (and its internal Frames), the two Presenters' logic can be verified without ever starting Tkinter.
 
-`test_presenter.py` depends only on the `View.*_view` abstract classes and never imports the Tkinter
-implementation under View (`tk_task_list_frame.py` / `tk_settings_frame.py` / `tk_main_window.py`), so it
-runs fine even in environments without tkinter installed.
+`test_presenter.py` depends only on the `view.*` packages (the `TaskListView` / `SettingsView` abstract
+classes) and never imports the Tkinter implementation under view (`view/task/tk_frame.py` /
+`view/settings/tk_frame.py` / `view/tk_main_window.py`), so it runs fine even in environments without tkinter
+installed (the `__init__.py` files under `view/` re-export only the abstract classes, never the Tk impls).
 
 `TaskModel`/`SettingsModel` are constructed with `db_path=":memory:"` in tests, which runs SQLite entirely
 in memory — nothing is written to disk, and each test gets its own isolated database.
 
 ```bash
-cd task_manager_tkinter
-python3 test_presenter.py
+# From the repository root (either works)
+python3 -m task_manager_tkinter.test_presenter
+python3 task_manager_tkinter/test_presenter.py
 ```
 
 CI also runs the same tests automatically on every pull request and every push to `main` (see `.github/workflows/test.yml`).

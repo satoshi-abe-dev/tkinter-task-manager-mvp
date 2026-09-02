@@ -1,21 +1,14 @@
 """
 Model
 -----
-アプリ設定の保持のみを行う。永続化はModel.settings.settings_db（SQLite）に
+アプリ設定の保持のみを行う。永続化は model.lib.settings_db（SQLite）に
 委譲しており、SettingsModel自身はSQLの詳細を知らない。
+Settings データクラスは model.settings.entity に分離してある。
 """
 
-from dataclasses import dataclass
-
-from Model.db_path import DEFAULT_DB_PATH
-from Model.settings import settings_db
-
-
-@dataclass
-class Settings:
-    notify_enabled: bool = True
-    notify_days_before: int = 3
-    backup_interval_minutes: int = 15
+from task_manager_tkinter.model.lib import settings_db
+from task_manager_tkinter.model.lib.db_path import DEFAULT_DB_PATH
+from task_manager_tkinter.model.settings.entity import Settings
 
 
 class SettingsModel:

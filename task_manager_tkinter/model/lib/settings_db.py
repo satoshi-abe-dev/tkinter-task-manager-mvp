@@ -2,15 +2,15 @@
 Model — 設定の永続化(SQLite)
 ------------------------------
 設定をSQLiteに保存・読み込みする、tkinterに依存しない純粋なI/Oロジック。
-Settingsデータクラス(settings_model.py)には依存せず、プリミティブな値だけを
-やり取りする（settings_model.pyとの循環importを避けるため）。
+Settingsデータクラス(model.settings.entity)には依存せず、プリミティブな値だけを
+やり取りする（循環importを避けるため）。
 """
 
 import sqlite3
 from pathlib import Path
 from typing import Tuple
 
-from Model.db_path import DEFAULT_DB_PATH
+from task_manager_tkinter.model.lib.db_path import DEFAULT_DB_PATH
 
 _CREATE_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS settings (

@@ -2,8 +2,8 @@
 View（Tkinter実装層）— ウィンドウ全体
 --------------------------------------
 タスク一覧タブ(TkTaskListFrame)・設定タブ(TkSettingsFrame)をttk.Notebookに
-まとめ、ウィンドウ全体の起動(run)を担う。各タブ自体の実装はView/task/、
-View/settings/ 以下（タブごとのフォルダ）に分かれている。
+まとめ、ウィンドウ全体の起動(run)を担う。各タブ自体の実装は view/task/、
+view/settings/ 以下（タブごとのフォルダ）に分かれている。
 
 編集は常に即座にDB(SQLite)へ保存される(Auto Save)ため、Saveボタンや
 「未保存」表示は無い。ディスク破損などに備えたバックアップは、main.py側で
@@ -14,8 +14,8 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Callable
 
-from View.settings.tk_settings_frame import TkSettingsFrame
-from View.task.tk_task_list_frame import TkTaskListFrame
+from task_manager_tkinter.view.settings.tk_frame import TkSettingsFrame
+from task_manager_tkinter.view.task.tk_frame import TkTaskListFrame
 
 
 # Called at main.py > def main()

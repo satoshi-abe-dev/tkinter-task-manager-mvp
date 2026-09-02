@@ -73,41 +73,52 @@ MVPパターン（Model / View / Presenter）で責務を分離して実装し�
 ## フォルダ構成
 
 ```
-task_manager_tkinter/
-    main.py                   エントリーポイント（Model, View, Presenterと同じ階層）
+task_manager_tkinter/         ルートパッケージ（フォルダ階層 ＝ クラスの名前空間）
+    main.py                   エントリーポイント（model, view, presenterと同じ階層）
     test_presenter.py         2つのPresenterの単体テスト（tkinter不要）
     data/                     SQLiteデータベース(app.db)の置き場。実行時に自動作成される
         backups/               設定した間隔(既定15分)ごとに自動作成されるapp.dbのバックアップ(直近24時間分)
-    Model/
-        db_path.py            DBファイルの既定パス（task/settingsで共有）
-        db_backup.py           app.dbのバックアップ・世代管理（純粋なI/O）
-        task/
-            task.py             Task（データクラス）
-            task_model.py       TaskModel
-            task_db.py           タスクの永続化(SQLite)。tkinterに依存しない純粋なI/O。
-                                  save()時にメモリ上の状態をまるごと書き込む方式
-            csv_io.py            CSV書き出し/読み込み（tkinterに依存しない純粋なI/O）
-        settings/
-            settings_model.py   Settings（データクラス）/ SettingsModel
+    model/
+        lib/                  クラスを持たない純粋I/Oモジュールの置き場
+            db_path.py            DBファイルの既定パス（task/settingsで共有）
+            db_backup.py          app.dbのバックアップ・世代管理（純粋なI/O）
+            task_db.py            タスクの永続化(SQLite)。tkinterに依存しない純粋なI/O。
+                                   save()時にメモリ上の状態をまるごと書き込む方式
             settings_db.py       設定の永続化(SQLite)。tkinterに依存しない純粋なI/O
-    View/
+            csv_io.py            CSV書き出し/読み込み（tkinterに依存しない純粋なI/O）
         task/
-            task_list_view.py       TaskListView（抽象クラス）
-            tk_task_list_frame.py   Tkinter実装（タスク一覧タブ）
+            entity.py           Task（データクラス）＋ PRIORITIES / STATUSES
+            store.py            TaskModel（メモリ上のタスク集合を保持し永続化を委譲）
         settings/
-            settings_view.py        SettingsView（抽象クラス）
-            tk_settings_frame.py    Tkinter実装（設定タブ）
+            entity.py           Settings（データクラス）
+            store.py            SettingsModel
+    view/
+        task/
+            contract.py         TaskListView（抽象クラス＝Presenterが依存する契約）
+            tk_frame.py         Tkinter実装（タスク一覧タブ）
+        settings/
+            contract.py         SettingsView（抽象クラス＝Presenterが依存する契約）
+            tk_frame.py         Tkinter実装（設定タブ）
         tk_main_window.py      Tkinter実装（2タブをまとめるウィンドウ全体）
-    Presenter/
-        task/
-            task_list_presenter.py
-        settings/
-            settings_presenter.py
+    presenter/               （タブごとにファイル1個。サブフォルダは作らない）
+        task.py                TaskListPresenter
+        settings.py            SettingsPresenter
 ```
 
-Model/View/Presenterのいずれも、タブの種類（`task`/`settings`）ごとにサブフォルダで分けている。
-`View/tk_main_window.py`だけは両タブをまとめる存在なので`View/`直下に置いている。
-`Model/db_path.py`も同様に、`task`/`settings`の両方から共有される存在として`Model/`直下に置いている。
+`model` / `view` では、ファイル名は**役割**（`entity` / `store` / `contract` / `tk_frame`）だけを表し、
+どのタブのものかは**フォルダ**（`task` / `settings`）が示す。フォルダ名や層名（`view` など）は
+ファイル名で繰り返さない。`presenter` はタブごとに1クラスしか無いのでサブフォルダを作らず、
+`task.py` / `settings.py` を直下に置く。
+
+`model` / `view` のサブフォルダはそのままクラスの import 名前空間になっている（例:
+`model/task/` ⇔ `task_manager_tkinter.model.task.TaskModel`）。各サブパッケージの
+`__init__.py`が公開クラスを再エクスポートしているため、利用側は所在フォルダの
+ドット表記でそのまま import できる（`from task_manager_tkinter.model.task import TaskModel`）。
+`presenter` は `from task_manager_tkinter.presenter.task import TaskListPresenter`
+（`presenter/task.py` から直接）。
+
+`view/tk_main_window.py`だけは両タブをまとめる存在なので`view/`直下に置いている。
+`db_path.py`など**クラスを持たない純粋I/Oモジュール**は`model/lib/`にまとめている。
 
 ## 各層の責務
 
@@ -115,11 +126,11 @@ Model/View/Presenterのいずれも、タブの種類（`task`/`settings`）ご�
 |---|---|---|---|
 | Model | `TaskModel` | タスクの保持・追加（空欄タスクの追加を含む）・更新・削除のドメインロジック。編集操作はメモリ上の状態だけを書き換え、`save()`が呼ばれた時だけ`task_db`へ永続化を委譲する（自身はSQLを知らない）。UIのことも一切知らない。 | `task_db` |
 | Model | `SettingsModel` | 設定値の保持・更新のドメインロジック。永続化の詳細（SQLite）は`settings_db`に委譲し、自身はSQLを知らない。 | `settings_db` |
-| Model | `task_db` / `settings_db` | タスク・設定をSQLiteに保存/読み込みする。tkinterに依存しない純粋なI/O関数。 | `db_path`（DBファイルの場所） |
+| Model | `task_db` / `settings_db`（`model/lib/`） | タスク・設定をSQLiteに保存/読み込みする。tkinterに依存しない純粋なI/O関数。 | `db_path`（DBファイルの場所） |
 | Model | `db_backup` | `app.db`をタイムスタンプ付きでバックアップし、指定した保持期間（既定24時間）より古いものを削除する。純粋なI/O関数。呼び出しタイミング（`SettingsModel`で設定した間隔、既定15分）はmain.pyが管理する。 | なし |
 | Model | `csv_io` | タスクのCSV書き出し/読み込み。純粋なI/O関数。 | なし |
 | View（抽象） | `TaskListView` / `SettingsView` | 各タブの「契約」（表示・入力取得・ハンドラ登録）を定義。 | なし |
-| View（実装） | `tk_task_list_frame.py`(`TkTaskListFrame`) / `tk_settings_frame.py`(`TkSettingsFrame`) / `tk_main_window.py`(`TkMainWindow`) | 上記の抽象をTkinter（`ttk.Notebook` + 標準ウィジェット）で実装。 | 各View抽象, tkinter |
+| View（実装） | `view/task/tk_frame.py`(`TkTaskListFrame`) / `view/settings/tk_frame.py`(`TkSettingsFrame`) / `view/tk_main_window.py`(`TkMainWindow`) | 上記の抽象をTkinter（`ttk.Notebook` + 標準ウィジェット）で実装。 | 各View抽象, tkinter |
 | Presenter | `TaskListPresenter` / `SettingsPresenter` | 各タブの「画面の振る舞い」のロジック。バリデーション・Model更新・一覧のソート状態管理・タスクの追加/削除/CSV入出力・期限ハイライトの判定を担う。`refresh()`（または`on_field_changed()`）のたびに未保存の変更があればその場で`save()`する（Auto Save）。`TaskListPresenter`は期限ハイライトの判定基準（有効/無効・何日前から）を得るためにも`SettingsModel`を参照する。 | 対応するModel（`TaskListPresenter`は`TaskModel`と`SettingsModel`の両方）, 対応するView（抽象のみ） |
 
 各PresenterはそれぞれのView抽象にしか依存していないため、View側の実装を差し替えても（Tkinter／別のGUIライブラリ／テスト用のFakeViewなど）Presenterのコードは変更不要。
@@ -150,8 +161,11 @@ macOS / Linux:
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 
-cd task_manager_tkinter
-../.venv/bin/python main.py
+# 以下のいずれでも起動できる（リポジトリのルート ＝ task_manager_tkinter/ の親で）
+.venv/bin/python -m task_manager_tkinter.main
+.venv/bin/python task_manager_tkinter/main.py
+# あるいは
+cd task_manager_tkinter && ../.venv/bin/python main.py
 ```
 
 Windows（コマンドプロンプト / PowerShell）:
@@ -160,25 +174,32 @@ Windows（コマンドプロンプト / PowerShell）:
 python -m venv .venv
 .venv\Scripts\pip install -r requirements.txt
 
-cd task_manager_tkinter
-..\.venv\Scripts\python main.py
+REM 以下のいずれでも起動できる（リポジトリのルートで）
+.venv\Scripts\python -m task_manager_tkinter.main
+.venv\Scripts\python task_manager_tkinter\main.py
 ```
+
+`main.py` / `test_presenter.py` は先頭で `__package__` 未設定を検知したときだけ
+リポジトリのルートを `sys.path` に足すので、`-m` でもファイル指定でも同じ絶対
+import が通る。
 
 ## テスト方法
 
 `TkMainWindow`（および内部のFrame）の代わりにFakeView（各View抽象クラスの偽実装）を差し込むことで、
 Tkinterを一切起動せずに2つのPresenterのロジックを検証する。
 
-`test_presenter.py`は各`View.*_view`（抽象クラス）のみに依存し、View以下のTkinter実装
-（`tk_task_list_frame.py` / `tk_settings_frame.py` / `tk_main_window.py`）は読み込まないため、
-tkinterが入っていない環境でも実行可能。
+`test_presenter.py`は各`view.*`パッケージ（抽象クラス`TaskListView` / `SettingsView`）のみに
+依存し、View以下のTkinter実装（`view/task/tk_frame.py` / `view/settings/tk_frame.py` /
+`view/tk_main_window.py`）は読み込まないため、tkinterが入っていない環境でも実行可能
+（`view/`配下の`__init__.py`は抽象クラスだけを再エクスポートし、Tk実装は巻き込まない）。
 
 `TaskModel`/`SettingsModel`は`db_path=":memory:"`を渡してインメモリのSQLiteで動かしており、
 ディスクに何も残さず、テストどうしで状態が混ざらないようにしている。
 
 ```bash
-cd task_manager_tkinter
-python3 test_presenter.py
+# リポジトリのルートで（どちらでも可）
+python3 -m task_manager_tkinter.test_presenter
+python3 task_manager_tkinter/test_presenter.py
 ```
 
 CIでも、PR作成時・`main`へのpush時に同じテストが自動実行される（`.github/workflows/test.yml`）。

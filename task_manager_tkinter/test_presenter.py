@@ -2,28 +2,39 @@
 Presenterの単体テスト例
 -----------------------
 FakeView（各View抽象クラスの偽実装）を差し込むことで、Tkinterを一切起動せずに
-2つのPresenterのロジックを検証する。View以下のTkinter実装（tk_task_list_frame.py /
-tk_settings_frame.py / tk_main_window.py）は読み込まないため、tkinterが
+2つのPresenterのロジックを検証する。View以下のTkinter実装（view/task/tk_frame.py /
+view/settings/tk_frame.py / view/tk_main_window.py）は読み込まないため、tkinterが
 インストールされていない環境でもこのテストは実行できる。
 
-実行方法:
-    このフォルダ(task_manager_tkinter)の直下で
-        python3 test_presenter.py
+実行方法（どちらでも可）:
+    - リポジトリのルート（task_manager_tkinter/ の親フォルダ）で
+        python3 -m task_manager_tkinter.test_presenter
+    - ファイル指定で直接
+        python3 task_manager_tkinter/test_presenter.py
+      または  cd task_manager_tkinter && python3 test_presenter.py
 """
 
 import os
+import sys
 import tempfile
 from datetime import date, datetime, timedelta
 from typing import Callable, Dict, List, Optional, Tuple
 
-from Model.db_backup import backup_and_rotate
-from Model.settings.settings_model import Settings, SettingsModel
-from Model.task.task import Task
-from Model.task.task_model import TaskModel
-from Presenter.settings.settings_presenter import SettingsPresenter
-from Presenter.task.task_list_presenter import TaskListPresenter
-from View.settings.settings_view import SettingsView
-from View.task.task_list_view import TaskListView
+# `python test_presenter.py` のようにファイル指定で直接起動された場合に、
+# task_manager_tkinter パッケージを import できるようリポジトリのルートを
+# sys.path に足す（-m 起動時は __package__ 設定済みなので何もしない）。
+if __package__ in (None, ""):
+    sys.path.insert(
+        0, os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    )
+
+from task_manager_tkinter.model.lib.db_backup import backup_and_rotate  # noqa: E402
+from task_manager_tkinter.model.settings import Settings, SettingsModel  # noqa: E402
+from task_manager_tkinter.model.task import Task, TaskModel  # noqa: E402
+from task_manager_tkinter.presenter.settings import SettingsPresenter  # noqa: E402
+from task_manager_tkinter.presenter.task import TaskListPresenter  # noqa: E402
+from task_manager_tkinter.view.settings import SettingsView  # noqa: E402
+from task_manager_tkinter.view.task import TaskListView  # noqa: E402
 
 
 class FakeTaskListView(TaskListView):

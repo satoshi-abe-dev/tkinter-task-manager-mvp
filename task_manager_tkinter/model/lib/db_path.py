@@ -11,4 +11,8 @@ from pathlib import Path
 
 # task_manager_tkinter/data/app.db
 # カレントディレクトリに依存しないよう、このファイル自身の場所を基準にする。
-DEFAULT_DB_PATH = str(Path(__file__).resolve().parent.parent / "data" / "app.db")
+# このファイルは task_manager_tkinter/model/lib/ にあるので、parent を 3 つ
+# 遡るとパッケージルート(task_manager_tkinter/)になる。
+DEFAULT_DB_PATH = str(
+    Path(__file__).resolve().parent.parent.parent / "data" / "app.db"
+)

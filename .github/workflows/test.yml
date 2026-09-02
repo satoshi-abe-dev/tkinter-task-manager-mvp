@@ -17,4 +17,4 @@ jobs:
           python-version: "3.12"
 
       - name: Run presenter tests
-        run: python3 task_manager_tkinter/test_presenter.py
+        run: python3 -m task_manager_tkinter.test_presenter

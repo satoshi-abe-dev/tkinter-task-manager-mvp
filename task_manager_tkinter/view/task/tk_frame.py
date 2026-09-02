@@ -1,8 +1,9 @@
 """
 View（Tkinter実装層）— タスク一覧タブ
 --------------------------------------
-task_list_view の抽象クラスを、Tkinterを使って具体的に実装する。
-Tkinterへの依存はこのファイル（および同じ役割のtk_settings_frame.py）だけに閉じ込める。
+view/task/contract.py の抽象クラス TaskListView を、Tkinterを使って具体的に実装する。
+Tkinterへの依存はこのファイル（および同じ役割の view/settings/tk_frame.py）だけに
+閉じ込める。
 """
 
 import tkinter as tk
@@ -12,8 +13,8 @@ from typing import Callable, Dict, List, Optional
 
 from tkcalendar import Calendar
 
-from Model.task.task import PRIORITIES, STATUSES, Task
-from View.task.task_list_view import TaskListView
+from task_manager_tkinter.model.task import PRIORITIES, STATUSES, Task
+from task_manager_tkinter.view.task.contract import TaskListView
 
 _DATE_PATTERN = "yyyy-mm-dd"
 
@@ -27,7 +28,7 @@ _COLUMN_LABELS = {
 }
 
 
-# Called at View/tk_main_window.py > class TkMainWindow
+# Called at view/tk_main_window.py > class TkMainWindow
 class TkTaskListFrame(ttk.Frame, TaskListView):
     """「タスク一覧」タブの実装。ttk.Treeviewで表形式に表示する。
 

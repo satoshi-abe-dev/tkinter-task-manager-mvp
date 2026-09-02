@@ -7,7 +7,7 @@ Presenterが依存する「契約」だけを定義する。
 from abc import ABC, abstractmethod
 from typing import Callable, Dict, List, Optional
 
-from Model.task.task import Task
+from task_manager_tkinter.model.task import Task
 
 
 class TaskListView(ABC):

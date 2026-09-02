@@ -13,9 +13,9 @@ Model
 
 from typing import Iterable, List, Optional
 
-from Model.db_path import DEFAULT_DB_PATH
-from Model.task import task_db
-from Model.task.task import Task
+from task_manager_tkinter.model.lib import task_db
+from task_manager_tkinter.model.lib.db_path import DEFAULT_DB_PATH
+from task_manager_tkinter.model.task.entity import Task
 
 # 一覧タブのインライン編集で書き換えを許すフィールド
 EDITABLE_FIELDS = {"name", "assignee", "due_date", "priority", "status"}

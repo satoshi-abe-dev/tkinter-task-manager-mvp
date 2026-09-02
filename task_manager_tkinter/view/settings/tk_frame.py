@@ -1,8 +1,9 @@
 """
 View（Tkinter実装層）— 設定タブ
 --------------------------------
-settings_view の抽象クラスを、Tkinterを使って具体的に実装する。
-Tkinterへの依存はこのファイル（および同じ役割のtk_task_list_frame.py）だけに閉じ込める。
+view/settings/contract.py の抽象クラス SettingsView を、Tkinterを使って具体的に実装する。
+Tkinterへの依存はこのファイル（および同じ役割の view/task/tk_frame.py）だけに
+閉じ込める。
 """
 
 import tkinter as tk
@@ -10,8 +11,8 @@ import tkinter.font as tkfont
 from tkinter import ttk
 from typing import Callable, Optional
 
-from Model.settings.settings_model import Settings
-from View.settings.settings_view import SettingsView
+from task_manager_tkinter.model.settings import Settings
+from task_manager_tkinter.view.settings.contract import SettingsView
 
 
 class TkSettingsFrame(ttk.Frame, SettingsView):

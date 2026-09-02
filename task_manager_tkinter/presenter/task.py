@@ -8,17 +8,19 @@ Modelのタスク一覧をViewに反映する橋渡し役。
 from datetime import date, datetime, timedelta
 from typing import Callable, Dict, List, Optional
 
-from Model.settings.settings_model import SettingsModel
-from Model.task.csv_io import export_tasks_to_csv, import_tasks_from_csv
-from Model.task.task import PRIORITIES, STATUSES, Task
-from Model.task.task_model import TaskModel
-from View.task.task_list_view import TaskListView
+from task_manager_tkinter.model.lib.csv_io import (
+    export_tasks_to_csv,
+    import_tasks_from_csv,
+)
+from task_manager_tkinter.model.settings import SettingsModel
+from task_manager_tkinter.model.task import PRIORITIES, STATUSES, Task, TaskModel
+from task_manager_tkinter.view.task import TaskListView
 
 _PRIORITY_ORDER = {value: index for index, value in enumerate(PRIORITIES)}
 _STATUS_ORDER = {value: index for index, value in enumerate(STATUSES)}
 
 # 列ごとのソートキー。優先度・ステータスは文字列の五十音順ではなく、
-# Model.task で定義された意味のある並び順（低→高、未着手→完了 など）で並べる。
+# model.task で定義された意味のある並び順（低→高、未着手→完了 など）で並べる。
 _SORT_KEYS: Dict[str, Callable[[Task], object]] = {
     "name": lambda t: t.name,
     "assignee": lambda t: t.assignee,

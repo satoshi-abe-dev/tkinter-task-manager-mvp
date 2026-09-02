@@ -7,7 +7,7 @@ Presenterが依存する「契約」だけを定義する。
 from abc import ABC, abstractmethod
 from typing import Callable
 
-from Model.settings.settings_model import Settings
+from task_manager_tkinter.model.settings import Settings
 
 
 class SettingsView(ABC):

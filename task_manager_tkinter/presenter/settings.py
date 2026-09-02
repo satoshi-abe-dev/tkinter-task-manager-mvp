@@ -8,8 +8,8 @@ Presenter — 設定タブ
 
 from typing import Callable
 
-from Model.settings.settings_model import SettingsModel
-from View.settings.settings_view import SettingsView
+from task_manager_tkinter.model.settings import SettingsModel
+from task_manager_tkinter.view.settings import SettingsView
 
 
 class SettingsPresenter:

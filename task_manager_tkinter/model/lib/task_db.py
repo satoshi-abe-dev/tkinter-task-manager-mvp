@@ -2,7 +2,8 @@
 Model — タスクの永続化(SQLite)
 --------------------------------
 タスクをSQLiteに保存・読み込みする、tkinterに依存しない純粋なI/Oロジック。
-csv_io.pyと同じ位置づけで、TaskModelがこのモジュールを介してDBを読み書きする。
+csv_io.pyと同じ位置づけで、TaskModel(model/task/store.py)がこのモジュールを介して
+DBを読み書きする。
 
 書き込みは「編集のたびに1件ずつ」ではなく、TaskModel.save()が呼ばれた時に
 その時点のメモリ上の状態をまるごとDBへ反映するスナップショット方式にしている。
@@ -15,8 +16,8 @@ import sqlite3
 from pathlib import Path
 from typing import List
 
-from Model.db_path import DEFAULT_DB_PATH
-from Model.task.task import Task
+from task_manager_tkinter.model.lib.db_path import DEFAULT_DB_PATH
+from task_manager_tkinter.model.task.entity import Task
 
 _CREATE_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS tasks (

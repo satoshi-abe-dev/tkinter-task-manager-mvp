@@ -8,7 +8,7 @@ Model
 import csv
 from typing import List, Tuple
 
-from Model.task.task import Task
+from task_manager_tkinter.model.task.entity import Task
 
 FIELDNAMES = ["name", "assignee", "due_date", "priority", "status"]
 
