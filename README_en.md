@@ -2,9 +2,11 @@
 
 English | [日本語](README_ja.md)
 
-A sample implementation of the MVP (Model-View-Presenter) design pattern in Python using Tkinter.
-This is a follow-up to [mvp-pattern-sample-1](https://github.com/yanyayanyan1988/mvp-pattern-sample-1),
-built around a more realistic, business-style, tabbed task-management app.
+A tabbed task-management desktop app written in Python (Tkinter). Under the hood it is a
+sample implementation of the MVP (Model-View-Presenter) pattern, and a follow-up to
+[mvp-pattern-sample-1](https://github.com/yanyayanyan1988/mvp-pattern-sample-1).
+
+> ℹ️ The GUI is in English; the code comments and this README are in Japanese.
 
 ## Screenshots
 
@@ -12,72 +14,95 @@ built around a more realistic, business-style, tabbed task-management app.
 |---|---|
 | ![Task list tab](docs/screenshots/task-list.png) | ![Settings tab](docs/screenshots/settings.png) |
 
-## Purpose
+---
 
-A sample project built around a Tkinter desktop app that could plausibly exist in a real workplace —
-one with tabs for a task list and settings — implemented with responsibilities separated according
-to the MVP pattern (Model / View / Presenter).
+## Using the app
 
-## Features
+### What it does
 
-- **Task List tab**: shows all registered tasks in a table (`ttk.Treeview`).
-  - Double-click a cell to edit it inline (name, assignee, due date, priority, status). Priority and
-    status are edited through dropdowns so invalid values can't be entered.
-  - The due date is picked from a `tkcalendar` calendar popup. The popup always shows the "current due
-    date" as text, and a "Back to this date" button lets you find your way back after browsing to a
-    different month.
-  - Click a column header to sort by that column; click it again to toggle ascending/descending (shown
-    as ▲/▼ in the header). Priority and status sort by their meaningful order (low→mid→high,
-    not-started→...→overdue) rather than alphabetically. Tasks with a blank value in the sorted
-    column always sink to the bottom, regardless of sort direction.
-  - "+ Add" and "− Delete" buttons sit below the table, joined together and stretched to span the
-    table's full width. There is no separate registration form.
-    - "+ Add" appends a task with every field blank and selects it. Only the task name isn't left
-      blank — it gets a placeholder name like "Task N", where N is the task's own unique id (so the
-      name never collides with a previous one, even after deletions). From there you fill in the
-      assignee, due date, priority, and status the same way as any other row: inline editing. The
-      existing rows' order (including any active sort result) is left untouched — the new task is
-      always appended at the very end.
-    - "− Delete" is only enabled when at least one row is selected. It supports multi-select
-      (Shift/Cmd-click), and deletes every selected row at once. It shows a native confirmation
-      alert; choosing "Yes" deletes the selected row(s).
-  - "Export" and "Import" buttons (below the "+ Add" button) export tasks to a CSV file, or import
-    them from one. CSV import keeps whatever status is written in the file as-is — the auto-set
-    behavior described below does not run on import (the visual highlight is still applied
-    separately, based on the due date).
-  - Editing the due date inline to a past date auto-sets that task's status to "Overdue" — but only
-    at that one moment (excluding "Done" tasks). It isn't enforced continuously: if the user later
-    changes the status to something else manually, that choice is respected until the due date is
-    edited again.
-  - A row whose status is manually set to "Overdue" is always highlighted red, regardless of its due
-    date (excluding "Done" tasks).
-- **Settings tab**: configures the due-date highlight (on/off, and how many days ahead to warn) and
-  the backup interval.
-  - Changing a value is saved to the database immediately (Auto Save — there's no Save button).
-  - The highlight on/off checkbox applies to the task list's highlighting immediately when toggled.
-    This setting directly drives the due-date highlight on the task list (rows for tasks that are
-    overdue or due soon are shaded orange/red). Tasks with a "Done" status are excluded.
-  - The "Backup" field sets how often (in minutes, default 15) the app checks for changes to back up.
-    Changing it while the app is running takes effect starting from the next time the timer fires.
+- Shows all tasks in a table and lets you edit cells in place — there is no separate registration form
+- Highlights rows whose due date is near or past (orange = due soon, red = overdue)
+- Exports tasks to a CSV file / imports them from one
+- Saves every change automatically (no Save button); `app.db` is backed up automatically at a set interval
 
-Tabs and buttons deliberately keep the OS-native look (the default `ttk.Notebook` / `ttk.Button` style).
+### Run it
+
+`tkcalendar` is required (the due-date calendar picker), so create a virtual environment at the
+repository root first. It's a GUI app, so run it where Tcl/Tk is available.
+
+**macOS / Linux**
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+.venv/bin/python -m task_manager_tkinter.main
+```
+
+**Windows (Command Prompt / PowerShell)**
+
+```bat
+python -m venv .venv
+.venv\Scripts\pip install -r requirements.txt
+.venv\Scripts\python -m task_manager_tkinter.main
+```
+
+On first launch, `task_manager_tkinter/data/app.db` (SQLite) is created and seeded with 5 demo tasks.
+Ways to launch other than `-m` are collected under "Running: other ways" below.
+
+### How to use
+
+#### Task List tab
+
+| To do this | Do this |
+|---|---|
+| Edit a value | Double-click a cell to edit it in place. Priority and status are dropdowns; the due date is picked from a calendar |
+| Sort | Click a column header; click again to toggle ascending/descending (shown as ▲/▼). Priority and status sort by meaning (Low→High, Not Started→…→Overdue), not alphabetically. Rows with a blank value always sink to the bottom |
+| Add | "+ Add". A blank task is appended and selected (only the name gets a placeholder, "Task N"). Fill in the rest by editing cells, same as any other row |
+| Delete | Select a row, then "− Delete" → confirm with Yes. Shift/Cmd-click to multi-select and delete several at once |
+| CSV in/out | "Export" / "Import" |
+
+Automatic due-date behavior:
+
+- Editing a due date to a **past date** auto-sets that task's status to "Overdue" — only at that moment (Done tasks excluded). After that, a manually chosen status wins; it is not enforced continuously.
+- A row whose status is manually set to "Overdue" is always red, even if the due date is in the future (Done tasks excluded).
+- On CSV import, the status written in the file is kept as-is; the auto-set above does not run.
+
+#### Settings tab
+
+- **Due-date highlight**: toggle on/off and set how many days ahead to warn. Toggling applies to the task list immediately. Done tasks are excluded.
+- **Backup interval**: how often (in minutes, default 15) automatic backups run. Changing it while running takes effect from the next timer tick.
+- Every changed value is saved the moment you enter it (Auto Save).
+
+---
+
+## Reading the design
+
+This is what the repository is really about: how responsibilities are split across MVP
+(Model / View / Presenter).
+
+### The point
+
+A sample built around a Tkinter desktop app that could plausibly exist in a real workplace —
+one with tabs for a task list and settings — with responsibilities separated according to the
+MVP pattern. Tabs and buttons deliberately keep the OS-native look (the default `ttk.Notebook` /
+`ttk.Button` style).
+
+### Persistence and backups
 
 Both tasks and settings are persisted to SQLite (the standard-library `sqlite3` module — no extra
-install needed; see the folder structure below for details). **Edits are always saved to the database
-immediately** (Auto Save). There's no Save button, no "unsaved changes" indicator, and no
-confirm-on-quit dialog — you never have to think about saving, but there's also no way to undo a
-mistake by simply not saving (the periodic backup below is the only safety net for that).
+install needed). **Edits are always written to the database immediately** (Auto Save). There's no
+Save button, no "unsaved changes" indicator, and no confirm-on-quit dialog. You never have to think
+about saving — but there's also no way to undo a mistake by simply not saving (the automatic backup
+below is the only safety net).
 
-**At the configured interval (default 15 minutes), the app checks whether `app.db` has changed and, if
-so, backs it up** (skipped if nothing changed since the last backup). Backups go to `data/backups/`,
-keeping only the newest
-**24 hours** and deleting anything older (retention by elapsed time, not by count — so changing the
-backup interval later doesn't break the "one day of history" guarantee). This protects against the
-actual database *file* becoming unreadable (disk failure, filesystem corruption, etc.).
-SQLite's own transactions already guard reasonably well against a crash mid-write leaving the file
-half-written, but they can't help if the file itself gets corrupted or lost outright.
+At the configured interval (default 15 minutes) the app checks whether `app.db` has changed and, if
+so, copies it to `data/backups/` (skipped if nothing changed since the last backup). It keeps only
+the newest **24 hours** and deletes anything older (retention by elapsed time, not by count). This
+protects against the database *file* becoming unreadable (disk failure, filesystem corruption).
+SQLite's transactions already guard against a crash mid-write, but not against the file itself being
+lost or corrupted outright.
 
-## Folder Structure
+### Folder Structure
 
 ```
 task_manager_tkinter/         Root package (folder hierarchy == class namespace)
@@ -133,7 +158,7 @@ likewise belongs to no single tab — it is a view-layer mixin, so it also sits 
 so it never interferes with tkinter's `super().__init__` chain).
 **Pure-I/O modules that hold no class** (`db_path` and friends) are collected under `model/lib/`.
 
-## Responsibility of Each Layer
+### Responsibility of Each Layer
 
 | Layer | Class | Responsibility | Depends on |
 |---|---|---|---|
@@ -146,19 +171,13 @@ so it never interferes with tkinter's `super().__init__` chain).
 | View (impl) | `view/task/tk_frame.py` (`TkTaskListFrame`) / `view/settings/tk_frame.py` (`TkSettingsFrame`) / `view/tk_main_window.py` (`TkMainWindow`) | Concrete implementation of the above abstractions using Tkinter (`ttk.Notebook` + standard widgets). | the View abstractions, tkinter |
 | Presenter | `TaskListPresenter` / `SettingsPresenter` | Holds the "screen behavior" logic for each tab: validation, updating the Model, tracking the list's sort state, adding/deleting tasks, CSV export/import, and determining the due-date highlight. On every `refresh()` (or `on_field_changed()`), saves immediately if there's anything unsaved (Auto Save). `TaskListPresenter` also reads `SettingsModel` to get the highlight criteria (on/off, how many days ahead). | the corresponding Model(s) (`TaskListPresenter` depends on both `TaskModel` and `SettingsModel`), the corresponding View (abstract only) |
 
-Because each Presenter depends only on its View abstraction, swapping the View implementation (Tkinter / another GUI library / a fake View for testing) requires no change to the Presenter code.
-Likewise, `TaskModel`/`SettingsModel` hide their persistence behind `task_db`/`settings_db`. Switching
-from an in-memory-only implementation to SQLite (writing through on every change) required no changes
-to the Presenter or View code at all. A later redesign replaced that write-through behavior with an
-explicit `save()` behind a Save button (plus an "unsaved changes" indicator and a confirm-on-quit
-dialog), so a mistake could be discarded by simply not saving — but deciding where that button should
-live turned into its own recurring design problem. In the end, the simplest option won: go back to
-saving immediately on every change (Auto Save, no button at all), and rely on the periodic backup
-below as the safety net instead. Across all of this, Presenter/View changes were only ever needed when
-the *user-facing* behavior changed (adding or removing a button, a dialog, an indicator) — the Model's
-persistence mechanism itself (in-memory vs. SQLite) never required touching the Presenter or View.
+Because each Presenter depends only on its View abstraction, swapping the View implementation
+(Tkinter / another GUI library / a fake View for testing) requires no change to the Presenter code.
+Likewise `TaskModel` / `SettingsModel` hide their persistence behind `task_db` / `settings_db` —
+switching from an in-memory-only implementation to SQLite (write-through on every change) required no
+changes to Presenter or View at all (the history is in "Design notes").
 
-## Data Flow (clicking "+ Add")
+### Data Flow (clicking "+ Add")
 
 1. The user clicks "+ Add" on the "Task List" tab.
 2. The handler registered with `TkTaskListFrame` (`TaskListPresenter.on_add_click`) is invoked.
@@ -170,75 +189,75 @@ persistence mechanism itself (in-memory vs. SQLite) never required touching the 
 5. The user double-clicks cells on that selected row to fill in the assignee, due date, priority, and
    status via the same inline-editing mechanism used for any other task.
 
-## How to Run
+### Design notes
 
-`tkcalendar` is required (used for the due-date calendar picker), so set up a virtual environment at the
-repository root first. Since this is a GUI app, run it in an environment where Tcl/Tk is available.
+- **How Auto Save came to be**: it started as in-memory-only, then SQLite write-through. A later
+  redesign replaced write-through with an explicit `save()` behind a Save button (plus an "unsaved
+  changes" indicator and a confirm-on-quit dialog), so a mistake could be discarded by simply not
+  saving — but deciding where that button should live turned into its own recurring design problem.
+  In the end the simplest option won: back to saving on every change (Auto Save, no button), with the
+  periodic backup as the safety net instead. Across all of this, Presenter/View changes were only
+  ever needed when the *user-facing* behavior changed (a button, a dialog, an indicator) — the Model's
+  persistence mechanism itself (in-memory vs. SQLite) never required touching Presenter or View.
+- **Time-based backup retention**: "the last 24 hours", not "the last N backups". Changing the backup
+  interval later (15 min → 1 min, say) then doesn't break the "one day of history" guarantee without
+  a code change.
+- **Auto-Overdue fires once**: the status is auto-updated only at the moment the due date is edited to
+  a past date, never enforced continuously — so a manual status change is respected afterward.
 
-macOS / Linux:
+### Running: other ways
+
+Both `-m` and a plain file path work. `main.py` / `test_presenter.py` prepend the repository root to
+`sys.path` only when they detect they were run as a plain script (`__package__` unset), so the same
+absolute imports resolve either way.
 
 ```bash
-python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
-
-# Any of these work (from the repository root, the parent of task_manager_tkinter/)
+# from the repository root (the parent of task_manager_tkinter/)
 .venv/bin/python -m task_manager_tkinter.main
 .venv/bin/python task_manager_tkinter/main.py
-# or
 cd task_manager_tkinter && ../.venv/bin/python main.py
 ```
 
-Windows (Command Prompt / PowerShell):
+Windows:
 
 ```bat
-python -m venv .venv
-.venv\Scripts\pip install -r requirements.txt
-
-REM Any of these work (from the repository root)
 .venv\Scripts\python -m task_manager_tkinter.main
 .venv\Scripts\python task_manager_tkinter\main.py
 ```
 
-`main.py` / `test_presenter.py` prepend the repository root to `sys.path` only when they
-detect they were run as a plain script (`__package__` unset), so the same absolute imports
-resolve whether you use `-m` or a file path.
-
-## How to Test
+### Testing
 
 By swapping in fake Views (fake implementations of each View abstract class) instead of `TkMainWindow`
-(and its internal Frames), the two Presenters' logic can be verified without ever starting Tkinter.
-
+(and its internal Frames), the two Presenters' logic is verified without ever starting Tkinter.
 `test_presenter.py` depends only on the `view.*` packages (the `TaskListView` / `SettingsView` abstract
 classes) and never imports the Tkinter implementation under view (`view/task/tk_frame.py` /
-`view/settings/tk_frame.py` / `view/tk_main_window.py`), so it runs fine even in environments without tkinter
-installed (the `__init__.py` files under `view/` re-export only the abstract classes, never the Tk impls).
-
-`TaskModel`/`SettingsModel` are constructed with `db_path=":memory:"` in tests, which runs SQLite entirely
-in memory — nothing is written to disk, and each test gets its own isolated database.
+`view/settings/tk_frame.py` / `view/tk_main_window.py`), so it runs fine even without tkinter
+installed (the `__init__.py` files under `view/` re-export only the abstract classes). `TaskModel` /
+`SettingsModel` are constructed with `db_path=":memory:"` in tests, so nothing is written to disk and
+each test gets its own isolated database.
 
 ```bash
-# From the repository root (either works)
+# from the repository root (either works)
 python3 -m task_manager_tkinter.test_presenter
 python3 task_manager_tkinter/test_presenter.py
 ```
 
-CI also runs the same tests automatically on every pull request and every push to `main` (see `.github/workflows/test.yml`).
+CI also runs the same tests on every pull request and every push to `main` (see `.github/workflows/test.yml`).
 
-## Prerequisites
+### Prerequisites
 
 - Python 3.14 (Homebrew build)
 - Using tkinter requires `brew install python-tk@3.14` separately (the deprecated Tcl/Tk 8.5.9 bundled with macOS's `/usr/bin` Python is not used)
-- Running the GUI requires `tkcalendar` (see `requirements.txt`). Not needed to run `test_presenter.py`.
-- Persistence uses `sqlite3` (Python's standard library), so no extra install is needed for that.
+- Running the GUI requires `tkcalendar` (see `requirements.txt`). Not needed to run `test_presenter.py`
+- Persistence uses `sqlite3` (Python's standard library), so no extra install is needed for that
 
-### A note on Windows
+#### A note on Windows
 
-The code only uses cross-platform `tkinter`/`ttk`/`tkcalendar` APIs and has no macOS-only dependency, so it
-should run on Windows too (development and testing were only done on macOS, though).
+The code only uses cross-platform `tkinter` / `ttk` / `tkcalendar` APIs and has no macOS-only
+dependency, so it should run on Windows too (development and testing were only done on macOS).
 
 - The official python.org Windows installer bundles Tcl/Tk, so there's no equivalent of
   `brew install python-tk@3.14` to install separately
-- The commands above include a Windows-specific variant
 - The Settings tab's section header uses `font=("Helvetica", 10, "bold")`; "Helvetica" isn't a standard
-  Windows font, but Tk silently falls back to a substitute font instead of raising an error when the
-  requested family isn't available, so this only affects appearance, not functionality
+  Windows font, but Tk silently falls back to a substitute instead of raising an error, so this only
+  affects appearance, not functionality
