@@ -79,16 +79,14 @@ collected under "Running: other ways" below.
 | To do this | Do this |
 |---|---|
 | Edit a value | Double-click a cell to edit it in place. Priority and status are dropdowns; the due date is picked from a calendar |
-| Sort | Click a column header; click again to toggle ascending/descending (shown as ▲/▼). Priority and status sort by meaning (Low→High, Not Started→…→Overdue), not alphabetically. Rows with a blank value always sink to the bottom |
+| Sort | Click a column header; click again to toggle ascending/descending (shown as ▲/▼). Priority and status sort by meaning (Low→High, Not Started→In Progress→Done), not alphabetically. Rows with a blank value always sink to the bottom |
 | Add | "+ Add". A blank task is appended and selected (only the name gets a placeholder, "Task N"). Fill in the rest by editing cells, same as any other row |
 | Delete | Select a row, then "− Delete" → confirm with Yes. Shift/Cmd-click to multi-select and delete several at once |
 | CSV in/out | "Export" / "Import" |
 
-Automatic due-date behavior:
+Overdue handling:
 
-- Editing a due date to a **past date** auto-sets that task's status to "Overdue" — only at that moment (Done tasks excluded). After that, a manually chosen status wins; it is not enforced continuously.
-- A row whose status is manually set to "Overdue" is always red, even if the due date is in the future (Done tasks excluded).
-- On CSV import, the status written in the file is kept as-is; the auto-set above does not run.
+- A task that is past its due date and not Done is automatically shown in red (Done tasks excluded). There is no "Overdue" status — whether a row is red is always computed from the due date, so moving the due date into the future clears the red.
 
 #### Settings tab
 
@@ -226,8 +224,11 @@ changes to Presenter or View at all (the history is in "Design notes").
 - **Time-based backup retention**: "the last 24 hours", not "the last N backups". Changing the backup
   interval later (15 min → 1 min, say) then doesn't break the "one day of history" guarantee without
   a code change.
-- **Auto-Overdue fires once**: the status is auto-updated only at the moment the due date is edited to
-  a past date, never enforced continuously — so a manual status change is respected afterward.
+- **"Overdue" is derived, not stored**: status is only Not Started / In Progress / Done. The red
+  "overdue" highlight is computed every time from `due_date < today and status != Done`. An earlier
+  design let you store `status="Overdue"` (manually, or auto-set when a due date was edited to the
+  past), but that was a one-way trap — once red, moving the due date forward didn't clear it — so the
+  stored value was removed.
 
 ### Running: other ways
 

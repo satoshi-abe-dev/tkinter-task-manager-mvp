@@ -43,8 +43,8 @@ def _seed_tasks() -> List[Task]:
         # 黄: 期限が近い（today+1 / today+2 とも警告しきい値 today+3 以内）
         Task("Prepare Quotation", "Sato", due(1), "High", "In Progress"),
         Task("Prepare Meeting Materials", "Tanaka", due(2), "Medium", "Not Started"),
-        # 赤: 期限超過（Statusも Overdue）
-        Task("Write Release Notes", "Suzuki", due(-2), "High", "Overdue"),
+        # 赤: 期限超過（過去の期限日。未完了なら自動で赤くなる）
+        Task("Write Release Notes", "Suzuki", due(-2), "High", "In Progress"),
         # 白: Done は常にハイライト対象外
         Task("Expense Report", "Sato", due(30), "Low", "Done"),
         # 白: 警告しきい値より先（today+7 > today+3）

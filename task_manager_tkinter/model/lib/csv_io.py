@@ -8,7 +8,7 @@ Model
 import csv
 from typing import List, Tuple
 
-from task_manager_tkinter.model.task.entity import Task
+from task_manager_tkinter.model.task.entity import STATUSES, Task
 
 FIELDNAMES = ["name", "assignee", "due_date", "priority", "status"]
 
@@ -44,13 +44,18 @@ def import_tasks_from_csv(path: str) -> Tuple[List[Task], int]:
             if not name:
                 skipped += 1
                 continue
+            # 旧バージョンが書き出した "Overdue" など、今は無いステータス値は
+            # "Not Started" に寄せる（"Overdue" は状態ではなく due_date から導出する）。
+            status = row.get("status") or "Not Started"
+            if status not in STATUSES:
+                status = "Not Started"
             tasks.append(
                 Task(
                     name=name,
                     assignee=row.get("assignee", ""),
                     due_date=row.get("due_date", ""),
                     priority=row.get("priority") or "Medium",
-                    status=row.get("status") or "Not Started",
+                    status=status,
                 )
             )
     return tasks, skipped
