@@ -237,3 +237,11 @@ pytest -m smoke          # GUI スモークだけ
 
 CI（`.github/workflows/test.yml`）では、PR 作成時・`main` への push 時に
 `pytest` を **Ubuntu / Windows / macOS** で自動実行する（画面が無い Ubuntu では GUI スモークだけ skip）。
+
+## 開発フロー
+
+Issue #2 / #4 以降の変更は、feature ブランチ → Pull Request → squash merge で進める（履歴は [Pull Requests](../../pulls) タブに残る）。それ以前のコミットが `main` への直 push なのは、個人開発として始めたため。上記の CI は PR 上でも走るので、マージ前にブランチの状態で結果を確認できる。
+
+## ライセンス
+
+MIT License。全文は [LICENSE](LICENSE) を参照。
