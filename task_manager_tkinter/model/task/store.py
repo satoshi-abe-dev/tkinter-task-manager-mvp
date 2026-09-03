@@ -74,6 +74,12 @@ class TaskModel:
                     self.add_task(task)
                 self.save()
 
+    def close(self) -> None:
+        """DB接続を閉じる。アプリはプロセス終了まで開きっぱなしで問題ないが、
+        テストで一時ファイルを消す前などに明示的に閉じる（特にWindowsは
+        開いているファイルを削除できないため）。"""
+        self._conn.close()
+
     def list_tasks(self) -> List[Task]:
         """登録済みタスクの一覧を返す"""
         return list(self._tasks)

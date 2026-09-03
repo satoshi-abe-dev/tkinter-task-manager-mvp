@@ -23,6 +23,10 @@ class SettingsModel:
             backup_interval_minutes=backup_interval_minutes,
         )
 
+    def close(self) -> None:
+        """DB接続を閉じる（TaskModel.close() と同じ理由。主にテスト用）。"""
+        self._conn.close()
+
     def get(self) -> Settings:
         """現在の設定を返す"""
         return self._settings

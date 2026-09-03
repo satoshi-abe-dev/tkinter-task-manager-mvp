@@ -539,6 +539,12 @@ def test_task_list_presenter_edit_is_immediately_persisted() -> None:
         reopened = TaskModel(db_path=db_path)
         assert reopened.get_task(target.id).assignee == "Changed"
 
+        # Windowsは開いているファイルを削除できないので、TemporaryDirectoryを
+        # 抜ける前に接続を閉じる。
+        model.close()
+        reopened.close()
+        settings_model.close()
+
     print("test_task_list_presenter_edit_is_immediately_persisted: OK")
 
 
@@ -548,6 +554,7 @@ def test_backup_and_rotate_copies_current_db_contents() -> None:
         model = TaskModel(db_path=db_path)
         model.add_blank_task()
         model.save()
+        model.close()
 
         backup_and_rotate(db_path)
 
@@ -560,13 +567,14 @@ def test_backup_and_rotate_copies_current_db_contents() -> None:
         backup_path = os.path.join(backup_dir, backups[0])
         reopened = TaskModel(db_path=backup_path)
         assert len(reopened.list_tasks()) == 6  # デモ5件 + 追加した1件
+        reopened.close()
     print("test_backup_and_rotate_copies_current_db_contents: OK")
 
 
 def test_backup_and_rotate_keeps_backups_within_retention_window() -> None:
     with tempfile.TemporaryDirectory() as tmp_dir:
         db_path = os.path.join(tmp_dir, "app.db")
-        TaskModel(db_path=db_path)  # 初回作成(シード投入・自動保存)でapp.dbができる
+        TaskModel(db_path=db_path).close()  # 初回作成(シード投入)でapp.dbができる
 
         for _ in range(5):
             backup_and_rotate(db_path, keep_for=timedelta(hours=24))
@@ -580,7 +588,7 @@ def test_backup_and_rotate_keeps_backups_within_retention_window() -> None:
 def test_backup_and_rotate_prunes_backups_older_than_retention_window() -> None:
     with tempfile.TemporaryDirectory() as tmp_dir:
         db_path = os.path.join(tmp_dir, "app.db")
-        TaskModel(db_path=db_path)
+        TaskModel(db_path=db_path).close()
 
         backup_and_rotate(db_path, keep_for=timedelta(hours=24))
         backup_dir = os.path.join(tmp_dir, "backups")
@@ -595,6 +603,7 @@ def test_backup_and_rotate_prunes_backups_older_than_retention_window() -> None:
         model = TaskModel(db_path=db_path)
         model.add_blank_task()
         model.save()
+        model.close()
         backup_and_rotate(db_path, keep_for=timedelta(hours=24))
 
         backups = os.listdir(backup_dir)
