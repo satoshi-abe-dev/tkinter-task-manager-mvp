@@ -1,4 +1,4 @@
-# mvp-pattern-sample-2
+# mvp-pattern-sample-1
 
 - [日本語](README_ja.md)
 - [English](README_en.md)
