@@ -1,28 +1,36 @@
+# CI: 2 種類の自動テストを複数 OS で回す。
+#   presenter-tests … ロジック(Model / Presenter / 抽象 View)の単体テスト。tkinter 不要。
+#   gui-smoke       … 実物の Tkinter ウィジェットが例外なく組み上がるかの確認。
 name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main] # main に入った後に流す
   pull_request:
-    branches: [main]
+    branches: [main] # main 向け PR を、マージ前にブランチの状態で流す
 
 jobs:
+  # test_presenter.py（33 件）を Linux / Windows / macOS で実行する。
+  # tkinter を一切 import しないので、どの OS でも追加インストール無しで動く。
   presenter-tests:
     strategy:
-      fail-fast: false
+      fail-fast: false # 1 OS が落ちても他をキャンセルせず、全 OS の結果を見る
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v5 # リポジトリをランナーへ clone
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v6 # 指定バージョンの Python を入れて PATH を通す
         with:
           python-version: "3.12"
 
+      # python3 ではなく python（Windows には python3 が無い。python は全 OS で有効）
       - name: Run presenter tests
         run: python -m task_manager_tkinter.test_presenter
 
+  # test_gui_smoke.py を、画面(Tcl/Tk)が使える OS でだけ実行する。
+  # ubuntu-latest は setup-python の Python に tkinter が無く自己スキップで終わるため外す。
   gui-smoke:
     strategy:
       fail-fast: false
@@ -36,8 +44,11 @@ jobs:
         with:
           python-version: "3.12"
 
+      # スモークは TkMainWindow を生成するだけだが、tkcalendar を import するため必要
       - name: Install GUI dependencies
         run: python -m pip install -r requirements.txt
 
+      # TkMainWindow() を生成 → destroy するだけ（mainloop は呼ばない）。
+      # 画面が無ければスクリプト側で自動スキップして正常終了する。
       - name: Run GUI construction smoke test
         run: python -m task_manager_tkinter.test_gui_smoke
