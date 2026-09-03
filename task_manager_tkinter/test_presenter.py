@@ -454,6 +454,70 @@ def test_task_list_presenter_export_import_csv() -> None:
     print("test_task_list_presenter_export_import_csv: OK")
 
 
+def _csv_presenter() -> Tuple[TaskModel, FakeTaskListView, TaskListPresenter]:
+    """CSV エラー系テスト用の一式（model, view, presenter）を組み立てて返す。"""
+    model = TaskModel(db_path=":memory:")
+    settings_model = SettingsModel(db_path=":memory:")
+    view = FakeTaskListView()
+    presenter = TaskListPresenter(model, settings_model, view)
+    return model, view, presenter
+
+
+def test_task_list_presenter_export_reports_io_error() -> None:
+    """書き出し先が開けない時、素のトレースバックではなくエラーメッセージを出す。"""
+    model, view, _ = _csv_presenter()
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        # 存在しないサブフォルダの下 → open() が FileNotFoundError(OSError)
+        view.save_path = os.path.join(tmp_dir, "no_such_dir", "tasks.csv")
+        view.export_handler()  # 例外が外に漏れないこと
+
+    assert view.messages and view.messages[-1][0] == "Error"
+    print("test_task_list_presenter_export_reports_io_error: OK")
+
+
+def test_task_list_presenter_import_reports_missing_file() -> None:
+    model, view, _ = _csv_presenter()
+    before = len(model.list_tasks())
+    view.open_path = os.path.join(tempfile.gettempdir(), "not_here_20260903.csv")
+    view.import_handler()
+
+    assert len(model.list_tasks()) == before  # 何も取り込まれない
+    assert view.messages and view.messages[-1][0] == "Error"
+    print("test_task_list_presenter_import_reports_missing_file: OK")
+
+
+def test_task_list_presenter_import_reports_bad_format() -> None:
+    """'name' 列が無い CSV は「0件取り込み」ではなくエラーにする。"""
+    model, view, _ = _csv_presenter()
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        path = os.path.join(tmp_dir, "wrong.csv")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("title,owner\nfoo,bar\n")
+        before = len(model.list_tasks())
+        view.open_path = path
+        view.import_handler()
+
+    assert len(model.list_tasks()) == before
+    assert view.messages and view.messages[-1][0] == "Error"
+    print("test_task_list_presenter_import_reports_bad_format: OK")
+
+
+def test_task_list_presenter_import_reports_bad_encoding() -> None:
+    """UTF-8 として解釈できないバイト列でも、トレースバックにせずエラー表示。"""
+    model, view, _ = _csv_presenter()
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        path = os.path.join(tmp_dir, "bad_encoding.csv")
+        with open(path, "wb") as f:
+            f.write(b"name,assignee\n\xff\xfe invalid utf-8\n")
+        before = len(model.list_tasks())
+        view.open_path = path
+        view.import_handler()
+
+    assert len(model.list_tasks()) == before
+    assert view.messages and view.messages[-1][0] == "Error"
+    print("test_task_list_presenter_import_reports_bad_encoding: OK")
+
+
 def test_task_list_presenter_auto_saves_on_add() -> None:
     """編集操作(ここでは追加)のたびに即座に保存され、model.is_dirty()が
     Falseに戻る(Auto Save)。
@@ -680,6 +744,10 @@ if __name__ == "__main__":
     test_task_list_presenter_highlight_follows_due_date_not_status()
     test_task_list_presenter_disables_highlight_when_notify_off()
     test_task_list_presenter_export_import_csv()
+    test_task_list_presenter_export_reports_io_error()
+    test_task_list_presenter_import_reports_missing_file()
+    test_task_list_presenter_import_reports_bad_format()
+    test_task_list_presenter_import_reports_bad_encoding()
     test_task_list_presenter_auto_saves_on_add()
     test_task_list_presenter_edit_is_immediately_persisted()
     test_backup_and_rotate_copies_current_db_contents()

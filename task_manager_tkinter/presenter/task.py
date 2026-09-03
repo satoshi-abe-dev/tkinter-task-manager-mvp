@@ -5,6 +5,7 @@ Modelのタスク一覧をViewに反映する橋渡し役。
 一覧のインライン編集・カラムヘッダークリックによるソート・期限接近のハイライトを扱う。
 """
 
+import csv
 from datetime import date, datetime, timedelta
 from typing import Callable, Dict, List, Optional
 
@@ -183,7 +184,12 @@ class TaskListPresenter:
         path = self.view.ask_save_path()
         if not path:
             return
-        export_tasks_to_csv(self.model.list_tasks(), path)
+        try:
+            export_tasks_to_csv(self.model.list_tasks(), path)
+        except (OSError, csv.Error) as exc:
+            # 書き込めない・ディスク不足など。素のトレースバックを出さず知らせる。
+            self.view.show_message("Error", f"Could not export the CSV file.\n{exc}")
+            return
         self.view.show_message("Notice", f"Exported to {path}")
 
     def on_import_click(self) -> None:
@@ -191,7 +197,13 @@ class TaskListPresenter:
         path = self.view.ask_open_path()
         if not path:
             return
-        tasks, skipped = import_tasks_from_csv(path)
+        try:
+            tasks, skipped = import_tasks_from_csv(path)
+        except (OSError, csv.Error, ValueError) as exc:
+            # ファイルが開けない・壊れたCSV・文字コード不正・列が足りない等。
+            # （UnicodeDecodeError は ValueError のサブクラスなのでここで捕まる）
+            self.view.show_message("Error", f"Could not import the CSV file.\n{exc}")
+            return
         for task in tasks:
             self.model.add_task(task)
         self.refresh()

@@ -3,6 +3,12 @@ Model
 -----
 タスクのCSV書き出し・読み込み。tkinterに依存しない純粋なI/Oロジック。
 「タスク一覧」タブの書き出し/読み込みボタンから、Presenter経由で呼ばれる。
+
+例外はここでは握りつぶさず、そのまま呼び出し側(Presenter)へ投げる。
+起こりうるのは OSError(ファイルが開けない/権限/ディスク等)、
+UnicodeDecodeError(文字コード不正。ValueErrorのサブクラス)、
+csv.Error(壊れたCSV)、ValueError(必要な列が無い等。下記で明示的にraise)。
+Presenter がこれらを捕捉して view.show_message() でユーザーに伝える。
 """
 
 import csv
@@ -39,6 +45,13 @@ def import_tasks_from_csv(path: str) -> Tuple[List[Task], int]:
     skipped = 0
     with open(path, newline="", encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
+        if "name" not in (reader.fieldnames or []):
+            # 見出しに name 列が無い＝このアプリのCSVではない。
+            # 全行 skip して「0件取り込み」と見せるより、はっきりエラーにする。
+            raise ValueError(
+                "The CSV file has no 'name' column — "
+                "import a CSV that was exported by this app."
+            )
         for row in reader:
             name = (row.get("name") or "").strip()
             if not name:

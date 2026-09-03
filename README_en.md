@@ -239,6 +239,10 @@ changes to Presenter or View at all (the history is in "Design notes").
   design let you store `status="Overdue"` (manually, or auto-set when a due date was edited to the
   past), but that was a one-way trap — once red, moving the due date forward didn't clear it — so the
   stored value was removed.
+- **CSV I/O failures are reported in a dialog**: if the file can't be opened, isn't writable, is
+  malformed, has a bad encoding, or has no `name` column, the Presenter catches the exception and
+  calls `view.show_message("Error", …)` instead of letting a raw traceback through. `csv_io` is
+  pure I/O with no knowledge of the UI, so it just raises — it never swallows the error.
 
 ### Running: other ways
 
