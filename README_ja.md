@@ -11,7 +11,7 @@ Python (Tkinter) で作った、タブ付きのタスク管理デスクトップ
 >
 > - MVP（Model / View / Presenter）でのレイヤー分割と、各層の依存方向
 > - フォルダ階層 ＝ クラスの import 名前空間、という命名・配置の方針
-> - **`ttk.Treeview` のセルをその場で編集する仕組み**（Treeview は本来セル編集不可。セルの矩形に Entry / Combobox を重ねて実現。期限日はカレンダーのポップアップで選ぶ）
+> - **`ttk.Treeview` のセルのインライン編集**（Treeview は本来セル編集不可。セルの矩形に Entry / Combobox を重ねて実現。期限日はカレンダーのポップアップで選ぶ）
 > - **GUI 全体の設計**（画面レイアウト、OS 標準寄りのスタイル、期限ハイライトの配色、ウィンドウリサイズへの追従、macOS/Aqua 環境での tkcalendar 描画対策）
 > - 「Overdue」を保存する状態から `due_date` による導出へ変えた設計変更
 > - 常時 Auto Save に落ち着くまでの試行錯誤
