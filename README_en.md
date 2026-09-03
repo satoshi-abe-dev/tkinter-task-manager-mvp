@@ -292,3 +292,14 @@ pytest -m smoke          # just the GUI smoke test
 
 CI (`.github/workflows/test.yml`) runs `pytest` on **Ubuntu / Windows / macOS** on every pull
 request and every push to `main` (the GUI smoke test is skipped on headless Ubuntu).
+
+## Development workflow
+
+From issues #2 / #4 onward, changes go through a feature branch → Pull Request → squash merge
+(the history lives in the [Pull Requests](../../pulls) tab). Earlier commits went straight to `main`
+because this started as a solo project. The CI above also runs on PRs, so each branch's result is
+visible before it merges.
+
+## License
+
+MIT License. See [LICENSE](LICENSE) for the full text.
