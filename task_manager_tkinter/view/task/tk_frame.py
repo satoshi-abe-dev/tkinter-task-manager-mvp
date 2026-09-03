@@ -14,6 +14,7 @@ from typing import Callable, Dict, List, Optional
 from tkcalendar import Calendar
 
 from task_manager_tkinter.model.task import PRIORITIES, STATUSES, Task
+from task_manager_tkinter.view.callbacks import CallbackRegistryMixin
 from task_manager_tkinter.view.task.contract import TaskListView
 
 _DATE_PATTERN = "yyyy-mm-dd"
@@ -29,7 +30,8 @@ _COLUMN_LABELS = {
 
 
 # Called at view/tk_main_window.py > class TkMainWindow
-class TkTaskListFrame(ttk.Frame, TaskListView):
+# 継承順: 具象ウィジェット(ttk.Frame) → mixin(コールバック機構) → 契約(ABC)
+class TkTaskListFrame(ttk.Frame, CallbackRegistryMixin, TaskListView):
     """「タスク一覧」タブの実装。ttk.Treeviewで表形式に表示する。
 
     セルをダブルクリックするとインライン編集ができる。編集内容の確定は
@@ -42,12 +44,8 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
 
     def __init__(self, master: tk.Widget) -> None:
         super().__init__(master, padding=16)
-        self._on_cell_edited: Optional[Callable[[int, str, str], None]] = None
-        self._on_column_clicked: Optional[Callable[[str], None]] = None
-        self._on_add_click: Optional[Callable[[], None]] = None
-        self._on_delete_click: Optional[Callable[[List[int]], None]] = None
-        self._on_export_click: Optional[Callable[[], None]] = None
-        self._on_import_click: Optional[Callable[[], None]] = None
+        # コールバック(_on_cell_edited など)は CallbackRegistryMixin が名前付きで
+        # 保持する。ここで個別に None 初期化する必要はない。
         self._editor: Optional[tk.Widget] = None
         self._date_picker: Optional[tk.Toplevel] = None
 
@@ -127,8 +125,7 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
 
     def _make_heading_handler(self, field: str) -> Callable[[], None]:
         def handler() -> None:
-            if self._on_column_clicked:
-                self._on_column_clicked(field)
+            self._fire("column_clicked", field)
 
         return handler
 
@@ -146,11 +143,11 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
 
     # Override
     def set_on_cell_edited(self, handler: Callable[[int, str, str], None]) -> None:
-        self._on_cell_edited = handler
+        self._set_callback("cell_edited", handler)
 
     # Override
     def set_on_column_clicked(self, handler: Callable[[str], None]) -> None:
-        self._on_column_clicked = handler
+        self._set_callback("column_clicked", handler)
 
     # Override
     def show_sort_state(self, field: Optional[str], ascending: bool) -> None:
@@ -162,11 +159,11 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
 
     # Override
     def set_on_add_click(self, handler: Callable[[], None]) -> None:
-        self._on_add_click = handler
+        self._set_callback("add_click", handler)
 
     # Override
     def set_on_delete_click(self, handler: Callable[[List[int]], None]) -> None:
-        self._on_delete_click = handler
+        self._set_callback("delete_click", handler)
 
     # Override
     def select_task(self, task_id: int) -> None:
@@ -184,11 +181,11 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
 
     # Override
     def set_on_export_click(self, handler: Callable[[], None]) -> None:
-        self._on_export_click = handler
+        self._set_callback("export_click", handler)
 
     # Override
     def set_on_import_click(self, handler: Callable[[], None]) -> None:
-        self._on_import_click = handler
+        self._set_callback("import_click", handler)
 
     # Override
     def ask_save_path(self) -> Optional[str]:
@@ -207,20 +204,17 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
         messagebox.showinfo(title=title, message=message)
 
     def _handle_export_click(self) -> None:
-        if self._on_export_click:
-            self._on_export_click()
+        self._fire("export_click")
 
     def _handle_import_click(self) -> None:
-        if self._on_import_click:
-            self._on_import_click()
+        self._fire("import_click")
 
     def _on_selection_changed(self, event: tk.Event) -> None:
         state = "normal" if self._tree.selection() else "disabled"
         self._delete_button.config(state=state)
 
     def _handle_add_click(self) -> None:
-        if self._on_add_click:
-            self._on_add_click()
+        self._fire("add_click")
 
     def _handle_delete_click(self) -> None:
         # ttk.Treeviewは既定(selectmode="extended")で複数選択に対応しており、
@@ -237,8 +231,8 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
             message = f"Delete {len(selection)} selected task(s)?\nThis action cannot be undone."
 
         confirmed = messagebox.askyesno("Confirm", message)
-        if confirmed and self._on_delete_click:
-            self._on_delete_click(task_ids)
+        if confirmed:
+            self._fire("delete_click", task_ids)
 
     def _on_click(self, event: tk.Event) -> None:
         # 行の無い領域（表の下の余白など）をクリックした時は選択を解除する。
@@ -304,8 +298,8 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
         def commit(_event: Optional[tk.Event] = None) -> None:
             new_value = editor.get()  # type: ignore[attr-defined]
             self._destroy_editor()
-            if new_value != current_value and self._on_cell_edited:
-                self._on_cell_edited(task_id, field, new_value)
+            if new_value != current_value:
+                self._fire("cell_edited", task_id, field, new_value)
 
         def cancel(_event: Optional[tk.Event] = None) -> None:
             self._destroy_editor()
@@ -397,8 +391,8 @@ class TkTaskListFrame(ttk.Frame, TaskListView):
         def on_selected(_event: Optional[tk.Event] = None) -> None:
             new_value = calendar.get_date()
             popup.destroy()
-            if new_value != current_value and self._on_cell_edited:
-                self._on_cell_edited(task_id, "due_date", new_value)
+            if new_value != current_value:
+                self._fire("cell_edited", task_id, "due_date", new_value)
 
         calendar.bind("<<CalendarSelected>>", on_selected)
         popup.bind("<Escape>", lambda e: popup.destroy())

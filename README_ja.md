@@ -93,6 +93,7 @@ task_manager_tkinter/         ルートパッケージ（フォルダ階層 ＝ 
             entity.py           Settings（データクラス）
             store.py            SettingsModel
     view/
+        callbacks.py            CallbackRegistryMixin（両 tk_frame 共通のコールバック登録mixin）
         task/
             contract.py         TaskListView（抽象クラス＝Presenterが依存する契約）
             tk_frame.py         Tkinter実装（タスク一覧タブ）
@@ -118,6 +119,11 @@ task_manager_tkinter/         ルートパッケージ（フォルダ階層 ＝ 
 （`presenter/task.py` から直接）。
 
 `view/tk_main_window.py`だけは両タブをまとめる存在なので`view/`直下に置いている。
+`view/callbacks.py`も同様に、どの機能タブにも属さない View 層共通のmixinなので
+`view/`直下に置く。`TkTaskListFrame` / `TkSettingsFrame` は
+`(ttk.Frame, CallbackRegistryMixin, <contract>)` の順で多重継承し、コールバックの
+登録・発火だけをこのmixinに委ねている（`__init__` を持たないmixinで、
+tkinter の `super().__init__` 連鎖に干渉しない）。
 `db_path.py`など**クラスを持たない純粋I/Oモジュール**は`model/lib/`にまとめている。
 
 ## 各層の責務

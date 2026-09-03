@@ -24,6 +24,7 @@ model / view / presenter の各フォルダから読み込んで組み立てて�
                 entity.py         Settings（データクラス）
                 store.py          SettingsModel
         view/
+            callbacks.py          CallbackRegistryMixin（両tk_frame共通のコールバック登録mixin）
             task/
                 contract.py       TaskListView（抽象クラス＝Presenterが依存する契約）
                 tk_frame.py       Tkinter実装（タスク一覧タブ）

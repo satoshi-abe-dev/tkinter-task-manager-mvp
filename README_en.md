@@ -100,6 +100,7 @@ task_manager_tkinter/         Root package (folder hierarchy == class namespace)
             entity.py           Settings (data class)
             store.py            SettingsModel
     view/
+        callbacks.py            CallbackRegistryMixin (callback-registration mixin shared by both tk_frame files)
         task/
             contract.py         TaskListView (abstract class = the contract the Presenter depends on)
             tk_frame.py         Tkinter implementation (Task List tab)
@@ -125,7 +126,11 @@ containing folder (`from task_manager_tkinter.model.task import TaskModel`). For
 `from task_manager_tkinter.presenter.task import TaskListPresenter` (straight from
 `presenter/task.py`).
 
-`view/tk_main_window.py` combines both tabs and so stays directly under `view/`.
+`view/tk_main_window.py` combines both tabs and so stays directly under `view/`. `view/callbacks.py`
+likewise belongs to no single tab — it is a view-layer mixin, so it also sits directly under `view/`.
+`TkTaskListFrame` / `TkSettingsFrame` multiply inherit as `(ttk.Frame, CallbackRegistryMixin,
+<contract>)` and delegate only callback registration/dispatch to the mixin (which has no `__init__`,
+so it never interferes with tkinter's `super().__init__` chain).
 **Pure-I/O modules that hold no class** (`db_path` and friends) are collected under `model/lib/`.
 
 ## Responsibility of Each Layer
