@@ -3,8 +3,7 @@
 English | [日本語](README_ja.md)
 
 A tabbed task-management desktop app written in Python (Tkinter). Under the hood it is a
-sample implementation of the MVP (Model-View-Presenter) pattern, and a follow-up to
-[mvp-pattern-sample-1](https://github.com/yanyayanyan1988/mvp-pattern-sample-1).
+sample implementation of the MVP (Model-View-Presenter) pattern.
 
 > ℹ️ The GUI is in English; the code comments and this README are in Japanese.
 

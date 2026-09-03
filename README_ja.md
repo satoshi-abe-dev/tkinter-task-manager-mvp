@@ -3,8 +3,7 @@
 [English](README_en.md) | 日本語
 
 Python (Tkinter) で作った、タブ付きのタスク管理デスクトップアプリ。
-中身は MVP（Model-View-Presenter）パターンで責務を分けた実装サンプルで、
-[mvp-pattern-sample-1](https://github.com/yanyayanyan1988/mvp-pattern-sample-1) の続編。
+中身は MVP（Model-View-Presenter）パターンで責務を分けた実装サンプル。
 
 > ℹ️ GUIの表示は英語。コード内コメントとこのREADMEは日本語。
 
