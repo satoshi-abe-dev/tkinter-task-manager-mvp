@@ -7,11 +7,16 @@ sample implementation of the MVP (Model-View-Presenter) pattern.
 
 > ℹ️ The GUI is in English; the code comments and this README are in Japanese.
 
-> 🧭 **The design and architecture decisions here are the author's** — the MVP layering, the
-> folder-as-namespace naming scheme, moving "Overdue" from a stored status to a value derived from
-> `due_date`, the road to Auto Save, and so on (see the "Design" section for the reasoning).
-> Implementation was done with Claude Code as a pair-programming aid, which is why the commits carry
-> `Co-Authored-By` trailers.
+> 🧭 **The design and architecture decisions here are the author's.** The main ones:
+>
+> - Splitting the app into MVP (Model / View / Presenter) layers and the dependency direction between them
+> - The "folder hierarchy = class import namespace" naming/placement scheme
+> - **Inline cell editing on `ttk.Treeview`** (Treeview has no built-in cell editing — an Entry / Combobox is overlaid on the cell's rectangle; the due date is picked from a calendar popup)
+> - **The overall GUI design** (screen layout, an OS-native look, the due-date highlight colors, following window resizes, working around tkcalendar rendering on macOS/Aqua)
+> - Moving "Overdue" from a stored status to a value derived from `due_date`
+> - The iteration that led to always-on Auto Save
+>
+> The reasoning for each is in the "[Design](#design)" section below, especially "[Design notes](#design-notes)". Implementation was done with Claude Code as a pair-programming aid, which is why the commits carry `Co-Authored-By` trailers.
 
 ## Screenshots
 
