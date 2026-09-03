@@ -6,8 +6,8 @@ GUI 構築スモークテスト
 （＝ハングしない）。
 
 test_presenter.py が意図的に避けている「View の Tkinter 実装」を、実際に import・
-生成してみる唯一のテスト。tkinter が無い / 画面が無い環境（ヘッドレス Linux など）
-では自動でスキップして正常終了する。
+生成してみる唯一のテスト。tkinter が入っていない、またはヘッドレス[画面の無い]
+環境（Linux サーバーなど）では自動でスキップして正常終了する。
 
 実行方法（どちらでも可。リポジトリのルートで）:
     python3 -m task_manager_tkinter.test_gui_smoke
@@ -28,18 +28,18 @@ def main() -> None:
     try:
         from task_manager_tkinter.view.tk_main_window import TkMainWindow
     except Exception as exc:  # ModuleNotFoundError など
-        print(f"GUI smoke skipped ({type(exc).__name__}: {exc})")
+        print(f"GUI smoke test skipped ({type(exc).__name__}: {exc})")
         return
 
     # 画面が無いと TkMainWindow() 内の tk.Tk() が TclError を投げる。
     try:
         window = TkMainWindow()
     except Exception as exc:
-        print(f"GUI smoke skipped ({type(exc).__name__}: {exc})")
+        print(f"GUI smoke test skipped ({type(exc).__name__}: {exc})")
         return
 
     window.destroy()
-    print(f"GUI smoke OK on {sys.platform}")
+    print(f"GUI smoke test OK on {sys.platform}")
 
 
 if __name__ == "__main__":
