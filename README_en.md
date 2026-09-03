@@ -11,10 +11,10 @@ sample implementation of the MVP (Model-View-Presenter) pattern.
 >
 > - Splitting the app into layers along the MVP (Model / View / Presenter) pattern, and the dependency direction between them
 > - The "folder hierarchy = class import namespace" naming/placement scheme
-> - **The overall GUI design** (screen layout, an OS-native look, the due-date highlight colors, following window resizes, a tkcalendar font tweak)
+> - **The overall GUI** (screen layout, an OS-native look, the due-date highlight colors, following window resizes, a tkcalendar font tweak)
 > - **Inline editing in the table** (`ttk.Treeview` has no built-in cell editing — an Entry / Combobox is overlaid on the cell's rectangle; the due date is picked from a calendar popup)
 > - The persistence behavior (every edit is written to the database immediately; no Save button or "unsaved" state)
-> - The automatic backup design (`app.db` is copied at a set interval, and kept by "the last 24 hours" rather than by count)
+> - The automatic backup (`app.db` is copied at a set interval, and kept by "the last 24 hours" rather than by count)
 >
 > The reasoning for each is in the "[Design](#design)" section below, especially "[Design notes](#design-notes)". Implementation was done with Claude Code as a pair-programming aid, which is why the commits carry `Co-Authored-By` trailers.
 
