@@ -1,4 +1,4 @@
-# mvp-pattern-sample-1
+# tkinter-task-manager-mvp
 
 [English](README_en.md) | 日本語
 
