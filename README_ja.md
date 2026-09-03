@@ -27,7 +27,7 @@ Python (Tkinter) で作った、タブ付きのタスク管理デスクトップ
 
 ### 動作環境
 
-> ⚠️ **開発環境は macOS で、Windows での手動動作確認はしていません。** ただし CI（GitHub Actions）で、ロジックのテスト（`test_presenter.py`）と GUI 構築スモークテスト（`test_gui_smoke.py`）を Windows / macOS でも自動実行している。`tkinter` / `ttk` / `tkcalendar` だけのクロスプラットフォームなコードで、macOS 固有の API は使っていない。
+> ⚠️ **開発環境は macOS で、Windows での手動動作確認はしていない。** ただし CI（GitHub Actions）で、ロジックのテスト（`test_presenter.py`）と GUI 構築スモークテスト（`test_gui_smoke.py`）を Windows / macOS でも自動実行している。`tkinter` / `ttk` / `tkcalendar` だけのクロスプラットフォームなコードで、macOS 固有の API は使っていない。
 
 - Python 3.14（Homebrew版）
 - tkinter 利用には `brew install python-tk@3.14` が別途必要（macOS 標準の `/usr/bin` 側は非推奨の Tcl/Tk 8.5.9 のため使わない）
