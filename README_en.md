@@ -37,15 +37,15 @@ sample implementation of the MVP (Model-View-Presenter) pattern.
 
 ### Prerequisites
 
-> ⚠️ **Developed on macOS; not manually tested on Windows.** CI (GitHub Actions) does run
-> the logic tests (`pytest`) and a GUI-construction smoke test (`smoke_gui.py`) on
-> Windows and macOS as well. The code sticks to cross-platform `tkinter` / `ttk` / `tkcalendar` and
-> uses no macOS-specific API.
+> ⚠️ **Developed on macOS; not manually tested on Windows.** CI (GitHub Actions) runs
+> `pytest` on Ubuntu / Windows / macOS — the logic tests plus a smoke test that the real
+> Tkinter GUI builds without raising (skipped on headless Ubuntu). The code sticks to
+> cross-platform `tkinter` / `ttk` / `tkcalendar` and uses no macOS-specific API.
 
 - Python 3.14 (Homebrew build)
 - Using tkinter requires `brew install python-tk@3.14` separately (the deprecated Tcl/Tk 8.5.9 bundled with macOS's `/usr/bin` Python is not used)
-- Running the GUI requires `tkcalendar` (see `requirements.txt`). Not needed to run `pytest`
-- Running the tests requires `pytest` (see `requirements-dev.txt`)
+- Running the GUI requires `tkcalendar` (see `requirements.txt`)
+- Running the tests requires `pytest` and `tkcalendar` (both come from `requirements-dev.txt`)
 - Persistence uses `sqlite3` (Python's standard library), so no extra install is needed for that
 
 **Windows notes**
@@ -141,7 +141,7 @@ lost or corrupted outright.
 task_manager_tkinter/         Root package (folder hierarchy == class namespace)
     main.py                   Entry point (same level as model, view, presenter)
     test_presenter.py         pytest unit tests for the Presenters (no tkinter required)
-    smoke_gui.py              GUI-construction smoke test (standalone script; not collected by pytest)
+    test_gui_smoke.py         GUI-construction smoke test (pytest; skipped when there's no display)
     data/                     Where the SQLite database (app.db) lives; created automatically at runtime
         backups/               Backups of app.db, made automatically at the configured interval (last 24h kept)
     model/
@@ -248,8 +248,8 @@ changes to Presenter or View at all (the history is in "Design notes").
 
 ### Running: other ways
 
-Both `-m` and a plain file path work. `main.py` / `smoke_gui.py` prepend the repository root to
-`sys.path` only when they detect they were run as a plain script (`__package__` unset), so the same
+Both `-m` and a plain file path work. `main.py` prepends the repository root to
+`sys.path` only when it detects it was run as a plain script (`__package__` unset), so the same
 absolute imports resolve either way.
 
 ```bash
@@ -277,20 +277,18 @@ installed (the `__init__.py` files under `view/` re-export only the abstract cla
 `SettingsModel` are constructed with `db_path=":memory:"` (assembled in the `task_ctx` fixture), so
 nothing is written to disk and each test gets its own isolated database.
 
+A second file, `test_gui_smoke.py` (`@pytest.mark.smoke`), does the opposite: it constructs the real
+`TkMainWindow` (every Tkinter widget) and checks only that it **builds without raising** — no
+behavior is verified, and `mainloop()` is never called, so it can't hang. When `tkinter` isn't
+installed or there's no display, it skips itself.
+
 ```bash
 # from the repository root
 pip install -r requirements-dev.txt
-pytest
+pytest                   # presenter tests + GUI smoke together
+pytest -m "not smoke"    # just the tkinter-free presenter tests
+pytest -m smoke          # just the GUI smoke test
 ```
 
-A second file, `smoke_gui.py`, does the opposite: it constructs the real `TkMainWindow`
-(every Tkinter widget) and checks only that it **builds without raising** — no behavior is verified,
-and `mainloop()` is never called, so it can't hang. On a machine with no display it skips itself and
-exits cleanly. It is a standalone script, not a pytest test.
-
-```bash
-python3 -m task_manager_tkinter.smoke_gui
-```
-
-CI (`.github/workflows/test.yml`) runs, on every pull request and every push to `main`,
-`pytest` on **Ubuntu / Windows / macOS** and `smoke_gui.py` on **Windows / macOS**.
+CI (`.github/workflows/test.yml`) runs `pytest` on **Ubuntu / Windows / macOS** on every pull
+request and every push to `main` (the GUI smoke test is skipped on headless Ubuntu).

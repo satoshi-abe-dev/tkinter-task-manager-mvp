@@ -1,3 +1,5 @@
-# 開発時のみ必要な依存。テスト実行に使う。
-# ランタイム（アプリ起動）には不要なので requirements.txt とは分けている。
+# テスト実行に必要な依存。`pip install -r requirements-dev.txt` でまとめて入る。
+# GUI スモークテスト(test_gui_smoke.py)が TkMainWindow 経由で tkcalendar を
+# import するため、ランタイム依存(requirements.txt)も取り込む。
+-r requirements.txt
 pytest>=8.0

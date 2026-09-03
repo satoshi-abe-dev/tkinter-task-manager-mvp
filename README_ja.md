@@ -37,12 +37,12 @@ Python (Tkinter) で作った、タブ付きのタスク管理デスクトップ
 
 ### 動作環境
 
-> ⚠️ **開発環境は macOS で、Windows での手動動作確認はしていない。** ただし CI（GitHub Actions）で、ロジックのテスト（`pytest`）と GUI 構築スモークテスト（`smoke_gui.py`）を Windows / macOS でも自動実行している。`tkinter` / `ttk` / `tkcalendar` だけのクロスプラットフォームなコードで、macOS 固有の API は使っていない。
+> ⚠️ **開発環境は macOS で、Windows での手動動作確認はしていない。** ただし CI（GitHub Actions）で `pytest` を Ubuntu / Windows / macOS で自動実行している（ロジックのテストに加え、実物の Tkinter GUI が例外なく組み上がるかのスモークテストも含む。画面が無い Ubuntu では GUI のぶんだけ skip）。`tkinter` / `ttk` / `tkcalendar` だけのクロスプラットフォームなコードで、macOS 固有の API は使っていない。
 
 - Python 3.14（Homebrew版）
 - tkinter 利用には `brew install python-tk@3.14` が別途必要（macOS 標準の `/usr/bin` 側は非推奨の Tcl/Tk 8.5.9 のため使わない）
-- GUI 起動には `tkcalendar` が必要（`requirements.txt`）。`pytest` の実行には不要
-- テスト実行には `pytest` が必要（`requirements-dev.txt`）
+- GUI 起動には `tkcalendar` が必要（`requirements.txt`）
+- テスト実行には `pytest` と `tkcalendar` が必要（`requirements-dev.txt` でまとめて入る）
 - 永続化は標準ライブラリの `sqlite3`。追加インストール不要
 
 **Windows についての補足**
@@ -118,7 +118,7 @@ python -m venv .venv
 task_manager_tkinter/         ルートパッケージ（フォルダ階層 ＝ クラスの名前空間）
     main.py                   エントリーポイント（model, view, presenterと同じ階層）
     test_presenter.py         Presenter の pytest ユニットテスト（tkinter不要）
-    smoke_gui.py              GUI 構築スモークテスト（単体スクリプト。pytest 対象外）
+    test_gui_smoke.py         GUI 構築スモークテスト（pytest。画面が無ければ skip）
     data/                     SQLiteデータベース(app.db)の置き場。実行時に自動作成される
         backups/               設定した間隔(既定15分)ごとに自動作成されるapp.dbのバックアップ(直近24時間分)
     model/
@@ -205,7 +205,7 @@ tkinter の `super().__init__` 連鎖に干渉しない）。
 
 ### 起動方法の補足
 
-`-m` でもファイル指定でも起動できる。`main.py` / `smoke_gui.py` は先頭で `__package__` 未設定（＝スクリプトとして直接実行された）を検知したときだけ、リポジトリのルートを `sys.path` に足すので、どちらの呼び方でも同じ絶対 import が通る。
+`-m` でもファイル指定でも起動できる。`main.py` は先頭で `__package__` 未設定（＝スクリプトとして直接実行された）を検知したときだけ、リポジトリのルートを `sys.path` に足すので、どちらの呼び方でも同じ絶対 import が通る。
 
 ```bash
 # リポジトリのルート（task_manager_tkinter/ の親）で
@@ -225,17 +225,15 @@ Windows:
 
 `test_presenter.py`（pytest）は、FakeView（各 View 抽象クラスの偽実装）を差し込むことで、Tkinter を一切起動せずに 2 つの Presenter のロジックを検証する。`view.*` パッケージ（抽象クラス `TaskListView` / `SettingsView`）だけに依存し、Tkinter 実装（`view/task/tk_frame.py` / `view/settings/tk_frame.py` / `view/tk_main_window.py`）は読み込まないので、tkinter が入っていない環境でも実行できる（`view/` 配下の `__init__.py` は抽象クラスだけを再エクスポートし、Tk 実装は巻き込まない）。`TaskModel` / `SettingsModel` は `db_path=":memory:"` でインメモリ SQLite にして、ディスクに何も残さず、テストどうしで状態が混ざらないようにしている（`task_ctx` fixture でまとめて組み立てている）。
 
+もう1つ、`test_gui_smoke.py`（`@pytest.mark.smoke`）は逆に、実物の `TkMainWindow`（＝全 Tkinter ウィジェット）を生成して**例外なく組み上がることだけ**を確認する（挙動は検証しない。`mainloop()` は呼ばないのでハングしない）。`tkinter` が入っていない／画面が無い環境では自動で skip する。
+
 ```bash
 # リポジトリのルートで
 pip install -r requirements-dev.txt
-pytest
-```
-
-もう1つ、`smoke_gui.py` は逆に、実物の `TkMainWindow`（＝全 Tkinter ウィジェット）を生成して**例外なく組み上がることだけ**を確認する（挙動は検証しない。`mainloop()` は呼ばないのでハングしない）。画面が無い環境では自動でスキップして正常終了する。pytest のテストではなく単体スクリプト。
-
-```bash
-python3 -m task_manager_tkinter.smoke_gui
+pytest                   # presenter テスト＋GUI スモークをまとめて
+pytest -m "not smoke"    # tkinter 非依存の presenter テストだけ
+pytest -m smoke          # GUI スモークだけ
 ```
 
 CI（`.github/workflows/test.yml`）では、PR 作成時・`main` への push 時に
-`pytest` を **Ubuntu / Windows / macOS** で、`smoke_gui.py` を **Windows / macOS** で自動実行する。
+`pytest` を **Ubuntu / Windows / macOS** で自動実行する（画面が無い Ubuntu では GUI スモークだけ skip）。
