@@ -1,5 +1,5 @@
-# 「新規登録」「タスク一覧」タブの期限入力で使うカレンダー付きの日付選択ウィジェット
-# (tkcalendar.DateEntry) のために必要。
+# 「タスク一覧」タブの期限入力で使う、カレンダー付きの日付選択ウィジェット
+# (tkcalendar.Calendar) のために必要。
 # test_presenter.py は tkinter/tkcalendar を一切importしないため、
 # テストの実行だけならこの依存関係は不要。
 tkcalendar>=1.5.0
