@@ -48,3 +48,8 @@ class TkMainWindow:
 
     def run(self) -> None:
         self._root.mainloop()
+
+    def destroy(self) -> None:
+        """ウィンドウを破棄する（run() を回さずに片付けたいとき用。
+        GUI 構築スモークテストが使う）。"""
+        self._root.destroy()

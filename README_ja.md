@@ -25,6 +25,20 @@ Python (Tkinter) で作った、タブ付きのタスク管理デスクトップ
 - タスクを CSV に書き出し／CSV から読み込みする
 - 変更は自動保存（Saveボタンは無い）。`app.db` は一定間隔で自動バックアップされる
 
+### 動作環境
+
+> ⚠️ **Windows での手動動作確認はしていません**（開発は macOS）。ただし CI（GitHub Actions）で、ロジックのテスト（`test_presenter.py`）と GUI 構築スモークテスト（`test_gui_smoke.py`）を Windows / macOS でも自動実行している。`tkinter` / `ttk` / `tkcalendar` だけのクロスプラットフォームなコードで、macOS 固有の API は使っていない。
+
+- Python 3.14（Homebrew版）
+- tkinter 利用には `brew install python-tk@3.14` が別途必要（macOS 標準の `/usr/bin` 側は非推奨の Tcl/Tk 8.5.9 のため使わない）
+- GUI 起動には `tkcalendar` が必要（`requirements.txt`）。`test_presenter.py` の実行には不要
+- 永続化は標準ライブラリの `sqlite3`。追加インストール不要
+
+**Windows についての補足**
+
+- python.org 配布の Windows インストーラーは Tcl/Tk を標準で同梱するため、`brew install python-tk@3.14` 相当の追加インストールは不要
+- 設定タブの見出しに `font=("Helvetica", 10, "bold")` を指定している箇所があるが、Windows に "Helvetica" は標準搭載されていない。Tk は存在しないフォント名が渡されても自動的にフォールバックするため止まらない（見た目のフォントが変わるのみ）
+
 ### 動かす
 
 `tkcalendar`（期限のカレンダー選択に使う）が必要なので、リポジトリ直下に仮想環境を作ってから起動する。GUIなので Tcl/Tk が使える環境で実行すること。
@@ -45,7 +59,7 @@ python -m venv .venv
 .venv\Scripts\python -m task_manager_tkinter.main
 ```
 
-初回起動時に `task_manager_tkinter/data/app.db`（SQLite）が作られ、デモ用のタスクが5件入る。`-m` 以外の起動方法は下の「起動方法の補足」にまとめてある。
+`app.db` がまだ無いとき（＝初回起動）だけ `task_manager_tkinter/data/app.db`（SQLite）が作られ、デモ用のタスクが5件入る。期限日は起動日を基準に相対的に決まり、期限ハイライトが初回から「白2・黄2・赤1」に見えるようになっている。2回目以降は、全タスクを削除しても `app.db` は残るのでデモデータは復活しない。`-m` 以外の起動方法は下の「起動方法の補足」にまとめてある。
 
 ### 使い方
 
@@ -206,18 +220,11 @@ python3 -m task_manager_tkinter.test_presenter
 python3 task_manager_tkinter/test_presenter.py
 ```
 
-CI でも、PR 作成時・`main` への push 時に同じテストが自動実行される（`.github/workflows/test.yml`）。
+もう1つ、`test_gui_smoke.py` は逆に、実物の `TkMainWindow`（＝全 Tkinter ウィジェット）を生成して**例外なく組み上がることだけ**を確認する（挙動は検証しない。`mainloop()` は呼ばないのでハングしない）。画面が無い環境では自動でスキップして正常終了する。
 
-### 前提環境
+```bash
+python3 -m task_manager_tkinter.test_gui_smoke
+```
 
-- Python 3.14（Homebrew版）
-- tkinter 利用には `brew install python-tk@3.14` が別途必要（macOS 標準の `/usr/bin` 側は非推奨の Tcl/Tk 8.5.9 のため使わない）
-- GUI 起動には `tkcalendar` が必要（`requirements.txt`）。`test_presenter.py` の実行には不要
-- 永続化は標準ライブラリの `sqlite3`。追加インストール不要
-
-#### Windows での動作
-
-`tkinter` / `ttk` / `tkcalendar` だけを使ったクロスプラットフォームなコードで、macOS 専用の API には依存していないため、Windows でも動くはず（開発・動作確認は macOS のみ）。
-
-- python.org 配布の Windows インストーラーは Tcl/Tk を標準で同梱するため、`brew install python-tk@3.14` 相当の追加インストールは不要
-- 設定タブの見出しに `font=("Helvetica", 10, "bold")` を指定している箇所があるが、Windows に "Helvetica" は標準搭載されていない。Tk は存在しないフォント名が渡されても自動的にフォールバックするため止まらない（見た目のフォントが変わるのみ）
+CI（`.github/workflows/test.yml`）では、PR 作成時・`main` への push 時に
+`test_presenter.py` を **ubuntu / Windows** で、`test_gui_smoke.py` を **Windows / macOS** で自動実行する。

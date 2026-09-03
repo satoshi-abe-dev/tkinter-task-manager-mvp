@@ -25,6 +25,26 @@ sample implementation of the MVP (Model-View-Presenter) pattern, and a follow-up
 - Exports tasks to a CSV file / imports them from one
 - Saves every change automatically (no Save button); `app.db` is backed up automatically at a set interval
 
+### Prerequisites
+
+> ⚠️ **Not manually tested on Windows** (development is on macOS). CI (GitHub Actions) does run
+> the logic tests (`test_presenter.py`) and a GUI-construction smoke test (`test_gui_smoke.py`) on
+> Windows and macOS as well. The code sticks to cross-platform `tkinter` / `ttk` / `tkcalendar` and
+> uses no macOS-specific API.
+
+- Python 3.14 (Homebrew build)
+- Using tkinter requires `brew install python-tk@3.14` separately (the deprecated Tcl/Tk 8.5.9 bundled with macOS's `/usr/bin` Python is not used)
+- Running the GUI requires `tkcalendar` (see `requirements.txt`). Not needed to run `test_presenter.py`
+- Persistence uses `sqlite3` (Python's standard library), so no extra install is needed for that
+
+**Windows notes**
+
+- The official python.org Windows installer bundles Tcl/Tk, so there's no equivalent of
+  `brew install python-tk@3.14` to install separately
+- The Settings tab's section header uses `font=("Helvetica", 10, "bold")`; "Helvetica" isn't a standard
+  Windows font, but Tk silently falls back to a substitute instead of raising an error, so this only
+  affects appearance, not functionality
+
 ### Run it
 
 `tkcalendar` is required (the due-date calendar picker), so create a virtual environment at the
@@ -46,8 +66,11 @@ python -m venv .venv
 .venv\Scripts\python -m task_manager_tkinter.main
 ```
 
-On first launch, `task_manager_tkinter/data/app.db` (SQLite) is created and seeded with 5 demo tasks.
-Ways to launch other than `-m` are collected under "Running: other ways" below.
+Only when `app.db` doesn't exist yet (i.e. the first run), `task_manager_tkinter/data/app.db` (SQLite)
+is created and seeded with 5 demo tasks. Their due dates are set relative to the launch date, so the
+due-date highlight shows 2 white, 2 yellow, and 1 red right from the first run. After that the file
+stays, so deleting every task does not bring the demo data back. Ways to launch other than `-m` are
+collected under "Running: other ways" below.
 
 ### How to use
 
@@ -243,22 +266,14 @@ python3 -m task_manager_tkinter.test_presenter
 python3 task_manager_tkinter/test_presenter.py
 ```
 
-CI also runs the same tests on every pull request and every push to `main` (see `.github/workflows/test.yml`).
+A second script, `test_gui_smoke.py`, does the opposite: it constructs the real `TkMainWindow`
+(every Tkinter widget) and checks only that it **builds without raising** — no behavior is verified,
+and `mainloop()` is never called, so it can't hang. On a machine with no display it skips itself and
+exits cleanly.
 
-### Prerequisites
+```bash
+python3 -m task_manager_tkinter.test_gui_smoke
+```
 
-- Python 3.14 (Homebrew build)
-- Using tkinter requires `brew install python-tk@3.14` separately (the deprecated Tcl/Tk 8.5.9 bundled with macOS's `/usr/bin` Python is not used)
-- Running the GUI requires `tkcalendar` (see `requirements.txt`). Not needed to run `test_presenter.py`
-- Persistence uses `sqlite3` (Python's standard library), so no extra install is needed for that
-
-#### A note on Windows
-
-The code only uses cross-platform `tkinter` / `ttk` / `tkcalendar` APIs and has no macOS-only
-dependency, so it should run on Windows too (development and testing were only done on macOS).
-
-- The official python.org Windows installer bundles Tcl/Tk, so there's no equivalent of
-  `brew install python-tk@3.14` to install separately
-- The Settings tab's section header uses `font=("Helvetica", 10, "bold")`; "Helvetica" isn't a standard
-  Windows font, but Tk silently falls back to a substitute instead of raising an error, so this only
-  affects appearance, not functionality
+CI (`.github/workflows/test.yml`) runs, on every pull request and every push to `main`,
+`test_presenter.py` on **Ubuntu / Windows** and `test_gui_smoke.py` on **Windows / macOS**.

@@ -11,6 +11,8 @@ Model
 再起動が「全部取り消し」の代わりになる）。
 """
 
+from datetime import date, timedelta
+from pathlib import Path
 from typing import Iterable, List, Optional
 
 from task_manager_tkinter.model.lib import task_db
@@ -22,35 +24,55 @@ EDITABLE_FIELDS = {"name", "assignee", "due_date", "priority", "status"}
 
 
 def _seed_tasks() -> List[Task]:
-    """デモ用の初期データ。呼び出すたびに新しいTaskインスタンスを作る
-    （add_taskはtask.idをその場で書き換えるため、複数のTaskModelインスタンス間で
-    同じTaskオブジェクトを使い回すとidが競合する）。
+    """デモ用の初期データ。
+
+    期限日は「初回起動した日」を基準に相対的に決める。既定の通知設定
+    （notify_enabled=True / notify_days_before=3）のもとで、一覧タブの期限ハイライトが
+    初回から「白2・黄2・赤1」に見えるように配置している（黄＝期限が近い、赤＝超過）。
+
+    呼び出すたびに新しいTaskインスタンスを作る（add_taskはtask.idをその場で
+    書き換えるため、複数のTaskModelインスタンス間で同じTaskオブジェクトを
+    使い回すとidが競合する）。
     """
+    today = date.today()
+
+    def due(offset_days: int) -> str:
+        return (today + timedelta(days=offset_days)).strftime("%Y-%m-%d")
+
     return [
-        Task("Prepare Quotation", "Sato", "2026-09-02", "High", "In Progress"),
-        Task("Prepare Meeting Materials", "Tanaka", "2026-09-01", "Medium", "Not Started"),
-        Task("Write Release Notes", "Suzuki", "2026-08-29", "High", "Overdue"),
-        Task("Expense Report", "Sato", "2026-09-05", "Low", "Done"),
-        Task("Design Review", "Tanaka", "2026-09-03", "Medium", "In Progress"),
+        # 黄: 期限が近い（today+1 / today+2 とも警告しきい値 today+3 以内）
+        Task("Prepare Quotation", "Sato", due(1), "High", "In Progress"),
+        Task("Prepare Meeting Materials", "Tanaka", due(2), "Medium", "Not Started"),
+        # 赤: 期限超過（Statusも Overdue）
+        Task("Write Release Notes", "Suzuki", due(-2), "High", "Overdue"),
+        # 白: Done は常にハイライト対象外
+        Task("Expense Report", "Sato", due(30), "Low", "Done"),
+        # 白: 警告しきい値より先（today+7 > today+3）
+        Task("Design Review", "Tanaka", due(7), "Medium", "In Progress"),
     ]
 
 
 class TaskModel:
     def __init__(self, db_path: str = DEFAULT_DB_PATH) -> None:
+        # デモデータを入れるのは「DBファイルがまだ存在しない＝正真正銘の初回起動」の
+        # ときだけ。connect() がファイルを作ってしまうので、その前に判定しておく。
+        # （":memory:" は毎回まっさらな使い捨てDBなので常に初回扱い＝テスト用）
+        first_run = db_path == ":memory:" or not Path(db_path).exists()
+
         self._conn = task_db.connect(db_path)
         self._tasks: List[Task] = task_db.fetch_all(self._conn)
         self._dirty = False
         if self._tasks:
             self._next_id = max(t.id for t in self._tasks) + 1
         else:
-            # DBにタスクが1件も無い場合は、デモ用の初期データを投入してすぐ保存する
-            # （初回起動を想定。ユーザーが後から全タスクを削除して保存した場合も、
-            # 次回起動時にまたこのデモデータが入る点に注意。「空」と「未初期化」を
-            # 区別していない、ポートフォリオ用の割り切り）。
             self._next_id = 1
-            for task in _seed_tasks():
-                self.add_task(task)
-            self.save()
+            if first_run:
+                # 初回起動: デモ用の初期データを投入してすぐ保存する。
+                # 2回目以降にユーザーが全タスクを削除しても、app.db は残るので
+                # 「空のまま」になり、デモデータは復活しない。
+                for task in _seed_tasks():
+                    self.add_task(task)
+                self.save()
 
     def list_tasks(self) -> List[Task]:
         """登録済みタスクの一覧を返す"""
