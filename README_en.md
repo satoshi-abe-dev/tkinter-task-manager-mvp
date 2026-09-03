@@ -7,6 +7,12 @@ sample implementation of the MVP (Model-View-Presenter) pattern.
 
 > ℹ️ The GUI is in English; the code comments and this README are in Japanese.
 
+> 🧭 **The design and architecture decisions here are the author's** — the MVP layering, the
+> folder-as-namespace naming scheme, moving "Overdue" from a stored status to a value derived from
+> `due_date`, the road to Auto Save, and so on (see the "Design" section for the reasoning).
+> Implementation was done with Claude Code as a pair-programming aid, which is why the commits carry
+> `Co-Authored-By` trailers.
+
 ## Screenshots
 
 | Task List | Settings |
