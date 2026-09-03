@@ -27,7 +27,7 @@ sample implementation of the MVP (Model-View-Presenter) pattern, and a follow-up
 
 ### Prerequisites
 
-> ⚠️ **Not manually tested on Windows** (development is on macOS). CI (GitHub Actions) does run
+> ⚠️ **Developed on macOS; not manually tested on Windows.** CI (GitHub Actions) does run
 > the logic tests (`test_presenter.py`) and a GUI-construction smoke test (`test_gui_smoke.py`) on
 > Windows and macOS as well. The code sticks to cross-platform `tkinter` / `ttk` / `tkcalendar` and
 > uses no macOS-specific API.
