@@ -73,12 +73,13 @@ Automatic due-date behavior:
 - **Backup interval**: how often (in minutes, default 15) automatic backups run. Changing it while running takes effect from the next timer tick.
 - Every changed value is saved the moment you enter it (Auto Save).
 
+> 💡 **If you just want to run it, you can stop here.** The rest is the main point of this sample: how responsibilities are split under MVP.
+
 ---
 
-## Reading the design
+## Design
 
-This is what the repository is really about: how responsibilities are split across MVP
-(Model / View / Presenter).
+The main point of this repo: how responsibilities are split across MVP (Model / View / Presenter).
 
 ### The point
 
