@@ -1,0 +1,6 @@
+# pytest の設定だけを置く最小構成。パッケージング（build-system 等）は行わない。
+[tool.pytest.ini_options]
+# bare `pytest` が .venv/ や temp/ を走査しないよう、収集対象を絞る。
+# 収集されるのは test_*.py に一致する task_manager_tkinter/test_presenter.py だけ
+# （smoke_gui.py は test_ 接頭辞が無いので対象外）。
+testpaths = ["task_manager_tkinter"]

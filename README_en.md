@@ -38,13 +38,14 @@ sample implementation of the MVP (Model-View-Presenter) pattern.
 ### Prerequisites
 
 > ⚠️ **Developed on macOS; not manually tested on Windows.** CI (GitHub Actions) does run
-> the logic tests (`test_presenter.py`) and a GUI-construction smoke test (`test_gui_smoke.py`) on
+> the logic tests (`pytest`) and a GUI-construction smoke test (`smoke_gui.py`) on
 > Windows and macOS as well. The code sticks to cross-platform `tkinter` / `ttk` / `tkcalendar` and
 > uses no macOS-specific API.
 
 - Python 3.14 (Homebrew build)
 - Using tkinter requires `brew install python-tk@3.14` separately (the deprecated Tcl/Tk 8.5.9 bundled with macOS's `/usr/bin` Python is not used)
-- Running the GUI requires `tkcalendar` (see `requirements.txt`). Not needed to run `test_presenter.py`
+- Running the GUI requires `tkcalendar` (see `requirements.txt`). Not needed to run `pytest`
+- Running the tests requires `pytest` (see `requirements-dev.txt`)
 - Persistence uses `sqlite3` (Python's standard library), so no extra install is needed for that
 
 **Windows notes**
@@ -139,7 +140,8 @@ lost or corrupted outright.
 ```
 task_manager_tkinter/         Root package (folder hierarchy == class namespace)
     main.py                   Entry point (same level as model, view, presenter)
-    test_presenter.py         Unit tests for the two Presenters (no tkinter required)
+    test_presenter.py         pytest unit tests for the Presenters (no tkinter required)
+    smoke_gui.py              GUI-construction smoke test (standalone script; not collected by pytest)
     data/                     Where the SQLite database (app.db) lives; created automatically at runtime
         backups/               Backups of app.db, made automatically at the configured interval (last 24h kept)
     model/
@@ -246,7 +248,7 @@ changes to Presenter or View at all (the history is in "Design notes").
 
 ### Running: other ways
 
-Both `-m` and a plain file path work. `main.py` / `test_presenter.py` prepend the repository root to
+Both `-m` and a plain file path work. `main.py` / `smoke_gui.py` prepend the repository root to
 `sys.path` only when they detect they were run as a plain script (`__package__` unset), so the same
 absolute imports resolve either way.
 
@@ -266,29 +268,29 @@ Windows:
 
 ### Testing
 
-By swapping in fake Views (fake implementations of each View abstract class) instead of `TkMainWindow`
-(and its internal Frames), the two Presenters' logic is verified without ever starting Tkinter.
-`test_presenter.py` depends only on the `view.*` packages (the `TaskListView` / `SettingsView` abstract
-classes) and never imports the Tkinter implementation under view (`view/task/tk_frame.py` /
+`test_presenter.py` (pytest) swaps in fake Views (fake implementations of each View abstract class)
+instead of `TkMainWindow` (and its internal Frames), so the two Presenters' logic is verified without
+ever starting Tkinter. It depends only on the `view.*` packages (the `TaskListView` / `SettingsView`
+abstract classes) and never imports the Tkinter implementation under view (`view/task/tk_frame.py` /
 `view/settings/tk_frame.py` / `view/tk_main_window.py`), so it runs fine even without tkinter
 installed (the `__init__.py` files under `view/` re-export only the abstract classes). `TaskModel` /
-`SettingsModel` are constructed with `db_path=":memory:"` in tests, so nothing is written to disk and
-each test gets its own isolated database.
+`SettingsModel` are constructed with `db_path=":memory:"` (assembled in the `task_ctx` fixture), so
+nothing is written to disk and each test gets its own isolated database.
 
 ```bash
-# from the repository root (either works)
-python3 -m task_manager_tkinter.test_presenter
-python3 task_manager_tkinter/test_presenter.py
+# from the repository root
+pip install -r requirements-dev.txt
+pytest
 ```
 
-A second script, `test_gui_smoke.py`, does the opposite: it constructs the real `TkMainWindow`
+A second file, `smoke_gui.py`, does the opposite: it constructs the real `TkMainWindow`
 (every Tkinter widget) and checks only that it **builds without raising** — no behavior is verified,
 and `mainloop()` is never called, so it can't hang. On a machine with no display it skips itself and
-exits cleanly.
+exits cleanly. It is a standalone script, not a pytest test.
 
 ```bash
-python3 -m task_manager_tkinter.test_gui_smoke
+python3 -m task_manager_tkinter.smoke_gui
 ```
 
 CI (`.github/workflows/test.yml`) runs, on every pull request and every push to `main`,
-`test_presenter.py` on **Ubuntu / Windows** and `test_gui_smoke.py` on **Windows / macOS**.
+`pytest` on **Ubuntu / Windows / macOS** and `smoke_gui.py` on **Windows / macOS**.

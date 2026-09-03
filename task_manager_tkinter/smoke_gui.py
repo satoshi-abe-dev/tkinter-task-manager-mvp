@@ -1,17 +1,17 @@
 """
-GUI 構築スモークテスト
-----------------------
+GUI 構築スモークテスト（pytest では走らない単体スクリプト）
+----------------------------------------------------------
 実物の Tkinter ウィジェット(TkMainWindow → TkTaskListFrame / TkSettingsFrame)が
 例外なく組み上がることだけを確認する。挙動は検証しない。mainloop() は呼ばない
 （＝ハングしない）。
 
-test_presenter.py が意図的に避けている「View の Tkinter 実装」を、実際に import・
-生成してみる唯一のテスト。tkinter が入っていない、またはヘッドレス[画面の無い]
-環境（Linux サーバーなど）では自動でスキップして正常終了する。
+test_presenter.py（pytest）が意図的に避けている「View の Tkinter 実装」を、実際に
+import・生成してみる唯一のチェック。tkinter が入っていない、またはヘッドレス
+[画面の無い]環境（Linux サーバーなど）では自動でスキップして正常終了する。
 
 実行方法（どちらでも可。リポジトリのルートで）:
-    python3 -m task_manager_tkinter.test_gui_smoke
-    python3 task_manager_tkinter/test_gui_smoke.py
+    python3 -m task_manager_tkinter.smoke_gui
+    python3 task_manager_tkinter/smoke_gui.py
 """
 
 import os

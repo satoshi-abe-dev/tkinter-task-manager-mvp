@@ -1,40 +1,30 @@
 """
-Presenterの単体テスト例
------------------------
-FakeView（各View抽象クラスの偽実装）を差し込むことで、Tkinterを一切起動せずに
-2つのPresenterのロジックを検証する。View以下のTkinter実装（view/task/tk_frame.py /
-view/settings/tk_frame.py / view/tk_main_window.py）は読み込まないため、tkinterが
-インストールされていない環境でもこのテストは実行できる。
+Presenter の単体テスト（pytest）
+--------------------------------
+FakeView（各 View 抽象クラスの偽実装）を差し込むことで、Tkinter を一切起動せずに
+2 つの Presenter のロジックを検証する。View 以下の Tkinter 実装
+（view/task/tk_frame.py / view/settings/tk_frame.py / view/tk_main_window.py）は
+読み込まないため、tkinter が入っていない環境でも実行できる。
 
-実行方法（どちらでも可）:
-    - リポジトリのルート（task_manager_tkinter/ の親フォルダ）で
-        python3 -m task_manager_tkinter.test_presenter
-    - ファイル指定で直接
-        python3 task_manager_tkinter/test_presenter.py
-      または  cd task_manager_tkinter && python3 test_presenter.py
+実行方法（リポジトリのルートで）:
+    pip install -r requirements-dev.txt
+    pytest
 """
 
 import os
-import sys
 import tempfile
 from datetime import date, datetime, timedelta
 from typing import Callable, Dict, List, Optional, Tuple
 
-# `python test_presenter.py` のようにファイル指定で直接起動された場合に、
-# task_manager_tkinter パッケージを import できるようリポジトリのルートを
-# sys.path に足す（-m 起動時は __package__ 設定済みなので何もしない）。
-if __package__ in (None, ""):
-    sys.path.insert(
-        0, os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    )
+import pytest
 
-from task_manager_tkinter.model.lib.db_backup import backup_and_rotate  # noqa: E402
-from task_manager_tkinter.model.settings import Settings, SettingsModel  # noqa: E402
-from task_manager_tkinter.model.task import Task, TaskModel  # noqa: E402
-from task_manager_tkinter.presenter.settings import SettingsPresenter  # noqa: E402
-from task_manager_tkinter.presenter.task import TaskListPresenter  # noqa: E402
-from task_manager_tkinter.view.settings import SettingsView  # noqa: E402
-from task_manager_tkinter.view.task import TaskListView  # noqa: E402
+from task_manager_tkinter.model.lib.db_backup import backup_and_rotate
+from task_manager_tkinter.model.settings import Settings, SettingsModel
+from task_manager_tkinter.model.task import Task, TaskModel
+from task_manager_tkinter.presenter.settings import SettingsPresenter
+from task_manager_tkinter.presenter.task import TaskListPresenter
+from task_manager_tkinter.view.settings import SettingsView
+from task_manager_tkinter.view.task import TaskListView
 
 
 class FakeTaskListView(TaskListView):
@@ -113,21 +103,42 @@ class FakeSettingsView(SettingsView):
         return self.form_values
 
 
-def test_task_list_presenter_shows_initial_tasks() -> None:
-    model = TaskModel(db_path=":memory:")
-    settings_model = SettingsModel(db_path=":memory:")
-    view = FakeTaskListView()
-    TaskListPresenter(model, settings_model, view)
-
-    assert len(view.shown_tasks) == len(model.list_tasks())
-    print("test_task_list_presenter_shows_initial_tasks: OK")
-
-
-def test_task_list_presenter_edits_cell() -> None:
+@pytest.fixture
+def task_ctx():
+    """タスク一覧タブの Presenter 一式（インメモリ DB）。
+    戻り値: (model, settings_model, view, presenter)。
+    """
     model = TaskModel(db_path=":memory:")
     settings_model = SettingsModel(db_path=":memory:")
     view = FakeTaskListView()
     presenter = TaskListPresenter(model, settings_model, view)
+    try:
+        yield model, settings_model, view, presenter
+    finally:
+        model.close()
+        settings_model.close()
+
+
+@pytest.fixture
+def settings_pair():
+    """設定タブ用の (settings_model, view)。Presenter はテスト側で
+    on_settings_saved を渡して組む（テストごとに中身が違うため）。
+    """
+    settings_model = SettingsModel(db_path=":memory:")
+    view = FakeSettingsView()
+    try:
+        yield settings_model, view
+    finally:
+        settings_model.close()
+
+
+def test_task_list_presenter_shows_initial_tasks(task_ctx) -> None:
+    model, settings_model, view, presenter = task_ctx
+    assert len(view.shown_tasks) == len(model.list_tasks())
+
+
+def test_task_list_presenter_edits_cell(task_ctx) -> None:
+    model, settings_model, view, presenter = task_ctx
 
     target = model.list_tasks()[0]
     view.cell_edited_handler(target.id, "assignee", "Suzuki")
@@ -135,28 +146,20 @@ def test_task_list_presenter_edits_cell() -> None:
     assert model.list_tasks()[0].assignee == "Suzuki"
     # 更新後にViewへ再表示されている
     assert view.shown_tasks[0].assignee == "Suzuki"
-    print("test_task_list_presenter_edits_cell: OK")
 
 
-def test_task_list_presenter_rejects_empty_name_edit() -> None:
-    model = TaskModel(db_path=":memory:")
-    settings_model = SettingsModel(db_path=":memory:")
-    view = FakeTaskListView()
-    presenter = TaskListPresenter(model, settings_model, view)
+def test_task_list_presenter_rejects_empty_name_edit(task_ctx) -> None:
+    model, settings_model, view, presenter = task_ctx
 
     target = model.list_tasks()[0]
     original_name = target.name
     view.cell_edited_handler(target.id, "name", "   ")
 
     assert model.list_tasks()[0].name == original_name
-    print("test_task_list_presenter_rejects_empty_name_edit: OK")
 
 
-def test_task_list_presenter_sorts_by_column_and_toggles_direction() -> None:
-    model = TaskModel(db_path=":memory:")
-    settings_model = SettingsModel(db_path=":memory:")
-    view = FakeTaskListView()
-    presenter = TaskListPresenter(model, settings_model, view)
+def test_task_list_presenter_sorts_by_column_and_toggles_direction(task_ctx) -> None:
+    model, settings_model, view, presenter = task_ctx
 
     assert view.sort_state == (None, True)  # 初期状態はソートなし
 
@@ -172,27 +175,19 @@ def test_task_list_presenter_sorts_by_column_and_toggles_direction() -> None:
 
     view.column_clicked_handler("name")  # 別の列をクリック→昇順から
     assert view.sort_state == ("name", True)
-    print("test_task_list_presenter_sorts_by_column_and_toggles_direction: OK")
 
 
-def test_task_list_presenter_sorts_priority_by_meaning_not_alphabetically() -> None:
-    model = TaskModel(db_path=":memory:")
-    settings_model = SettingsModel(db_path=":memory:")
-    view = FakeTaskListView()
-    presenter = TaskListPresenter(model, settings_model, view)
+def test_task_list_presenter_sorts_priority_by_meaning_not_alphabetically(task_ctx) -> None:
+    model, settings_model, view, presenter = task_ctx
 
     view.column_clicked_handler("priority")
 
     priorities = [t.priority for t in view.shown_tasks]
     assert priorities == ["Low", "Medium", "Medium", "High", "High"]
-    print("test_task_list_presenter_sorts_priority_by_meaning_not_alphabetically: OK")
 
 
-def test_task_list_presenter_sort_keeps_blank_values_at_bottom() -> None:
-    model = TaskModel(db_path=":memory:")
-    settings_model = SettingsModel(db_path=":memory:")
-    view = FakeTaskListView()
-    presenter = TaskListPresenter(model, settings_model, view)
+def test_task_list_presenter_sort_keeps_blank_values_at_bottom(task_ctx) -> None:
+    model, settings_model, view, presenter = task_ctx
 
     # 「追加」で作った空欄タスクを1件混ぜる
     view.add_handler()
@@ -208,14 +203,10 @@ def test_task_list_presenter_sort_keeps_blank_values_at_bottom() -> None:
     assert view.sort_state == ("assignee", False)
     assert view.shown_tasks[-1].id == blank_task.id
     assert all(t.assignee.strip() for t in view.shown_tasks[:-1])
-    print("test_task_list_presenter_sort_keeps_blank_values_at_bottom: OK")
 
 
-def test_task_list_presenter_adds_blank_task_with_id_based_name() -> None:
-    model = TaskModel(db_path=":memory:")
-    settings_model = SettingsModel(db_path=":memory:")
-    view = FakeTaskListView()
-    presenter = TaskListPresenter(model, settings_model, view)
+def test_task_list_presenter_adds_blank_task_with_id_based_name(task_ctx) -> None:
+    model, settings_model, view, presenter = task_ctx
 
     before = len(model.list_tasks())
     view.add_handler()
@@ -230,14 +221,10 @@ def test_task_list_presenter_adds_blank_task_with_id_based_name() -> None:
     assert new_task.status == ""
     # 追加後、その行が選択状態になる
     assert view.selected_task_id == new_task.id
-    print("test_task_list_presenter_adds_blank_task_with_id_based_name: OK")
 
 
-def test_task_list_presenter_add_always_appears_at_bottom_even_when_sorted() -> None:
-    model = TaskModel(db_path=":memory:")
-    settings_model = SettingsModel(db_path=":memory:")
-    view = FakeTaskListView()
-    presenter = TaskListPresenter(model, settings_model, view)
+def test_task_list_presenter_add_always_appears_at_bottom_even_when_sorted(task_ctx) -> None:
+    model, settings_model, view, presenter = task_ctx
 
     # タスク名で昇順ソートしておく
     view.column_clicked_handler("name")
@@ -251,14 +238,10 @@ def test_task_list_presenter_add_always_appears_at_bottom_even_when_sorted() -> 
     assert view.sort_state == (None, True)
     # 既存の行の並び順はソートしていた時のまま変わらず、新タスクだけが末尾に足される
     assert [t.id for t in view.shown_tasks] == sorted_ids_before_add + [new_task.id]
-    print("test_task_list_presenter_add_always_appears_at_bottom_even_when_sorted: OK")
 
 
-def test_task_list_presenter_add_preserves_order_across_further_edits() -> None:
-    model = TaskModel(db_path=":memory:")
-    settings_model = SettingsModel(db_path=":memory:")
-    view = FakeTaskListView()
-    presenter = TaskListPresenter(model, settings_model, view)
+def test_task_list_presenter_add_preserves_order_across_further_edits(task_ctx) -> None:
+    model, settings_model, view, presenter = task_ctx
 
     view.column_clicked_handler("due_date")
     order_after_add = [t.id for t in view.shown_tasks]
@@ -271,14 +254,10 @@ def test_task_list_presenter_add_preserves_order_across_further_edits() -> None:
     view.cell_edited_handler(target.id, "assignee", "Tanaka")
 
     assert [t.id for t in view.shown_tasks] == order_after_add
-    print("test_task_list_presenter_add_preserves_order_across_further_edits: OK")
 
 
-def test_task_list_presenter_two_consecutive_adds_keep_order() -> None:
-    model = TaskModel(db_path=":memory:")
-    settings_model = SettingsModel(db_path=":memory:")
-    view = FakeTaskListView()
-    presenter = TaskListPresenter(model, settings_model, view)
+def test_task_list_presenter_two_consecutive_adds_keep_order(task_ctx) -> None:
+    model, settings_model, view, presenter = task_ctx
 
     view.column_clicked_handler("name")
     sorted_ids = [t.id for t in view.shown_tasks]
@@ -290,14 +269,10 @@ def test_task_list_presenter_two_consecutive_adds_keep_order() -> None:
 
     # 1回目の追加が固定した並び順を、2回目の追加でも壊さず、末尾に足すだけ
     assert [t.id for t in view.shown_tasks] == sorted_ids + [first_new.id, second_new.id]
-    print("test_task_list_presenter_two_consecutive_adds_keep_order: OK")
 
 
-def test_task_list_presenter_add_name_survives_deletion_without_duplicate() -> None:
-    model = TaskModel(db_path=":memory:")
-    settings_model = SettingsModel(db_path=":memory:")
-    view = FakeTaskListView()
-    presenter = TaskListPresenter(model, settings_model, view)
+def test_task_list_presenter_add_name_survives_deletion_without_duplicate(task_ctx) -> None:
+    model, settings_model, view, presenter = task_ctx
 
     view.add_handler()
     first_new = model.list_tasks()[-1]
@@ -307,14 +282,10 @@ def test_task_list_presenter_add_name_survives_deletion_without_duplicate() -> N
 
     # 同じ名前(id基準)が使い回されず、常に一意になる
     assert first_new.name != second_new.name
-    print("test_task_list_presenter_add_name_survives_deletion_without_duplicate: OK")
 
 
-def test_task_list_presenter_deletes_task() -> None:
-    model = TaskModel(db_path=":memory:")
-    settings_model = SettingsModel(db_path=":memory:")
-    view = FakeTaskListView()
-    presenter = TaskListPresenter(model, settings_model, view)
+def test_task_list_presenter_deletes_task(task_ctx) -> None:
+    model, settings_model, view, presenter = task_ctx
 
     target = model.list_tasks()[0]
     before = len(model.list_tasks())
@@ -322,14 +293,10 @@ def test_task_list_presenter_deletes_task() -> None:
 
     assert len(model.list_tasks()) == before - 1
     assert all(t.id != target.id for t in model.list_tasks())
-    print("test_task_list_presenter_deletes_task: OK")
 
 
-def test_task_list_presenter_deletes_multiple_tasks() -> None:
-    model = TaskModel(db_path=":memory:")
-    settings_model = SettingsModel(db_path=":memory:")
-    view = FakeTaskListView()
-    presenter = TaskListPresenter(model, settings_model, view)
+def test_task_list_presenter_deletes_multiple_tasks(task_ctx) -> None:
+    model, settings_model, view, presenter = task_ctx
 
     targets = model.list_tasks()[:2]  # 複数選択のシミュレーション
     target_ids = [t.id for t in targets]
@@ -339,15 +306,11 @@ def test_task_list_presenter_deletes_multiple_tasks() -> None:
     assert len(model.list_tasks()) == before - 2
     remaining_ids = {t.id for t in model.list_tasks()}
     assert not remaining_ids & set(target_ids)
-    print("test_task_list_presenter_deletes_multiple_tasks: OK")
 
 
-def test_task_list_presenter_highlights_overdue_and_warning_tasks() -> None:
-    model = TaskModel(db_path=":memory:")
-    settings_model = SettingsModel(db_path=":memory:")
+def test_task_list_presenter_highlights_overdue_and_warning_tasks(task_ctx) -> None:
+    model, settings_model, view, presenter = task_ctx
     settings_model.update(Settings(notify_enabled=True, notify_days_before=3))
-    view = FakeTaskListView()
-    presenter = TaskListPresenter(model, settings_model, view)
 
     today = date.today()
     overdue_task, warning_task, safe_task = model.list_tasks()[:3]
@@ -372,14 +335,10 @@ def test_task_list_presenter_highlights_overdue_and_warning_tasks() -> None:
     assert view.highlights.get(overdue_task.id) == "overdue"
     assert view.highlights.get(warning_task.id) == "warning"
     assert safe_task.id not in view.highlights
-    print("test_task_list_presenter_highlights_overdue_and_warning_tasks: OK")
 
 
-def test_task_list_presenter_excludes_completed_status_from_highlight() -> None:
-    model = TaskModel(db_path=":memory:")
-    settings_model = SettingsModel(db_path=":memory:")
-    view = FakeTaskListView()
-    presenter = TaskListPresenter(model, settings_model, view)
+def test_task_list_presenter_excludes_completed_status_from_highlight(task_ctx) -> None:
+    model, settings_model, view, presenter = task_ctx
 
     task = model.list_tasks()[0]
     yesterday = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
@@ -388,17 +347,13 @@ def test_task_list_presenter_excludes_completed_status_from_highlight() -> None:
     presenter.refresh()
 
     assert task.id not in view.highlights
-    print("test_task_list_presenter_excludes_completed_status_from_highlight: OK")
 
 
-def test_task_list_presenter_highlight_follows_due_date_not_status() -> None:
+def test_task_list_presenter_highlight_follows_due_date_not_status(task_ctx) -> None:
     """「Overdue」という状態は無い。期限切れの赤は due_date からのみ決まり、
     期限を未来に直せば赤も消える（＝一度赤くなったら戻らない、が起きない）。
     """
-    model = TaskModel(db_path=":memory:")
-    settings_model = SettingsModel(db_path=":memory:")
-    view = FakeTaskListView()
-    presenter = TaskListPresenter(model, settings_model, view)
+    model, settings_model, view, presenter = task_ctx
 
     task = model.list_tasks()[0]
     original_status = task.status
@@ -411,15 +366,11 @@ def test_task_list_presenter_highlight_follows_due_date_not_status() -> None:
     far_future = (date.today() + timedelta(days=60)).strftime("%Y-%m-%d")
     view.cell_edited_handler(task.id, "due_date", far_future)
     assert task.id not in view.highlights
-    print("test_task_list_presenter_highlight_follows_due_date_not_status: OK")
 
 
-def test_task_list_presenter_disables_highlight_when_notify_off() -> None:
-    model = TaskModel(db_path=":memory:")
-    settings_model = SettingsModel(db_path=":memory:")
+def test_task_list_presenter_disables_highlight_when_notify_off(task_ctx) -> None:
+    model, settings_model, view, presenter = task_ctx
     settings_model.update(Settings(notify_enabled=False))
-    view = FakeTaskListView()
-    presenter = TaskListPresenter(model, settings_model, view)
 
     task = model.list_tasks()[0]
     yesterday = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
@@ -428,14 +379,10 @@ def test_task_list_presenter_disables_highlight_when_notify_off() -> None:
     presenter.refresh()
 
     assert view.highlights == {}
-    print("test_task_list_presenter_disables_highlight_when_notify_off: OK")
 
 
-def test_task_list_presenter_export_import_csv() -> None:
-    model = TaskModel(db_path=":memory:")
-    settings_model = SettingsModel(db_path=":memory:")
-    view = FakeTaskListView()
-    presenter = TaskListPresenter(model, settings_model, view)
+def test_task_list_presenter_export_import_csv(task_ctx) -> None:
+    model, settings_model, view, presenter = task_ctx
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         path = os.path.join(tmp_dir, "tasks.csv")
@@ -451,44 +398,32 @@ def test_task_list_presenter_export_import_csv() -> None:
         assert len(model.list_tasks()) == before * 2
         # 書き出し・読み込みそれぞれで1件ずつメッセージが表示される
         assert len(view.messages) == 2
-    print("test_task_list_presenter_export_import_csv: OK")
 
 
-def _csv_presenter() -> Tuple[TaskModel, FakeTaskListView, TaskListPresenter]:
-    """CSV エラー系テスト用の一式（model, view, presenter）を組み立てて返す。"""
-    model = TaskModel(db_path=":memory:")
-    settings_model = SettingsModel(db_path=":memory:")
-    view = FakeTaskListView()
-    presenter = TaskListPresenter(model, settings_model, view)
-    return model, view, presenter
-
-
-def test_task_list_presenter_export_reports_io_error() -> None:
+def test_task_list_presenter_export_reports_io_error(task_ctx) -> None:
     """書き出し先が開けない時、素のトレースバックではなくエラーメッセージを出す。"""
-    model, view, _ = _csv_presenter()
+    model, settings_model, view, presenter = task_ctx
     with tempfile.TemporaryDirectory() as tmp_dir:
         # 存在しないサブフォルダの下 → open() が FileNotFoundError(OSError)
         view.save_path = os.path.join(tmp_dir, "no_such_dir", "tasks.csv")
         view.export_handler()  # 例外が外に漏れないこと
 
     assert view.messages and view.messages[-1][0] == "Error"
-    print("test_task_list_presenter_export_reports_io_error: OK")
 
 
-def test_task_list_presenter_import_reports_missing_file() -> None:
-    model, view, _ = _csv_presenter()
+def test_task_list_presenter_import_reports_missing_file(task_ctx) -> None:
+    model, settings_model, view, presenter = task_ctx
     before = len(model.list_tasks())
     view.open_path = os.path.join(tempfile.gettempdir(), "not_here_20260903.csv")
     view.import_handler()
 
     assert len(model.list_tasks()) == before  # 何も取り込まれない
     assert view.messages and view.messages[-1][0] == "Error"
-    print("test_task_list_presenter_import_reports_missing_file: OK")
 
 
-def test_task_list_presenter_import_reports_bad_format() -> None:
+def test_task_list_presenter_import_reports_bad_format(task_ctx) -> None:
     """'name' 列が無い CSV は「0件取り込み」ではなくエラーにする。"""
-    model, view, _ = _csv_presenter()
+    model, settings_model, view, presenter = task_ctx
     with tempfile.TemporaryDirectory() as tmp_dir:
         path = os.path.join(tmp_dir, "wrong.csv")
         with open(path, "w", encoding="utf-8") as f:
@@ -499,12 +434,11 @@ def test_task_list_presenter_import_reports_bad_format() -> None:
 
     assert len(model.list_tasks()) == before
     assert view.messages and view.messages[-1][0] == "Error"
-    print("test_task_list_presenter_import_reports_bad_format: OK")
 
 
-def test_task_list_presenter_import_reports_bad_encoding() -> None:
+def test_task_list_presenter_import_reports_bad_encoding(task_ctx) -> None:
     """UTF-8 として解釈できないバイト列でも、トレースバックにせずエラー表示。"""
-    model, view, _ = _csv_presenter()
+    model, settings_model, view, presenter = task_ctx
     with tempfile.TemporaryDirectory() as tmp_dir:
         path = os.path.join(tmp_dir, "bad_encoding.csv")
         with open(path, "wb") as f:
@@ -515,23 +449,18 @@ def test_task_list_presenter_import_reports_bad_encoding() -> None:
 
     assert len(model.list_tasks()) == before
     assert view.messages and view.messages[-1][0] == "Error"
-    print("test_task_list_presenter_import_reports_bad_encoding: OK")
 
 
-def test_task_list_presenter_auto_saves_on_add() -> None:
+def test_task_list_presenter_auto_saves_on_add(task_ctx) -> None:
     """編集操作(ここでは追加)のたびに即座に保存され、model.is_dirty()が
     Falseに戻る(Auto Save)。
     """
-    model = TaskModel(db_path=":memory:")
-    settings_model = SettingsModel(db_path=":memory:")
-    view = FakeTaskListView()
-    presenter = TaskListPresenter(model, settings_model, view)
+    model, settings_model, view, presenter = task_ctx
 
     assert model.is_dirty() is False
 
     presenter.on_add_click()
     assert model.is_dirty() is False
-    print("test_task_list_presenter_auto_saves_on_add: OK")
 
 
 def test_task_list_presenter_edit_is_immediately_persisted() -> None:
@@ -544,7 +473,7 @@ def test_task_list_presenter_edit_is_immediately_persisted() -> None:
         model = TaskModel(db_path=db_path)
         settings_model = SettingsModel(db_path=":memory:")
         view = FakeTaskListView()
-        presenter = TaskListPresenter(model, settings_model, view)
+        TaskListPresenter(model, settings_model, view)
 
         target = model.list_tasks()[0]
         view.cell_edited_handler(target.id, "assignee", "Changed")
@@ -558,8 +487,6 @@ def test_task_list_presenter_edit_is_immediately_persisted() -> None:
         model.close()
         reopened.close()
         settings_model.close()
-
-    print("test_task_list_presenter_edit_is_immediately_persisted: OK")
 
 
 def test_backup_and_rotate_copies_current_db_contents() -> None:
@@ -582,7 +509,6 @@ def test_backup_and_rotate_copies_current_db_contents() -> None:
         reopened = TaskModel(db_path=backup_path)
         assert len(reopened.list_tasks()) == 6  # デモ5件 + 追加した1件
         reopened.close()
-    print("test_backup_and_rotate_copies_current_db_contents: OK")
 
 
 def test_backup_and_rotate_keeps_backups_within_retention_window() -> None:
@@ -596,7 +522,6 @@ def test_backup_and_rotate_keeps_backups_within_retention_window() -> None:
         backup_dir = os.path.join(tmp_dir, "backups")
         # 全部24時間以内に作られたものなので、5件とも残る
         assert len(os.listdir(backup_dir)) == 5
-    print("test_backup_and_rotate_keeps_backups_within_retention_window: OK")
 
 
 def test_backup_and_rotate_prunes_backups_older_than_retention_window() -> None:
@@ -623,7 +548,6 @@ def test_backup_and_rotate_prunes_backups_older_than_retention_window() -> None:
         backups = os.listdir(backup_dir)
         assert old_backup_name not in backups  # 保持期間外のものは消えている
         assert len(backups) == 1  # 新しいものだけ残っている
-    print("test_backup_and_rotate_prunes_backups_older_than_retention_window: OK")
 
 
 def test_backup_and_rotate_skips_memory_and_missing_files() -> None:
@@ -636,15 +560,13 @@ def test_backup_and_rotate_skips_memory_and_missing_files() -> None:
         backup_and_rotate(missing_path)
 
         assert not os.path.exists(os.path.join(tmp_dir, "backups"))
-    print("test_backup_and_rotate_skips_memory_and_missing_files: OK")
 
 
-def test_settings_presenter_saves_field_changes_immediately() -> None:
+def test_settings_presenter_saves_field_changes_immediately(settings_pair) -> None:
     """フィールドを変更した瞬間に、Saveボタンを介さず即座にDBへ保存される
     （Auto Save）。
     """
-    settings_model = SettingsModel(db_path=":memory:")
-    view = FakeSettingsView()
+    settings_model, view = settings_pair
     SettingsPresenter(settings_model, view, on_settings_saved=lambda: None)
 
     assert view.loaded == Settings()
@@ -654,18 +576,15 @@ def test_settings_presenter_saves_field_changes_immediately() -> None:
 
     assert settings_model.get().notify_days_before == 7
     assert settings_model.get().notify_enabled is False
-    print("test_settings_presenter_saves_field_changes_immediately: OK")
 
 
 def test_settings_default_backup_interval_is_15_minutes() -> None:
     assert Settings().backup_interval_minutes == 15
-    print("test_settings_default_backup_interval_is_15_minutes: OK")
 
 
-def test_settings_presenter_saves_backup_interval_immediately() -> None:
+def test_settings_presenter_saves_backup_interval_immediately(settings_pair) -> None:
     """バックアップ間隔も、他のフィールドと同様に変更した瞬間に即座に保存される"""
-    settings_model = SettingsModel(db_path=":memory:")
-    view = FakeSettingsView()
+    settings_model, view = settings_pair
     SettingsPresenter(settings_model, view, on_settings_saved=lambda: None)
 
     assert settings_model.get().backup_interval_minutes == 15
@@ -674,24 +593,20 @@ def test_settings_presenter_saves_backup_interval_immediately() -> None:
     view.field_changed_handler()
 
     assert settings_model.get().backup_interval_minutes == 30
-    print("test_settings_presenter_saves_backup_interval_immediately: OK")
 
 
-def test_settings_presenter_calls_on_settings_saved_after_field_change() -> None:
-    settings_model = SettingsModel(db_path=":memory:")
-    view = FakeSettingsView()
+def test_settings_presenter_calls_on_settings_saved_after_field_change(settings_pair) -> None:
+    settings_model, view = settings_pair
     saved: List[bool] = []
     SettingsPresenter(settings_model, view, on_settings_saved=lambda: saved.append(True))
 
     view.field_changed_handler()
 
     assert len(saved) == 1
-    print("test_settings_presenter_calls_on_settings_saved_after_field_change: OK")
 
 
-def test_settings_presenter_highlight_toggle_applies_immediately() -> None:
-    settings_model = SettingsModel(db_path=":memory:")
-    view = FakeSettingsView()
+def test_settings_presenter_highlight_toggle_applies_immediately(settings_pair) -> None:
+    settings_model, view = settings_pair
     saved: List[bool] = []
     SettingsPresenter(settings_model, view, on_settings_saved=lambda: saved.append(True))
 
@@ -699,64 +614,22 @@ def test_settings_presenter_highlight_toggle_applies_immediately() -> None:
 
     assert settings_model.get().notify_enabled is False
     assert len(saved) == 1  # 一覧タブの再評価(ハイライトOFF反映)が即座に呼ばれる
-    print("test_settings_presenter_highlight_toggle_applies_immediately: OK")
 
 
-def test_task_list_presenter_highlight_disappears_immediately_when_toggled_off() -> None:
-    model = TaskModel(db_path=":memory:")
-    settings_model = SettingsModel(db_path=":memory:")
-    task_view = FakeTaskListView()
-    task_presenter = TaskListPresenter(model, settings_model, task_view)
+def test_task_list_presenter_highlight_disappears_immediately_when_toggled_off(task_ctx) -> None:
+    model, settings_model, view, presenter = task_ctx
 
     task = model.list_tasks()[0]
     yesterday = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
     model.update_task_field(task.id, "due_date", yesterday)
     model.update_task_field(task.id, "status", "In Progress")
-    task_presenter.refresh()
-    assert task_view.highlights.get(task.id) == "overdue"
+    presenter.refresh()
+    assert view.highlights.get(task.id) == "overdue"
 
     settings_view = FakeSettingsView()
     SettingsPresenter(
-        settings_model, settings_view, on_settings_saved=task_presenter.refresh
+        settings_model, settings_view, on_settings_saved=presenter.refresh
     )
     settings_view.highlight_toggled_handler(False)
 
-    assert task_view.highlights == {}
-    print("test_task_list_presenter_highlight_disappears_immediately_when_toggled_off: OK")
-
-
-if __name__ == "__main__":
-    test_task_list_presenter_shows_initial_tasks()
-    test_task_list_presenter_edits_cell()
-    test_task_list_presenter_rejects_empty_name_edit()
-    test_task_list_presenter_sorts_by_column_and_toggles_direction()
-    test_task_list_presenter_sorts_priority_by_meaning_not_alphabetically()
-    test_task_list_presenter_sort_keeps_blank_values_at_bottom()
-    test_task_list_presenter_adds_blank_task_with_id_based_name()
-    test_task_list_presenter_add_always_appears_at_bottom_even_when_sorted()
-    test_task_list_presenter_add_preserves_order_across_further_edits()
-    test_task_list_presenter_two_consecutive_adds_keep_order()
-    test_task_list_presenter_add_name_survives_deletion_without_duplicate()
-    test_task_list_presenter_deletes_task()
-    test_task_list_presenter_deletes_multiple_tasks()
-    test_task_list_presenter_highlights_overdue_and_warning_tasks()
-    test_task_list_presenter_excludes_completed_status_from_highlight()
-    test_task_list_presenter_highlight_follows_due_date_not_status()
-    test_task_list_presenter_disables_highlight_when_notify_off()
-    test_task_list_presenter_export_import_csv()
-    test_task_list_presenter_export_reports_io_error()
-    test_task_list_presenter_import_reports_missing_file()
-    test_task_list_presenter_import_reports_bad_format()
-    test_task_list_presenter_import_reports_bad_encoding()
-    test_task_list_presenter_auto_saves_on_add()
-    test_task_list_presenter_edit_is_immediately_persisted()
-    test_backup_and_rotate_copies_current_db_contents()
-    test_backup_and_rotate_keeps_backups_within_retention_window()
-    test_backup_and_rotate_prunes_backups_older_than_retention_window()
-    test_backup_and_rotate_skips_memory_and_missing_files()
-    test_settings_presenter_saves_field_changes_immediately()
-    test_settings_default_backup_interval_is_15_minutes()
-    test_settings_presenter_saves_backup_interval_immediately()
-    test_settings_presenter_calls_on_settings_saved_after_field_change()
-    test_settings_presenter_highlight_toggle_applies_immediately()
-    test_task_list_presenter_highlight_disappears_immediately_when_toggled_off()
+    assert view.highlights == {}
