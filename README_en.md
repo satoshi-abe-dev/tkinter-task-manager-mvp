@@ -9,12 +9,12 @@ sample implementation of the MVP (Model-View-Presenter) pattern.
 
 > 🧭 **The design and architecture decisions here are the author's.** The main ones:
 >
-> - Splitting the app into MVP (Model / View / Presenter) layers and the dependency direction between them
+> - Splitting the app into layers along the MVP (Model / View / Presenter) pattern, and the dependency direction between them
 > - The "folder hierarchy = class import namespace" naming/placement scheme
+> - **The overall GUI design** (screen layout, an OS-native look, the due-date highlight colors, following window resizes, a tkcalendar font tweak)
 > - **Inline cell editing on `ttk.Treeview`** (Treeview has no built-in cell editing — an Entry / Combobox is overlaid on the cell's rectangle; the due date is picked from a calendar popup)
-> - **The overall GUI design** (screen layout, an OS-native look, the due-date highlight colors, following window resizes, working around tkcalendar rendering on macOS/Aqua)
-> - Moving "Overdue" from a stored status to a value derived from `due_date`
-> - The iteration that led to always-on Auto Save
+> - The persistence behavior (every edit is written to the database immediately; no Save button or "unsaved" state)
+> - The automatic backup design (`app.db` is copied at a set interval, and kept by "the last 24 hours" rather than by count)
 >
 > The reasoning for each is in the "[Design](#design)" section below, especially "[Design notes](#design-notes)". Implementation was done with Claude Code as a pair-programming aid, which is why the commits carry `Co-Authored-By` trailers.
 
@@ -104,13 +104,13 @@ Overdue handling:
 - **Backup interval**: how often (in minutes, default 15) automatic backups run. Changing it while running takes effect from the next timer tick.
 - Every changed value is saved the moment you enter it (Auto Save).
 
-> 💡 **If you just want to run it, you can stop here.** The rest is the main point of this sample: how responsibilities are split under MVP.
+> 💡 **If you just want to run it, you can stop here.** The rest is the main point of this sample: how responsibilities are split under the MVP pattern.
 
 ---
 
 ## Design
 
-The main point of this repo: how responsibilities are split across MVP (Model / View / Presenter).
+The main point of this repo: how responsibilities are split across the MVP (Model / View / Presenter) pattern.
 
 ### The point
 
