@@ -209,24 +209,15 @@ task_manager_tkinter/         Root package (folder hierarchy == class namespace)
 ```
 
 Under `model` / `view`, file names carry only the **role** (`entity` / `store` / `contract` /
-`tk_frame`); which tab they belong to is shown by the **folder** (`task` / `settings`). Neither
-the folder name nor the layer name (`view`, …) is repeated in the file name. `presenter` has just
-one class per tab, so it skips the subfolder and puts `task.py` / `settings.py` directly under
-`presenter/`.
+`tk_frame`); which tab they belong to is shown by the **folder** (`task` / `settings`), and neither
+the folder name nor the layer name is repeated in the file name. `presenter` has one class per tab,
+so it skips the subfolder and puts `task.py` / `settings.py` directly under `presenter/`.
 
 The `model` / `view` subfolders are directly the import namespace of the classes inside them
-(e.g. `model/task/` ⇔ `task_manager_tkinter.model.task.TaskModel`). Each subpackage's
-`__init__.py` re-exports its public classes, so callers import by the dotted path of the
-containing folder (`from task_manager_tkinter.model.task import TaskModel`). For presenter it is
-`from task_manager_tkinter.presenter.task import TaskListPresenter` (straight from
-`presenter/task.py`).
-
-`view/tk_main_window.py` combines both tabs and so stays directly under `view/`. `view/callbacks.py`
-likewise belongs to no single tab — it is a view-layer mixin, so it also sits directly under `view/`.
-`TkTaskListFrame` / `TkSettingsFrame` multiply inherit as `(ttk.Frame, CallbackRegistryMixin,
-<contract>)` and delegate only callback registration/dispatch to the mixin (which has no `__init__`,
-so it never interferes with tkinter's `super().__init__` chain).
-**Pure-I/O modules that hold no class** (`db_path` and friends) are collected under `model/lib/`.
+(`model/task/` ⇔ `task_manager_tkinter.model.task.TaskModel`). Each subpackage's `__init__.py`
+re-exports its public classes, so callers import by the dotted path of the containing folder.
+`view/tk_main_window.py` (combines both tabs) and `view/callbacks.py` (a view-layer mixin that
+belongs to no tab) are the two files that sit directly under `view/`.
 
 ### Responsibility of Each Layer
 

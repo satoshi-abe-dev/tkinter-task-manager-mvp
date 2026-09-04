@@ -175,24 +175,15 @@ task_manager_tkinter/         ルートパッケージ（フォルダ階層 ＝ 
 ```
 
 `model` / `view` では、ファイル名は**役割**（`entity` / `store` / `contract` / `tk_frame`）だけを表し、
-どのタブのものかは**フォルダ**（`task` / `settings`）が示す。フォルダ名や層名（`view` など）は
-ファイル名で繰り返さない。`presenter` はタブごとに1クラスしか無いのでサブフォルダを作らず、
-`task.py` / `settings.py` を直下に置く。
+どのタブのものかは**フォルダ**（`task` / `settings`）が示す。フォルダ名や層名はファイル名で
+繰り返さない。`presenter` はタブごとに1クラスなのでサブフォルダを作らず `task.py` /
+`settings.py` を直下に置く。
 
-`model` / `view` のサブフォルダはそのままクラスの import 名前空間になっている（例:
-`model/task/` ⇔ `task_manager_tkinter.model.task.TaskModel`）。各サブパッケージの
-`__init__.py`が公開クラスを再エクスポートしているため、利用側は所在フォルダの
-ドット表記でそのまま import できる（`from task_manager_tkinter.model.task import TaskModel`）。
-`presenter` は `from task_manager_tkinter.presenter.task import TaskListPresenter`
-（`presenter/task.py` から直接）。
-
-`view/tk_main_window.py`だけは両タブをまとめる存在なので`view/`直下に置いている。
-`view/callbacks.py`も同様に、どの機能タブにも属さない View 層共通の mixin なので
-`view/`直下に置く。`TkTaskListFrame` / `TkSettingsFrame` は
-`(ttk.Frame, CallbackRegistryMixin, <contract>)` の順で多重継承し、コールバックの
-登録・発火だけをこの mixin に委ねている（`__init__` を持たない mixin で、
-tkinter の `super().__init__` 連鎖に干渉しない）。
-`db_path.py`など**クラスを持たない純粋I/Oモジュール**は`model/lib/`にまとめている。
+`model` / `view` のサブフォルダはそのままクラスの import 名前空間になっている
+（`model/task/` ⇔ `task_manager_tkinter.model.task.TaskModel`）。各サブパッケージの
+`__init__.py` が公開クラスを再エクスポートするので、利用側は所在フォルダのドット表記で
+そのまま import できる。両タブをまとめる `tk_main_window.py` と、どのタブにも属さない
+mixin の `callbacks.py` だけは `view/` 直下に置く。
 
 ### 各層の責務
 
