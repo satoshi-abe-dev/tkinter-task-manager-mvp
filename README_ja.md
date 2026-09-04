@@ -20,9 +20,9 @@ Python (Tkinter) で作った、タブ付きのタスク管理デスクトップ
 
 ## デモ
 
-<video src="https://github.com/yanyayanyan1988/tkinter-task-manager-mvp/raw/main/docs/demo.mp4" controls width="640"></video>
+<video src="https://github.com/user-attachments/assets/4c681a0c-e27a-4a3a-85c4-a90f28af26e5" controls width="640"></video>
 
-再生されない場合は [docs/demo.mp4](docs/demo.mp4) を参照。約40秒・音声なし（インライン編集 → デフォルト名で行追加 → 列ソート → 複数選択で削除 → 設定タブ → ウィンドウリサイズ）。
+再生されない場合は[こちら](https://github.com/user-attachments/assets/4c681a0c-e27a-4a3a-85c4-a90f28af26e5)。約40秒・音声なし（インライン編集 → デフォルト名で行追加 → 列ソート → 複数選択で削除 → 設定タブ → ウィンドウリサイズ）。
 
 ### スクリーンショット
 

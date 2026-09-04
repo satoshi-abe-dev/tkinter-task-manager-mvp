@@ -20,9 +20,9 @@ sample implementation of the MVP (Model-View-Presenter) pattern.
 
 ## Demo
 
-<video src="https://github.com/yanyayanyan1988/tkinter-task-manager-mvp/raw/main/docs/demo.mp4" controls width="640"></video>
+<video src="https://github.com/user-attachments/assets/4c681a0c-e27a-4a3a-85c4-a90f28af26e5" controls width="640"></video>
 
-If it doesn't play inline, see [docs/demo.mp4](docs/demo.mp4). ~40s, no audio (inline editing → add a row with the default name → column sort → multi-select delete → Settings tab → window resize).
+If it doesn't play inline, [open it here](https://github.com/user-attachments/assets/4c681a0c-e27a-4a3a-85c4-a90f28af26e5). ~40s, no audio (inline editing → add a row with the default name → column sort → multi-select delete → Settings tab → window resize).
 
 ### Screenshots
 
