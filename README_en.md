@@ -9,7 +9,7 @@ sample implementation of the MVP (Model-View-Presenter) pattern.
 
 > 🧭 **The design and architecture decisions here are the author's.** The main ones:
 >
-> - Splitting the app into layers along the MVP (Model / View / Presenter) pattern, and the dependency direction between them
+> - Splitting the app into layers along the MVP (Model / View / Presenter) pattern, and the dependency direction between them — separating the GUI from the internals makes it **resilient to change**: edit one side alone, test the logic without the GUI, or swap the GUI wholesale. Details in [Design](#design).
 > - The "folder hierarchy = class import namespace" naming/placement scheme
 > - **The overall GUI design** (screen layout, an OS-native look, the due-date highlight colors, following window resizes, a tkcalendar font tweak)
 > - **Inline editing in the table** (`ttk.Treeview` has no built-in cell editing — an Entry / Combobox is overlaid on the cell's rectangle; the due date is picked from a calendar popup)
@@ -125,6 +125,36 @@ A sample built around a Tkinter desktop app that could plausibly exist in a real
 one with tabs for a task list and settings — with responsibilities separated according to the
 MVP pattern. Tabs and buttons deliberately keep the OS-native look (the default `ttk.Notebook` /
 `ttk.Button` style).
+
+### Resilient to change (what the MVP split buys you)
+
+Not the textbook case for MVP — only what actually pays off in this repo. The GUI (the screen) and
+the internals (data + logic) are separate and don't affect each other, so **changing, testing, and
+swapping parts all stay cheap.**
+
+- **Changing the GUI doesn't touch the internals, and vice versa.** Almost every change in this repo
+  touched one side only:
+
+  | Change | What it touched |
+  |---|---|
+  | Center the window on launch ([#12](../../pull/12)) | one GUI-side file, `view/tk_main_window.py` |
+  | Hold data in memory only → write-through SQLite ([Design notes](#design-notes)) | the internals only; the Presenter and GUI were not touched |
+  | Change how the placeholder task name is generated ([#11](../../pull/11)) | `model/task/store.py` and its tests only |
+  | Turn "Overdue" from a stored status into a value derived from `due_date` | Model and Presenter changed, GUI untouched (the GUI already just receives a list of "which row gets which color") |
+
+- **The logic is testable without launching the GUI.** Neither the Model nor the Presenter even
+  imports `tkinter`. `test_presenter.py` swaps in a fake screen (`FakeView`) in place of the real one
+  and checks "what happens when you click this" across 43 cases. It runs as-is on CI's headless
+  Ubuntu.
+
+- **Swapping the GUI library for something else needs no change to the internals.** All the Presenter
+  knows is a contract — "the screen can do these operations" (the abstract classes `TaskListView` /
+  `SettingsView`). The `FakeView` used in the tests is exactly that: a non-Tkinter screen
+  implementation.
+
+Cost: writing the screen contract as abstract classes up front, wiring the screen and the logic
+together with callbacks, and maintaining a fake screen for tests all add code. At a few hundred lines
+it can look like overkill — the trade is the resilience above.
 
 ### Persistence and backups
 
