@@ -18,7 +18,13 @@ sample implementation of the MVP (Model-View-Presenter) pattern.
 >
 > The reasoning for each is in the "[Design](#design)" section below, especially "[Design notes](#design-notes)". Implementation was done with Claude Code as a pair-programming aid, which is why the commits carry `Co-Authored-By` trailers.
 
-## Screenshots
+## Demo
+
+<video src="https://github.com/yanyayanyan1988/tkinter-task-manager-mvp/raw/main/docs/demo.mp4" controls width="640"></video>
+
+If it doesn't play inline, see [docs/demo.mp4](docs/demo.mp4). ~40s, no audio (inline editing → add a row with the default name → column sort → multi-select delete → Settings tab → window resize).
+
+### Screenshots
 
 | Task List | Settings |
 |---|---|

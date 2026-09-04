@@ -18,7 +18,13 @@ Python (Tkinter) で作った、タブ付きのタスク管理デスクトップ
 >
 > 各判断の理由は下記「[設計](#設計)」セクション、特に「[設計上の判断メモ](#設計上の判断メモ)」に書いている。実装には AI（Claude Code）をペアプログラミング相手として併用しており、その旨をコミットの `Co-Authored-By` に残している。
 
-## スクリーンショット
+## デモ
+
+<video src="https://github.com/yanyayanyan1988/tkinter-task-manager-mvp/raw/main/docs/demo.mp4" controls width="640"></video>
+
+再生されない場合は [docs/demo.mp4](docs/demo.mp4) を参照。約40秒・音声なし（インライン編集 → デフォルト名で行追加 → 列ソート → 複数選択で削除 → 設定タブ → ウィンドウリサイズ）。
+
+### スクリーンショット
 
 | タスク一覧 | 設定 |
 |---|---|
