@@ -83,11 +83,10 @@ python -m venv .venv
 .venv\Scripts\python -m task_manager_tkinter.main
 ```
 
-Only when `app.db` doesn't exist yet (i.e. the first run), `task_manager_tkinter/data/app.db` (SQLite)
-is created and seeded with 5 demo tasks. Their due dates are set relative to the launch date, so the
-due-date highlight shows 2 white, 2 yellow, and 1 red right from the first run. After that the file
-stays, so deleting every task does not bring the demo data back. Ways to launch other than `-m` are
-collected under "Running: other ways" below.
+- **First run only** (when `app.db` doesn't exist yet): `task_manager_tkinter/data/app.db` (SQLite) is created and seeded with 5 demo tasks
+- Their due dates are set relative to the launch date, so the highlight shows 2 white, 2 yellow, and 1 red right from the first run
+- **After that**: the file stays, so deleting every task does not bring the demo data back
+- Ways to launch other than `-m` are collected under ["Running: other ways"](#running-other-ways) below
 
 ### How to use
 
@@ -121,10 +120,9 @@ The main point of this repo: how responsibilities are split across the MVP (Mode
 
 ### The point
 
-A sample built around a Tkinter desktop app that could plausibly exist in a real workplace —
-one with tabs for a task list and settings — with responsibilities separated according to the
-MVP pattern. Tabs and buttons deliberately keep the OS-native look (the default `ttk.Notebook` /
-`ttk.Button` style).
+- **Subject**: a Tkinter desktop app that could plausibly exist in a real workplace — tabs for a task list and settings
+- **What it shows**: what happens when you separate responsibilities across Model / View / Presenter
+- **Look**: tabs and buttons deliberately keep the OS-native look (the default `ttk.Notebook` / `ttk.Button` style)
 
 ### Resilient to change (what the MVP split buys you)
 
@@ -152,24 +150,20 @@ swapping parts all stay cheap.**
   `SettingsView`). The `FakeView` used in the tests is exactly that: a non-Tkinter screen
   implementation.
 
-Cost: writing the screen contract as abstract classes up front, wiring the screen and the logic
-together with callbacks, and maintaining a fake screen for tests all add code. At a few hundred lines
-it can look like overkill — the trade is the resilience above.
+**Cost**: the following add code. At a few hundred lines it can look like overkill — the trade is the resilience above.
+
+- writing the screen contract as abstract classes up front
+- wiring the screen and the logic together with callbacks
+- maintaining a fake screen (`FakeView`) for tests
 
 ### Persistence and backups
 
-Both tasks and settings are persisted to SQLite (the standard-library `sqlite3` module — no extra
-install needed). **Edits are always written to the database immediately** (Auto Save). There's no
-Save button, no "unsaved changes" indicator, and no confirm-on-quit dialog. You never have to think
-about saving — but there's also no way to undo a mistake by simply not saving (the automatic backup
-below is the only safety net).
-
-At the configured interval (default 15 minutes) the app checks whether `app.db` has changed and, if
-so, copies it to `data/backups/` (skipped if nothing changed since the last backup). It keeps only
-the newest **24 hours** and deletes anything older (retention by elapsed time, not by count). This
-protects against the database *file* becoming unreadable (disk failure, filesystem corruption).
-SQLite's transactions already guard against a crash mid-write, but not against the file itself being
-lost or corrupted outright.
+- **How it saves**: both tasks and settings go to SQLite (standard-library `sqlite3`, no extra install). **Edits are written to the database immediately** (Auto Save)
+- **What's missing**: no Save button, no "unsaved changes" indicator, no confirm-on-quit dialog
+- **The catch**: you never think about saving, but there's also no way to undo a mistake by not saving (the backup below is the only safety net)
+- **Backup**: at the configured interval (default 15 min) the app checks whether `app.db` changed and, if so, copies it to `data/backups/` (skipped if nothing changed)
+- **Retention**: keeps only the newest **24 hours** and deletes anything older (by elapsed time, not by count)
+- **Scope**: protects against the database *file* becoming unreadable (disk failure, corruption). SQLite's transactions already guard against a crash mid-write, but not against the file being lost or corrupted outright
 
 ### Folder Structure
 
@@ -208,16 +202,10 @@ task_manager_tkinter/         Root package (folder hierarchy == class namespace)
         settings.py            SettingsPresenter
 ```
 
-Under `model` / `view`, file names carry only the **role** (`entity` / `store` / `contract` /
-`tk_frame`); which tab they belong to is shown by the **folder** (`task` / `settings`), and neither
-the folder name nor the layer name is repeated in the file name. `presenter` has one class per tab,
-so it skips the subfolder and puts `task.py` / `settings.py` directly under `presenter/`.
-
-The `model` / `view` subfolders are directly the import namespace of the classes inside them
-(`model/task/` ⇔ `task_manager_tkinter.model.task.TaskModel`). Each subpackage's `__init__.py`
-re-exports its public classes, so callers import by the dotted path of the containing folder.
-`view/tk_main_window.py` (combines both tabs) and `view/callbacks.py` (a view-layer mixin that
-belongs to no tab) are the two files that sit directly under `view/`.
+- **Naming rule**: under `model` / `view`, file names carry only the **role** (`entity` / `store` / `contract` / `tk_frame`); which tab they belong to is shown by the **folder** (`task` / `settings`). The folder name and the layer name are not repeated in the file name
+- **`presenter`**: one class per tab, so no subfolder — `task.py` / `settings.py` sit directly under `presenter/`
+- **Folder = import namespace**: the `model` / `view` subfolders are the import path of the classes inside them (`model/task/` ⇔ `task_manager_tkinter.model.task.TaskModel`). Each subpackage's `__init__.py` re-exports its public classes, so callers import by the dotted path of the containing folder
+- **Exceptions under `view/`**: `tk_main_window.py` (combines both tabs) and `callbacks.py` (a mixin that belongs to no tab)
 
 ### Responsibility of Each Layer
 
@@ -232,11 +220,8 @@ belongs to no tab) are the two files that sit directly under `view/`.
 | View (impl) | `view/task/tk_frame.py` (`TkTaskListFrame`) / `view/settings/tk_frame.py` (`TkSettingsFrame`) / `view/tk_main_window.py` (`TkMainWindow`) | Concrete implementation of the above abstractions using Tkinter (`ttk.Notebook` + standard widgets). | the View abstractions, tkinter |
 | Presenter | `TaskListPresenter` / `SettingsPresenter` | Holds the "screen behavior" logic for each tab: validation, updating the Model, tracking the list's sort state, adding/deleting tasks, CSV export/import, and determining the due-date highlight. On every `refresh()` (or `on_field_changed()`), saves immediately if there's anything unsaved (Auto Save). `TaskListPresenter` also reads `SettingsModel` to get the highlight criteria (on/off, how many days ahead). | the corresponding Model(s) (`TaskListPresenter` depends on both `TaskModel` and `SettingsModel`), the corresponding View (abstract only) |
 
-Because each Presenter depends only on its View abstraction, swapping the View implementation
-(Tkinter / another GUI library / a fake View for testing) requires no change to the Presenter code.
-Likewise `TaskModel` / `SettingsModel` hide their persistence behind `task_db` / `settings_db` —
-switching from an in-memory-only implementation to SQLite (write-through on every change) required no
-changes to Presenter or View at all (the history is in "Design notes").
+- Each Presenter depends only on its View abstraction, so swapping the View implementation (Tkinter / another GUI library / a `FakeView` for testing) requires no change to the Presenter
+- `TaskModel` / `SettingsModel` hide their persistence behind `task_db` / `settings_db`, so switching from in-memory-only to write-through SQLite required no changes to Presenter or View at all (history in [Design notes](#design-notes))
 
 ### Data Flow (clicking "+ Add")
 
@@ -276,9 +261,8 @@ changes to Presenter or View at all (the history is in "Design notes").
 
 ### Running: other ways
 
-Both `-m` and a plain file path work. `main.py` prepends the repository root to
-`sys.path` only when it detects it was run as a plain script (`__package__` unset), so the same
-absolute imports resolve either way.
+- Both `-m` and a plain file path work
+- `main.py` prepends the repository root to `sys.path` only when it detects it was run as a plain script (`__package__` unset), so the same absolute imports resolve either way
 
 ```bash
 # from the repository root (the parent of task_manager_tkinter/)
@@ -296,19 +280,16 @@ Windows:
 
 ### Testing
 
-`test_presenter.py` (pytest) swaps in fake Views (fake implementations of each View abstract class)
-instead of `TkMainWindow` (and its internal Frames), so the two Presenters' logic is verified without
-ever starting Tkinter. It depends only on the `view.*` packages (the `TaskListView` / `SettingsView`
-abstract classes) and never imports the Tkinter implementation under view (`view/task/tk_frame.py` /
-`view/settings/tk_frame.py` / `view/tk_main_window.py`), so it runs fine even without tkinter
-installed (the `__init__.py` files under `view/` re-export only the abstract classes). `TaskModel` /
-`SettingsModel` are constructed with `db_path=":memory:"` (assembled in the `task_ctx` fixture), so
-nothing is written to disk and each test gets its own isolated database.
+`test_presenter.py` (pytest) — verifies the Presenter logic:
 
-A second file, `test_gui_smoke.py` (`@pytest.mark.smoke`), does the opposite: it constructs the real
-`TkMainWindow` (every Tkinter widget) and checks only that it **builds without raising** — no
-behavior is verified, and `mainloop()` is never called, so it can't hang. When `tkinter` isn't
-installed or there's no display, it skips itself.
+- swaps in a fake View (`FakeView`) for each View abstract class and verifies the two Presenters without ever starting Tkinter
+- depends only on the abstract classes `TaskListView` / `SettingsView`; never imports the Tkinter implementation (`view/task/tk_frame.py`, …), because the `__init__.py` files under `view/` re-export only the abstract classes — so it runs fine even without tkinter installed
+- `TaskModel` / `SettingsModel` use `db_path=":memory:"` in-memory SQLite (assembled in the `task_ctx` fixture), so nothing is written to disk and tests don't share state
+
+`test_gui_smoke.py` (`@pytest.mark.smoke`) — the opposite, checks only that the GUI assembles:
+
+- constructs the real `TkMainWindow` (every Tkinter widget) and checks only that it **builds without raising** — no behavior is verified, and `mainloop()` is never called, so it can't hang
+- skips itself when `tkinter` isn't installed or there's no display
 
 ```bash
 # from the repository root
@@ -318,15 +299,16 @@ pytest -m "not smoke"    # just the tkinter-free presenter tests
 pytest -m smoke          # just the GUI smoke test
 ```
 
-CI (`.github/workflows/test.yml`) runs `pytest` on **Ubuntu / Windows / macOS** on every pull
-request and every push to `main` (the GUI smoke test is skipped on headless Ubuntu).
+CI (`.github/workflows/test.yml`):
+
+- runs `pytest` on **Ubuntu / Windows / macOS** on every pull request and every push to `main`
+- the GUI smoke test is skipped on headless Ubuntu
 
 ## Development workflow
 
-From issues #2 / #4 onward, changes go through a feature branch → Pull Request → squash merge
-(the history lives in the [Pull Requests](../../pulls) tab). Earlier commits went straight to `main`
-because this started as a solo project. The CI above also runs on PRs, so each branch's result is
-visible before it merges.
+- From issues #2 / #4 onward, changes go through a **feature branch → Pull Request → squash merge** (history in the [Pull Requests](../../pulls) tab)
+- Earlier commits went straight to `main` because this started as a solo project
+- The CI above also runs on PRs, so each branch's result is visible before it merges
 
 ## License
 

@@ -76,7 +76,10 @@ python -m venv .venv
 .venv\Scripts\python -m task_manager_tkinter.main
 ```
 
-`app.db` がまだ無いとき（＝初回起動）だけ `task_manager_tkinter/data/app.db`（SQLite）が作られ、デモ用のタスクが5件入る。期限日は起動日を基準に相対的に決まり、期限ハイライトが初回から「白2・黄2・赤1」に見えるようになっている。2回目以降は、全タスクを削除しても `app.db` は残るのでデモデータは復活しない。`-m` 以外の起動方法は下の「起動方法の補足」にまとめてある。
+- **初回起動時**（`app.db` がまだ無いとき）だけ `task_manager_tkinter/data/app.db`（SQLite）が作られ、デモ用タスクが5件入る
+- デモタスクの期限日は起動日を基準に相対的に決まり、期限ハイライトが初回から「白2・黄2・赤1」に見える
+- **2回目以降**は、全タスクを削除しても `app.db` は残るのでデモデータは復活しない
+- `-m` 以外の起動方法は下の[「起動方法の補足」](#起動方法の補足)にまとめてある
 
 ### 使い方
 
@@ -110,7 +113,9 @@ python -m venv .venv
 
 ### ねらい
 
-タブごとに別画面（タスク一覧・設定）を持つ、実務にありそうな Tkinter アプリを題材に、Model / View / Presenter で責務を分離するとどうなるかを見せるサンプル。タブ・ボタンの見た目はあえて OS 標準に近いまま（`ttk.Notebook` / `ttk.Button` のデフォルト）にしている。
+- **題材**: タブごとに別画面（タスク一覧・設定）を持つ、実務にありそうな Tkinter デスクトップアプリ
+- **見せたいこと**: Model / View / Presenter で責務を分離するとどうなるか
+- **見た目の方針**: タブ・ボタンはあえて OS 標準に近いまま（`ttk.Notebook` / `ttk.Button` のデフォルト）
 
 ### 変更に強い（MVP パターンの利点）
 
@@ -129,13 +134,20 @@ python -m venv .venv
 
 - **GUI ライブラリを別物に差し替えても、内部処理は無変更でよい。** Presenter が知っているのは「画面はこういう操作ができる」という取り決め（抽象クラス `TaskListView` / `SettingsView`）だけ。テストで使う `FakeView` が、まさに「Tkinter ではない別の画面実装」の実例になっている。
 
-コスト: 「画面の取り決め」を抽象クラスとして先に書く／画面とロジックをコールバックで配線する／テスト用の偽画面を用意する、といったぶんコード量は増える。数百行のアプリでは大げさに見えるが、上の「変更に強い」と引き換え。
+**コスト**: 次のぶんコード量は増える。数百行のアプリでは大げさに見えるが、上の「変更に強い」と引き換え。
+
+- 「画面の取り決め」を抽象クラスとして先に書く
+- 画面とロジックをコールバックで配線する
+- テスト用の偽画面（`FakeView`）を用意する
 
 ### 永続化とバックアップ
 
-タスク・設定はどちらも SQLite（標準ライブラリの `sqlite3`、追加インストール不要）に保存する。**編集は常に即座に DB へ書き込まれる**（Auto Save）。Saveボタン・「未保存」表示・終了時の確認ダイアログは無い。保存を意識しなくてよい代わりに、うっかり操作を取り消す手段も無い（下記の自動バックアップが唯一の保険）。
-
-設定した間隔（既定15分）ごとに `app.db` の変更を検知し、変化があれば `data/backups/` へコピーする（前回のバックアップ以降に変化が無ければスキップ）。直近 **24時間** 分だけ残して古いものは自動的に削除する（件数ではなく経過時間で間引く方式）。ディスク破損などで DB ファイル自体が読めなくなった場合の備え。SQLite のトランザクションは書き込み中クラッシュには強いが、ファイルごと壊れるケースまでは守れないため。
+- **保存方式**: タスク・設定はどちらも SQLite（標準ライブラリの `sqlite3`、追加インストール不要）に保存。**編集は常に即座に DB へ書き込まれる**（Auto Save）
+- **無いもの**: Save ボタン・「未保存」表示・終了時の確認ダイアログ
+- **代償**: 保存を意識しなくてよい代わりに、うっかり操作を取り消す手段も無い（下記の自動バックアップが唯一の保険）
+- **バックアップ**: 設定した間隔（既定15分）ごとに `app.db` の変更を検知し、変化があれば `data/backups/` へコピー（前回から変化が無ければスキップ）
+- **間引き方**: 直近 **24時間** 分だけ残し、古いものは自動削除（件数ではなく経過時間で間引く）
+- **守れる範囲**: ディスク破損などで DB ファイル自体が読めなくなった場合の備え。SQLite のトランザクションは書き込み中クラッシュに強いが、ファイルごと壊れるケースは守れないため
 
 ### フォルダ構成
 
@@ -174,16 +186,10 @@ task_manager_tkinter/         ルートパッケージ（フォルダ階層 ＝ 
         settings.py            SettingsPresenter
 ```
 
-`model` / `view` では、ファイル名は**役割**（`entity` / `store` / `contract` / `tk_frame`）だけを表し、
-どのタブのものかは**フォルダ**（`task` / `settings`）が示す。フォルダ名や層名はファイル名で
-繰り返さない。`presenter` はタブごとに1クラスなのでサブフォルダを作らず `task.py` /
-`settings.py` を直下に置く。
-
-`model` / `view` のサブフォルダはそのままクラスの import 名前空間になっている
-（`model/task/` ⇔ `task_manager_tkinter.model.task.TaskModel`）。各サブパッケージの
-`__init__.py` が公開クラスを再エクスポートするので、利用側は所在フォルダのドット表記で
-そのまま import できる。両タブをまとめる `tk_main_window.py` と、どのタブにも属さない
-mixin の `callbacks.py` だけは `view/` 直下に置く。
+- **命名規則**: `model` / `view` では、ファイル名は**役割**（`entity` / `store` / `contract` / `tk_frame`）だけを表し、どのタブのものかは**フォルダ**（`task` / `settings`）が示す。フォルダ名や層名はファイル名で繰り返さない
+- **`presenter`**: タブごとに1クラスなのでサブフォルダを作らず `task.py` / `settings.py` を直下に置く
+- **フォルダ ＝ import 名前空間**: `model` / `view` のサブフォルダはそのままクラスの import パスになる（`model/task/` ⇔ `task_manager_tkinter.model.task.TaskModel`）。各サブパッケージの `__init__.py` が公開クラスを再エクスポートするので、所在フォルダのドット表記でそのまま import できる
+- **`view/` 直下の例外**: 両タブをまとめる `tk_main_window.py` と、どのタブにも属さない mixin の `callbacks.py`
 
 ### 各層の責務
 
@@ -198,7 +204,8 @@ mixin の `callbacks.py` だけは `view/` 直下に置く。
 | View（実装） | `view/task/tk_frame.py`(`TkTaskListFrame`) / `view/settings/tk_frame.py`(`TkSettingsFrame`) / `view/tk_main_window.py`(`TkMainWindow`) | 上記の抽象をTkinter（`ttk.Notebook` + 標準ウィジェット）で実装。 | 各View抽象, tkinter |
 | Presenter | `TaskListPresenter` / `SettingsPresenter` | 各タブの「画面の振る舞い」のロジック。バリデーション・Model更新・一覧のソート状態管理・タスクの追加/削除/CSV入出力・期限ハイライトの判定を担う。`refresh()`（または`on_field_changed()`）のたびに未保存の変更があればその場で`save()`する（Auto Save）。`TaskListPresenter`は期限ハイライトの判定基準（有効/無効・何日前から）を得るためにも`SettingsModel`を参照する。 | 対応するModel（`TaskListPresenter`は`TaskModel`と`SettingsModel`の両方）, 対応するView（抽象のみ） |
 
-各 Presenter はそれぞれの View 抽象にしか依存していないため、View 実装を差し替えても（Tkinter ／ 別の GUI ライブラリ ／ テスト用の FakeView）Presenter のコードは変更不要。同様に `TaskModel` / `SettingsModel` は永続化方法を `task_db` / `settings_db` に隠しており、実際「メモリのみ」から「SQLite（即時書き込み）」へ切り替えたときも Presenter・View は一切変更しなかった（経緯は「設計上の判断メモ」）。
+- Presenter は対応する View 抽象にしか依存しないので、View 実装を差し替えても（Tkinter ／ 別の GUI ライブラリ ／ テスト用の `FakeView`）Presenter は無変更
+- `TaskModel` / `SettingsModel` は永続化方法を `task_db` / `settings_db` に隠しているので、「メモリのみ」→「SQLite（即時書き込み）」の切り替えでも Presenter・View は無変更（経緯は[設計上の判断メモ](#設計上の判断メモ)）
 
 ### データフロー（「+ Add」を押した時）
 
@@ -221,7 +228,8 @@ mixin の `callbacks.py` だけは `view/` 直下に置く。
 
 ### 起動方法の補足
 
-`-m` でもファイル指定でも起動できる。`main.py` は先頭で `__package__` 未設定（＝スクリプトとして直接実行された）を検知したときだけ、リポジトリのルートを `sys.path` に足すので、どちらの呼び方でも同じ絶対 import が通る。
+- `-m` でもファイル指定でも起動できる
+- `main.py` は先頭で「スクリプトとして直接実行された」（`__package__` 未設定）を検知したときだけリポジトリのルートを `sys.path` に足すので、どちらの呼び方でも同じ絶対 import が通る
 
 ```bash
 # リポジトリのルート（task_manager_tkinter/ の親）で
@@ -239,9 +247,16 @@ Windows:
 
 ### テスト
 
-`test_presenter.py`（pytest）は、FakeView（各 View 抽象クラスの偽実装）を差し込むことで、Tkinter を一切起動せずに 2 つの Presenter のロジックを検証する。`view.*` パッケージ（抽象クラス `TaskListView` / `SettingsView`）だけに依存し、Tkinter 実装（`view/task/tk_frame.py` / `view/settings/tk_frame.py` / `view/tk_main_window.py`）は読み込まないので、tkinter が入っていない環境でも実行できる（`view/` 配下の `__init__.py` は抽象クラスだけを再エクスポートし、Tk 実装は巻き込まない）。`TaskModel` / `SettingsModel` は `db_path=":memory:"` でインメモリ SQLite にして、ディスクに何も残さず、テストどうしで状態が混ざらないようにしている（`task_ctx` fixture でまとめて組み立てている）。
+`test_presenter.py`（pytest）— Presenter のロジック検証:
 
-もう1つ、`test_gui_smoke.py`（`@pytest.mark.smoke`）は逆に、実物の `TkMainWindow`（＝全 Tkinter ウィジェット）を生成して**例外なく組み上がることだけ**を確認する（挙動は検証しない。`mainloop()` は呼ばないのでハングしない）。`tkinter` が入っていない／画面が無い環境では自動で skip する。
+- 各 View 抽象クラスの偽実装（`FakeView`）を差し込み、Tkinter を一切起動せずに 2 つの Presenter を検証する
+- 依存するのは抽象クラス `TaskListView` / `SettingsView` だけ。Tkinter 実装（`view/task/tk_frame.py` など）は読み込まない（`view/` 配下の `__init__.py` は抽象クラスだけを再エクスポート）ので、tkinter が無い環境でも実行できる
+- `TaskModel` / `SettingsModel` は `db_path=":memory:"` のインメモリ SQLite。ディスクに何も残さず、テストどうしで状態が混ざらない（`task_ctx` fixture でまとめて組み立て）
+
+`test_gui_smoke.py`（`@pytest.mark.smoke`）— GUI が組み上がるかだけの確認:
+
+- 実物の `TkMainWindow`（＝全 Tkinter ウィジェット）を生成し、**例外なく組み上がることだけ**を見る（挙動は検証しない。`mainloop()` は呼ばないのでハングしない）
+- `tkinter` が無い／画面が無い環境では自動で skip する
 
 ```bash
 # リポジトリのルートで
@@ -251,12 +266,16 @@ pytest -m "not smoke"    # tkinter 非依存の presenter テストだけ
 pytest -m smoke          # GUI スモークだけ
 ```
 
-CI（`.github/workflows/test.yml`）では、PR 作成時・`main` への push 時に
-`pytest` を **Ubuntu / Windows / macOS** で自動実行する（画面が無い Ubuntu では GUI スモークだけ skip）。
+CI（`.github/workflows/test.yml`）:
+
+- PR 作成時・`main` への push 時に `pytest` を **Ubuntu / Windows / macOS** で自動実行
+- 画面が無い Ubuntu では GUI スモークだけ skip
 
 ## 開発フロー
 
-Issue #2 / #4 以降の変更は、feature ブランチ → Pull Request → squash merge で進める（履歴は [Pull Requests](../../pulls) タブに残る）。それ以前のコミットが `main` への直 push なのは、個人開発として始めたため。上記の CI は PR 上でも走るので、マージ前にブランチの状態で結果を確認できる。
+- Issue #2 / #4 以降の変更は **feature ブランチ → Pull Request → squash merge**（履歴は [Pull Requests](../../pulls) タブに残る）
+- それ以前のコミットが `main` への直 push なのは、個人開発として始めたため
+- CI は PR 上でも走るので、マージ前にブランチの状態で結果を確認できる
 
 ## ライセンス
 
