@@ -189,7 +189,7 @@ tkinter の `super().__init__` 連鎖に干渉しない）。
 1. ユーザーが「タスク一覧」タブの「+ Add」ボタンを押す。
 2. `TkTaskListFrame`に登録済みのハンドラ（`TaskListPresenter.on_add_click`）が呼ばれる。
 3. Presenterが`TaskModel.add_blank_task()`を呼ぶ。Modelは全項目が空のタスクを追加し、
-   採番したidを使って「Task N」という仮の名前を自動で入れる。
+   既存の「Task <数字>」の最大値 + 1（無ければ 1）で「Task N」という仮の名前を自動で入れる。
 4. `refresh()`で一覧を最新化し、`view.select_task(task.id)`で追加した行を選択状態にする。
    このとき、既存行のソート順（ソートしていた場合はその結果）は変えず、新タスクだけを
    末尾に足す。

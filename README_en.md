@@ -216,7 +216,8 @@ changes to Presenter or View at all (the history is in "Design notes").
 1. The user clicks "+ Add" on the "Task List" tab.
 2. The handler registered with `TkTaskListFrame` (`TaskListPresenter.on_add_click`) is invoked.
 3. The Presenter calls `TaskModel.add_blank_task()`. The Model adds a task with every field blank,
-   automatically filling the name with a placeholder like "Task N" using the id it just assigned.
+   automatically filling the name with a placeholder like "Task N", numbered one past the highest
+   existing `Task <number>` (or 1 if there is none).
 4. It calls `refresh()` to update the list, then `view.select_task(task.id)` to select the new row.
    The existing rows' order (including any active sort result) is left untouched — only the new
    task is appended at the end.

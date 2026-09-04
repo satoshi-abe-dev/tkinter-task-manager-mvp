@@ -11,6 +11,7 @@ Model
 再起動が「全部取り消し」の代わりになる）。
 """
 
+import re
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Iterable, List, Optional
@@ -21,6 +22,28 @@ from task_manager_tkinter.model.task.entity import Task
 
 # 一覧タブのインライン編集で書き換えを許すフィールド
 EDITABLE_FIELDS = {"name", "assignee", "due_date", "priority", "status"}
+
+# 「+ Add」の仮タスク名 "Task <数字>" を拾うためのパターン（完全一致）
+_DEFAULT_TASK_NAME_RE = re.compile(r"Task ([0-9]+)")
+
+
+def _next_default_task_name(existing_names: Iterable[str]) -> str:
+    """「+ Add」で入れる仮タスク名。既存の "Task <数字>" の最大値 + 1。
+    1件も無ければ "Task 1"。
+
+    件数や id ではなく既存の名前を見て採番する:
+      - シードだけの状態（"Task N" が無い）では必ず "Task 1" から始まる
+      - ユーザーが "Task 40" を手入力／CSV 取り込みしていても次は "Task 41"
+        になり、名前が重複しない
+    ユーザーはこの後この仮名を書き換える前提。
+    """
+    numbers = []
+    for name in existing_names:
+        m = _DEFAULT_TASK_NAME_RE.fullmatch(name)
+        if m:
+            numbers.append(int(m.group(1)))
+    n = max(numbers) + 1 if numbers else 1
+    return f"Task {n}"
 
 
 def _seed_tasks() -> List[Task]:
@@ -111,13 +134,15 @@ class TaskModel:
     def add_blank_task(self) -> Task:
         """全項目が空のタスクを1件追加する（一覧タブの「追加」ボタン用）。
 
-        タスク名だけは空のままにせず、採番したidを使って「Task N」という
-        仮の名前を入れる。件数を数えて連番にすると、削除後に追加した時に
-        番号が重複しうるため、idベースで一意性を保つ。
+        タスク名だけは空にせず仮名「Task N」を入れる。N は既存の
+        「Task <数字>」の最大値 + 1（無ければ 1）。件数や id に依存しないので、
+        シードだけの状態では「Task 1」から始まり、既存に「Task N」があっても
+        名前が重複しない。ユーザーはこの後この名前を書き換える前提。
         """
-        task = self.add_task(Task(name="", assignee="", due_date="", priority="", status=""))
-        task.name = f"Task {task.id}"
-        return task
+        name = _next_default_task_name(t.name for t in self._tasks)
+        return self.add_task(
+            Task(name=name, assignee="", due_date="", priority="", status="")
+        )
 
     def delete_tasks(self, task_ids: Iterable[int]) -> None:
         """指定した複数のタスクを削除する（一覧タブの「削除」ボタン用。複数選択に対応）"""

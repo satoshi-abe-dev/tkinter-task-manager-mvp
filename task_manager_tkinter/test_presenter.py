@@ -21,6 +21,7 @@ import pytest
 from task_manager_tkinter.model.lib.db_backup import backup_and_rotate
 from task_manager_tkinter.model.settings import Settings, SettingsModel
 from task_manager_tkinter.model.task import Task, TaskModel
+from task_manager_tkinter.model.task.store import _next_default_task_name
 from task_manager_tkinter.presenter.settings import SettingsPresenter
 from task_manager_tkinter.presenter.task import TaskListPresenter
 from task_manager_tkinter.view.settings import SettingsView
@@ -205,7 +206,7 @@ def test_task_list_presenter_sort_keeps_blank_values_at_bottom(task_ctx) -> None
     assert all(t.assignee.strip() for t in view.shown_tasks[:-1])
 
 
-def test_task_list_presenter_adds_blank_task_with_id_based_name(task_ctx) -> None:
+def test_task_list_presenter_adds_blank_task_with_default_name(task_ctx) -> None:
     model, settings_model, view, presenter = task_ctx
 
     before = len(model.list_tasks())
@@ -213,14 +214,24 @@ def test_task_list_presenter_adds_blank_task_with_id_based_name(task_ctx) -> Non
 
     assert len(model.list_tasks()) == before + 1
     new_task = model.list_tasks()[-1]
-    # タスク名は件数ベースではなく、id基準の連番（削除後に追加しても重複しない）
-    assert new_task.name == f"Task {new_task.id}"
+    # 仮名は件数や id ではなく「既存の "Task N" の最大値 + 1」。
+    # シード5件には "Task N" が無いので最初の追加は "Task 1"。
+    assert new_task.name == "Task 1"
     assert new_task.assignee == ""
     assert new_task.due_date == ""
     assert new_task.priority == ""
     assert new_task.status == ""
     # 追加後、その行が選択状態になる
     assert view.selected_task_id == new_task.id
+
+
+def test_task_list_presenter_add_names_start_at_task_1(task_ctx) -> None:
+    model, settings_model, view, presenter = task_ctx
+
+    view.add_handler()
+    view.add_handler()
+
+    assert [t.name for t in model.list_tasks()[-2:]] == ["Task 1", "Task 2"]
 
 
 def test_task_list_presenter_add_always_appears_at_bottom_even_when_sorted(task_ctx) -> None:
@@ -271,17 +282,17 @@ def test_task_list_presenter_two_consecutive_adds_keep_order(task_ctx) -> None:
     assert [t.id for t in view.shown_tasks] == sorted_ids + [first_new.id, second_new.id]
 
 
-def test_task_list_presenter_add_name_survives_deletion_without_duplicate(task_ctx) -> None:
+def test_task_list_presenter_add_name_skips_existing_task_number(task_ctx) -> None:
     model, settings_model, view, presenter = task_ctx
 
-    view.add_handler()
-    first_new = model.list_tasks()[-1]
-    view.delete_handler([first_new.id])
-    view.add_handler()
-    second_new = model.list_tasks()[-1]
+    # 既存の行を "Task 5" にリネームしておく（手入力や CSV 取り込みを想定）
+    seed = model.list_tasks()[0]
+    view.cell_edited_handler(seed.id, "name", "Task 5")
 
-    # 同じ名前(id基準)が使い回されず、常に一意になる
-    assert first_new.name != second_new.name
+    view.add_handler()
+
+    # 最大値 + 1。既存の "Task 5" と衝突しない
+    assert model.list_tasks()[-1].name == "Task 6"
 
 
 def test_task_list_presenter_deletes_task(task_ctx) -> None:
@@ -633,3 +644,23 @@ def test_task_list_presenter_highlight_disappears_immediately_when_toggled_off(t
     settings_view.highlight_toggled_handler(False)
 
     assert view.highlights == {}
+
+
+@pytest.mark.parametrize(
+    "existing_names, expected",
+    [
+        ([], "Task 1"),
+        (["Prepare Quotation", "Design Review"], "Task 1"),
+        (["Task 1", "Task 2"], "Task 3"),
+        (["Task 5"], "Task 6"),
+        (["Task 1", "Task 9", "Task 3"], "Task 10"),
+        (["Task 007"], "Task 8"),  # 先頭ゼロは int() で落ちる
+        # どれも "Task <数字>" の完全一致ではないので無視され、"Task 1" に戻る
+        (
+            ["Task", "Task  3", "task 3", "Task 3x", "My Task 4", "Task -1", "Task ３"],
+            "Task 1",
+        ),
+    ],
+)
+def test_next_default_task_name(existing_names, expected) -> None:
+    assert _next_default_task_name(existing_names) == expected
