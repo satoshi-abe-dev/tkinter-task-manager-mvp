@@ -17,6 +17,9 @@ from typing import Callable
 from task_manager_tkinter.view.settings.tk_frame import TkSettingsFrame
 from task_manager_tkinter.view.task.tk_frame import TkTaskListFrame
 
+_WINDOW_WIDTH = 640
+_WINDOW_HEIGHT = 560
+
 
 # Called at main.py > def main()
 class TkMainWindow:
@@ -25,7 +28,7 @@ class TkMainWindow:
     def __init__(self) -> None:
         self._root = tk.Tk()
         self._root.title("Task Manager")
-        self._root.geometry("640x560")
+        self._root.geometry(f"{_WINDOW_WIDTH}x{_WINDOW_HEIGHT}")
 
         self._root.columnconfigure(0, weight=1)
         self._root.rowconfigure(0, weight=1)
@@ -38,6 +41,26 @@ class TkMainWindow:
 
         notebook.add(self.task_list_frame, text="Task List")
         notebook.add(self.settings_frame, text="Settings")
+
+        self._center_on_screen(_WINDOW_WIDTH, _WINDOW_HEIGHT)
+
+    def _center_on_screen(self, width: int, height: int) -> None:
+        """指定サイズのウィンドウを画面中央に配置する。
+
+        geometry() にサイズだけ渡すと初期位置はウィンドウマネージャ任せに
+        なり、環境によっては左下などに寄る。画面の幅・高さから左上座標を
+        計算して "WxH+X+Y" 形式で明示する。
+
+        macOS では、ウィンドウが実体化する前に座標付き geometry() を渡しても
+        初回表示時にマネージャの既定位置で上書きされてしまう。全ウィジェットを
+        組んだ後 update_idletasks() で一度実体化させてから座標を指定する。
+        """
+        self._root.update_idletasks()
+        screen_width = self._root.winfo_screenwidth()
+        screen_height = self._root.winfo_screenheight()
+        x = max((screen_width - width) // 2, 0)
+        y = max((screen_height - height) // 2, 0)
+        self._root.geometry(f"{width}x{height}+{x}+{y}")
 
     def schedule(self, delay_ms: int, callback: Callable[[], None]) -> None:
         """delay_ms ミリ秒後にcallbackを1回呼ぶ(tkinterのafter()の薄いラッパー)。
