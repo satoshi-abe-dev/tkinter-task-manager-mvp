@@ -6,7 +6,7 @@ model / view / presenter の各フォルダから読み込んで組み立てて�
 （例: model/task/ ⇔ task_manager_tkinter.model.task.TaskModel）。
 
 フォルダ構成（ファイル名は役割を表し、フォルダ名は繰り返さない）:
-    task_manager_tkinter/          ルートパッケージ
+    src/task_manager_tkinter/     ルートパッケージ（src レイアウト）
         main.py          <- これ（model, view, presenterと同じ階層）
         data/            アプリのSQLiteデータベース(app.db)の置き場。実行時に自動作成される
             backups/           設定した間隔(既定15分)ごとの自動バックアップ(直近24時間分)の置き場
@@ -37,11 +37,12 @@ model / view / presenter の各フォルダから読み込んで組み立てて�
             settings.py           SettingsPresenter
 
 実行方法（どちらでも可）:
-    - リポジトリのルート（task_manager_tkinter/ の親フォルダ）で
-        python3 -m task_manager_tkinter.main
+    - リポジトリのルートで（src/ を import パスに乗せる）
+        PYTHONPATH=src python3 -m task_manager_tkinter.main
+      または  cd src && python3 -m task_manager_tkinter.main
     - ファイル指定で直接
-        python3 task_manager_tkinter/main.py
-      または  cd task_manager_tkinter && python3 main.py
+        python3 src/task_manager_tkinter/main.py
+      または  cd src/task_manager_tkinter && python3 main.py
       （下の sys.path ブートストラップが絶対 import を通す）
 ※ GUIなので、Tcl/Tkが使えるお手元のPCで実行してください。
 ※ タスク・設定はSQLite(標準ライブラリのsqlite3、追加インストール不要)で
@@ -58,11 +59,11 @@ model / view / presenter の各フォルダから読み込んで組み立てて�
 import os
 import sys
 
-# `python main.py` / `python task_manager_tkinter/main.py` のようにファイル指定で
+# `python main.py` / `python src/task_manager_tkinter/main.py` のようにファイル指定で
 # 直接起動されると、この時点では task_manager_tkinter パッケージが import パスに
-# 無い（__package__ が未設定）。リポジトリのルート（このファイルの2つ上）を
-# sys.path に足して、`python -m task_manager_tkinter.main` と同じ絶対 import が
-# 通るようにする。-m で起動された場合は __package__ が設定済みなので何もしない。
+# 無い（__package__ が未設定）。src レイアウトのパッケージ親 = src/（このファイルの
+# 2つ上）を sys.path に足して、`python -m task_manager_tkinter.main` と同じ絶対
+# import が通るようにする。-m で起動された場合は __package__ が設定済みなので何もしない。
 if __package__ in (None, ""):
     sys.path.insert(
         0, os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

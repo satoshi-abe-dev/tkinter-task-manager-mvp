@@ -72,7 +72,7 @@ repository root first. It's a GUI app, so run it where Tcl/Tk is available.
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
-.venv/bin/python -m task_manager_tkinter.main
+PYTHONPATH=src .venv/bin/python -m task_manager_tkinter.main
 ```
 
 **Windows (Command Prompt / PowerShell)**
@@ -80,10 +80,11 @@ python3 -m venv .venv
 ```bat
 python -m venv .venv
 .venv\Scripts\pip install -r requirements.txt
-.venv\Scripts\python -m task_manager_tkinter.main
+set PYTHONPATH=src && .venv\Scripts\python -m task_manager_tkinter.main
 ```
 
-- **First run only** (when `app.db` doesn't exist yet): `task_manager_tkinter/data/app.db` (SQLite) is created and seeded with 5 demo tasks
+- The package uses a `src/` layout. To launch with `-m`, put `src/` on the import path (`PYTHONPATH=src` or `cd src`). Running `src/task_manager_tkinter/main.py` directly as a file needs no setup (it adds `src/` to `sys.path` on startup)
+- **First run only** (when `app.db` doesn't exist yet): `src/task_manager_tkinter/data/app.db` (SQLite) is created and seeded with 5 demo tasks
 - Their due dates are set relative to the launch date, so the highlight shows 2 white, 2 yellow, and 1 red right from the first run
 - **After that**: the file stays, so deleting every task does not bring the demo data back
 - Ways to launch other than `-m` are collected under ["Running: other ways"](#running-other-ways) below
@@ -168,7 +169,7 @@ swapping parts all stay cheap.**
 ### Folder Structure
 
 ```
-task_manager_tkinter/         Root package (folder hierarchy == class namespace)
+src/task_manager_tkinter/     Root package (src layout; folder hierarchy == class namespace)
     main.py                   Entry point (same level as model, view, presenter)
     test_presenter.py         pytest unit tests for the Presenters (no tkinter required)
     test_gui_smoke.py         GUI-construction smoke test (pytest; skipped when there's no display)
@@ -204,7 +205,7 @@ task_manager_tkinter/         Root package (folder hierarchy == class namespace)
 
 - **Naming rule**: under `model` / `view`, file names carry only the **role** (`entity` / `store` / `contract` / `tk_frame`); which tab they belong to is shown by the **folder** (`task` / `settings`). The folder name and the layer name are not repeated in the file name
 - **`presenter`**: one class per tab, so no subfolder — `task.py` / `settings.py` sit directly under `presenter/`
-- **Folder = import namespace**: the `model` / `view` subfolders are the import path of the classes inside them (`model/task/` ⇔ `task_manager_tkinter.model.task.TaskModel`). Each subpackage's `__init__.py` re-exports its public classes, so callers import by the dotted path of the containing folder
+- **Folder = import namespace**: the `model` / `view` subfolders are the import path of the classes inside them (`src/task_manager_tkinter/model/task/` ⇔ `task_manager_tkinter.model.task.TaskModel`). Each subpackage's `__init__.py` re-exports its public classes, so callers import by the dotted path of the containing folder
 - **Exceptions under `view/`**: `tk_main_window.py` (combines both tabs) and `callbacks.py` (a mixin that belongs to no tab)
 
 ### Responsibility of Each Layer
@@ -262,20 +263,20 @@ task_manager_tkinter/         Root package (folder hierarchy == class namespace)
 ### Running: other ways
 
 - Both `-m` and a plain file path work
-- `main.py` prepends the repository root to `sys.path` only when it detects it was run as a plain script (`__package__` unset), so the same absolute imports resolve either way
+- For `-m`, put `src/` on the import path (`PYTHONPATH=src` or `cd src`). When run as a plain file, `main.py` detects it was run as a script (`__package__` unset) and prepends `src/` (two levels up from the file) to `sys.path`, so the same absolute imports resolve without extra setup
 
 ```bash
-# from the repository root (the parent of task_manager_tkinter/)
-.venv/bin/python -m task_manager_tkinter.main
-.venv/bin/python task_manager_tkinter/main.py
-cd task_manager_tkinter && ../.venv/bin/python main.py
+# from the repository root (put src/ on the import path)
+PYTHONPATH=src .venv/bin/python -m task_manager_tkinter.main
+.venv/bin/python src/task_manager_tkinter/main.py
+cd src/task_manager_tkinter && ../../.venv/bin/python main.py
 ```
 
 Windows:
 
 ```bat
-.venv\Scripts\python -m task_manager_tkinter.main
-.venv\Scripts\python task_manager_tkinter\main.py
+set PYTHONPATH=src && .venv\Scripts\python -m task_manager_tkinter.main
+.venv\Scripts\python src\task_manager_tkinter\main.py
 ```
 
 ### Testing

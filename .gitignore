@@ -17,7 +17,7 @@ venv/
 temp/
 
 # アプリのデータ(SQLite)。ユーザーごとの実行時データなのでコミットしない。
-task_manager_tkinter/data/
+src/task_manager_tkinter/data/
 
 # デモ動画のローカル作業コピー。配布は GitHub アタッチメント URL 経由なのでコミットしない。
 docs/demo_h264.mp4

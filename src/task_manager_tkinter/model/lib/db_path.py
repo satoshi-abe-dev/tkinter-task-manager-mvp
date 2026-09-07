@@ -9,10 +9,10 @@ tasksテーブル・settingsテーブルにそれぞれ読み書きする（お�
 
 from pathlib import Path
 
-# task_manager_tkinter/data/app.db
+# src/task_manager_tkinter/data/app.db
 # カレントディレクトリに依存しないよう、このファイル自身の場所を基準にする。
-# このファイルは task_manager_tkinter/model/lib/ にあるので、parent を 3 つ
-# 遡るとパッケージルート(task_manager_tkinter/)になる。
+# このファイルは src/task_manager_tkinter/model/lib/ にあるので、parent を 3 つ
+# 遡るとパッケージルート(src/task_manager_tkinter/)になる。
 DEFAULT_DB_PATH = str(
     Path(__file__).resolve().parent.parent.parent / "data" / "app.db"
 )
