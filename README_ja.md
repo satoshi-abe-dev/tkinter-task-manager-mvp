@@ -65,7 +65,7 @@ Python (Tkinter) で作った、タブ付きのタスク管理デスクトップ
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
-.venv/bin/python -m task_manager_tkinter.main
+PYTHONPATH=src .venv/bin/python -m task_manager_tkinter.main
 ```
 
 **Windows（コマンドプロンプト / PowerShell）**
@@ -73,10 +73,11 @@ python3 -m venv .venv
 ```bat
 python -m venv .venv
 .venv\Scripts\pip install -r requirements.txt
-.venv\Scripts\python -m task_manager_tkinter.main
+set PYTHONPATH=src && .venv\Scripts\python -m task_manager_tkinter.main
 ```
 
-- **初回起動時**（`app.db` がまだ無いとき）だけ `task_manager_tkinter/data/app.db`（SQLite）が作られ、デモ用タスクが5件入る
+- パッケージは `src/` レイアウト。`-m` で起動するには `src/` を import パスに乗せる（`PYTHONPATH=src` か `cd src`）。`src/task_manager_tkinter/main.py` をファイル指定で直接起動する場合は不要（起動時に `src/` を自動で `sys.path` に足す）
+- **初回起動時**（`app.db` がまだ無いとき）だけ `src/task_manager_tkinter/data/app.db`（SQLite）が作られ、デモ用タスクが5件入る
 - デモタスクの期限日は起動日を基準に相対的に決まり、期限ハイライトが初回から「白2・黄2・赤1」に見える
 - **2回目以降**は、全タスクを削除しても `app.db` は残るのでデモデータは復活しない
 - `-m` 以外の起動方法は下の[「起動方法の補足」](#起動方法の補足)にまとめてある
@@ -152,7 +153,7 @@ python -m venv .venv
 ### フォルダ構成
 
 ```
-task_manager_tkinter/         ルートパッケージ（フォルダ階層 ＝ クラスの名前空間）
+src/task_manager_tkinter/     ルートパッケージ（src レイアウト。フォルダ階層 ＝ クラスの名前空間）
     main.py                   エントリーポイント（model, view, presenterと同じ階層）
     test_presenter.py         Presenter の pytest ユニットテスト（tkinter不要）
     test_gui_smoke.py         GUI 構築スモークテスト（pytest。画面が無ければ skip）
@@ -188,7 +189,7 @@ task_manager_tkinter/         ルートパッケージ（フォルダ階層 ＝ 
 
 - **命名規則**: `model` / `view` では、ファイル名は**役割**（`entity` / `store` / `contract` / `tk_frame`）だけを表し、どのタブのものかは**フォルダ**（`task` / `settings`）が示す。フォルダ名や層名はファイル名で繰り返さない
 - **`presenter`**: タブごとに1クラスなのでサブフォルダを作らず `task.py` / `settings.py` を直下に置く
-- **フォルダ ＝ import 名前空間**: `model` / `view` のサブフォルダはそのままクラスの import パスになる（`model/task/` ⇔ `task_manager_tkinter.model.task.TaskModel`）。各サブパッケージの `__init__.py` が公開クラスを再エクスポートするので、所在フォルダのドット表記でそのまま import できる
+- **フォルダ ＝ import 名前空間**: `model` / `view` のサブフォルダはそのままクラスの import パスになる（`src/task_manager_tkinter/model/task/` ⇔ `task_manager_tkinter.model.task.TaskModel`）。各サブパッケージの `__init__.py` が公開クラスを再エクスポートするので、所在フォルダのドット表記でそのまま import できる
 - **`view/` 直下の例外**: 両タブをまとめる `tk_main_window.py` と、どのタブにも属さない mixin の `callbacks.py`
 
 ### 各層の責務
@@ -229,20 +230,20 @@ task_manager_tkinter/         ルートパッケージ（フォルダ階層 ＝ 
 ### 起動方法の補足
 
 - `-m` でもファイル指定でも起動できる
-- `main.py` は先頭で「スクリプトとして直接実行された」（`__package__` 未設定）を検知したときだけリポジトリのルートを `sys.path` に足すので、どちらの呼び方でも同じ絶対 import が通る
+- `-m` で起動するときは `src/` を import パスに乗せる（`PYTHONPATH=src` か `cd src`）。ファイル指定で直接起動する場合は、`main.py` が先頭で「スクリプトとして直接実行された」（`__package__` 未設定）を検知して `src/`（このファイルの2つ上）を `sys.path` に足すので、追加設定は不要
 
 ```bash
-# リポジトリのルート（task_manager_tkinter/ の親）で
-.venv/bin/python -m task_manager_tkinter.main
-.venv/bin/python task_manager_tkinter/main.py
-cd task_manager_tkinter && ../.venv/bin/python main.py
+# リポジトリのルートで（src/ を import パスに乗せる）
+PYTHONPATH=src .venv/bin/python -m task_manager_tkinter.main
+.venv/bin/python src/task_manager_tkinter/main.py
+cd src/task_manager_tkinter && ../../.venv/bin/python main.py
 ```
 
 Windows:
 
 ```bat
-.venv\Scripts\python -m task_manager_tkinter.main
-.venv\Scripts\python task_manager_tkinter\main.py
+set PYTHONPATH=src && .venv\Scripts\python -m task_manager_tkinter.main
+.venv\Scripts\python src\task_manager_tkinter\main.py
 ```
 
 ### テスト
