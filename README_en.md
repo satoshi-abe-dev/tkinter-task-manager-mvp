@@ -174,33 +174,33 @@ src/task_manager_tkinter/     Root package (src layout; folder hierarchy == clas
     test_presenter.py         pytest unit tests for the Presenters (no tkinter required)
     test_gui_smoke.py         GUI-construction smoke test (pytest; skipped when there's no display)
     data/                     Where the SQLite database (app.db) lives; created automatically at runtime
-        backups/               Backups of app.db, made automatically at the configured interval (last 24h kept)
+        backups/              Backups of app.db, made automatically at the configured interval (last 24h kept)
     model/
         lib/                  Home for pure-I/O modules that hold no class
-            db_path.py            The DB file's default path (shared by task/settings)
-            db_backup.py          Backs up and rotates app.db (pure I/O)
-            task_db.py            Task persistence (SQLite), pure I/O, no tkinter dependency.
-                                   save() writes the whole in-memory state at once
-            settings_db.py       Settings persistence (SQLite), pure I/O, no tkinter dependency
-            csv_io.py            CSV export/import (pure I/O, no tkinter dependency)
+            db_path.py        The DB file's default path (shared by task/settings)
+            db_backup.py      Backs up and rotates app.db (pure I/O)
+            task_db.py        Task persistence (SQLite), pure I/O, no tkinter dependency.
+                              save() writes the whole in-memory state at once
+            settings_db.py    Settings persistence (SQLite), pure I/O, no tkinter dependency
+            csv_io.py         CSV export/import (pure I/O, no tkinter dependency)
         task/
-            entity.py           Task (data class) + PRIORITIES / STATUSES
-            store.py            TaskModel (holds the in-memory task set, delegates persistence)
+            entity.py         Task (data class) + PRIORITIES / STATUSES
+            store.py          TaskModel (holds the in-memory task set, delegates persistence)
         settings/
-            entity.py           Settings (data class)
-            store.py            SettingsModel
+            entity.py         Settings (data class)
+            store.py          SettingsModel
     view/
-        callbacks.py            CallbackRegistryMixin (callback-registration mixin shared by both tk_frame files)
+        callbacks.py          CallbackRegistryMixin (callback-registration mixin shared by both tk_frame files)
         task/
-            contract.py         TaskListView (abstract class = the contract the Presenter depends on)
-            tk_frame.py         Tkinter implementation (Task List tab)
+            contract.py       TaskListView (abstract class = the contract the Presenter depends on)
+            tk_frame.py       Tkinter implementation (Task List tab)
         settings/
-            contract.py         SettingsView (abstract class = the contract the Presenter depends on)
-            tk_frame.py         Tkinter implementation (Settings tab)
-        tk_main_window.py      Tkinter implementation (the window that combines both tabs)
-    presenter/               (one file per tab; no subfolders)
-        task.py                TaskListPresenter
-        settings.py            SettingsPresenter
+            contract.py       SettingsView (abstract class = the contract the Presenter depends on)
+            tk_frame.py       Tkinter implementation (Settings tab)
+        tk_main_window.py     Tkinter implementation (the window that combines both tabs)
+    presenter/                (one file per tab; no subfolders)
+        task.py               TaskListPresenter
+        settings.py           SettingsPresenter
 ```
 
 - **Naming rule**: under `model` / `view`, file names carry only the **role** (`entity` / `store` / `contract` / `tk_frame`); which tab they belong to is shown by the **folder** (`task` / `settings`). The folder name and the layer name are not repeated in the file name
