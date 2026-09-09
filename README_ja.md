@@ -3,7 +3,7 @@
 [English](README_en.md) | 日本語
 
 Python (Tkinter) で作った、タブ付きのタスク管理デスクトップアプリ。
-中身は MVP（Model-View-Presenter）パターンで責務を分けた実装サンプル。
+内部は MVP（Model-View-Presenter）パターンで画面・データ・その仲介の役割ごとにコードを分けた、仕様変更に強い設計。
 
 > ℹ️ GUIの表示は英語。コード内コメントは日本語。
 
@@ -104,18 +104,18 @@ set PYTHONPATH=src && .venv\Scripts\python -m task_manager_tkinter.main
 - **バックアップ間隔**: 自動バックアップの間隔を分単位で設定（既定15分）。実行中に変えると、次にタイマーが発火したタイミングから反映される。
 - 変更した値は入力した瞬間に保存される（Auto Save）。
 
-> 💡 **動かすだけなら、ここまで読めば十分です。** この先は、このサンプルの主眼である「MVPパターンで責務をどう分けたか」の解説です。
+> 💡 **動かすだけなら、ここまで読めば十分です。** この先は、このサンプルの主眼である「MVPパターンで役割をどう分けたか」の解説です。
 
 ---
 
 ## 設計
 
-このリポジトリの主眼。MVPパターン（Model / View / Presenter）で責務をどう分けているかを解説する。
+このリポジトリの主眼。MVPパターン（Model / View / Presenter）で役割をどう分けているかを解説する。
 
 ### ねらい
 
 - **題材**: タブごとに別画面（タスク一覧・設定）を持つ、実務にありそうな Tkinter デスクトップアプリ
-- **見せたいこと**: Model / View / Presenter で責務を分離するとどうなるか
+- **見せたいこと**: Model / View / Presenter で役割を分けるとどうなるか
 - **見た目の方針**: タブ・ボタンはあえて OS 標準に近いまま（`ttk.Notebook` / `ttk.Button` のデフォルト）
 
 ### 変更に強い（MVP パターンの利点）
@@ -192,9 +192,9 @@ src/task_manager_tkinter/     ルートパッケージ（src レイアウト。�
 - **フォルダ ＝ import 名前空間**: `model` / `view` のサブフォルダはそのままクラスの import パスになる（`src/task_manager_tkinter/model/task/` ⇔ `task_manager_tkinter.model.task.TaskModel`）。各サブパッケージの `__init__.py` が公開クラスを再エクスポートするので、所在フォルダのドット表記でそのまま import できる
 - **`view/` 直下の例外**: 両タブをまとめる `tk_main_window.py` と、どのタブにも属さない mixin の `callbacks.py`
 
-### 各層の責務
+### 各層の役割
 
-| 層 | クラス | 責務 | 依存先 |
+| 層 | クラス | 役割 | 依存先 |
 |---|---|---|---|
 | Model | `TaskModel` | タスクの保持・追加（空欄タスクの追加を含む）・更新・削除のドメインロジック。編集操作はメモリ上の状態だけを書き換え、`save()`が呼ばれた時だけ`task_db`へ永続化を委譲する（自身はSQLを知らない）。UIのことも一切知らない。 | `task_db` |
 | Model | `SettingsModel` | 設定値の保持・更新のドメインロジック。永続化の詳細（SQLite）は`settings_db`に委譲し、自身はSQLを知らない。 | `settings_db` |

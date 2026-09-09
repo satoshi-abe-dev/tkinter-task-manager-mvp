@@ -2,8 +2,9 @@
 
 English | [日本語](README_ja.md)
 
-A tabbed task-management desktop app written in Python (Tkinter). Under the hood it is a
-sample implementation of the MVP (Model-View-Presenter) pattern.
+A tabbed task-management desktop app written in Python (Tkinter). Under the hood it splits code by
+role — screen, data, and the mediator between them — along the MVP (Model-View-Presenter) pattern:
+a design that is resilient to changing requirements.
 
 > ℹ️ The GUI is in English; the code comments are in Japanese.
 
@@ -111,18 +112,18 @@ Overdue handling:
 - **Backup interval**: how often (in minutes, default 15) automatic backups run. Changing it while running takes effect from the next timer tick.
 - Every changed value is saved the moment you enter it (Auto Save).
 
-> 💡 **If you just want to run it, you can stop here.** The rest is the main point of this sample: how responsibilities are split under the MVP pattern.
+> 💡 **If you just want to run it, you can stop here.** The rest is the main point of this sample: how roles are split under the MVP pattern.
 
 ---
 
 ## Design
 
-The main point of this repo: how responsibilities are split across the MVP (Model / View / Presenter) pattern.
+The main point of this repo: how roles are split across the MVP (Model / View / Presenter) pattern.
 
 ### The point
 
 - **Subject**: a Tkinter desktop app that could plausibly exist in a real workplace — tabs for a task list and settings
-- **What it shows**: what happens when you separate responsibilities across Model / View / Presenter
+- **What it shows**: what happens when you separate roles across Model / View / Presenter
 - **Look**: tabs and buttons deliberately keep the OS-native look (the default `ttk.Notebook` / `ttk.Button` style)
 
 ### Resilient to change (what the MVP split buys you)
@@ -208,9 +209,9 @@ src/task_manager_tkinter/     Root package (src layout; folder hierarchy == clas
 - **Folder = import namespace**: the `model` / `view` subfolders are the import path of the classes inside them (`src/task_manager_tkinter/model/task/` ⇔ `task_manager_tkinter.model.task.TaskModel`). Each subpackage's `__init__.py` re-exports its public classes, so callers import by the dotted path of the containing folder
 - **Exceptions under `view/`**: `tk_main_window.py` (combines both tabs) and `callbacks.py` (a mixin that belongs to no tab)
 
-### Responsibility of Each Layer
+### The Role of Each Layer
 
-| Layer | Class | Responsibility | Depends on |
+| Layer | Class | Role | Depends on |
 |---|---|---|---|
 | Model | `TaskModel` | Domain logic for holding, adding (including blank tasks), updating, and deleting tasks. Edits only change the in-memory state; persistence is delegated to `task_db` only when `save()` is called (and `TaskModel` doesn't know any SQL itself). Knows nothing about the UI either. | `task_db` |
 | Model | `SettingsModel` | Domain logic for holding and updating settings. Delegates the persistence details (SQLite) to `settings_db` and doesn't know any SQL itself. | `settings_db` |
