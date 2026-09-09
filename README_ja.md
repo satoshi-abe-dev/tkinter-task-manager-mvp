@@ -127,13 +127,13 @@ set PYTHONPATH=src && .venv\Scripts\python -m task_manager_tkinter.main
   | 変更 | 触った範囲 |
   |---|---|
   | 起動時にウィンドウを中央表示（[#12](../../pull/12)） | GUI 側の `view/tk_main_window.py` 1ファイルだけ |
-  | データの持ち方を「メモリのみ」→「SQLite に即保存」（[設計上の判断メモ](#設計上の判断メモ)） | 内部処理側だけ。Presenter・GUI は1行も変えていない |
+  | データの持ち方を「メモリのみ」→「SQLite に即保存」（[設計上の判断メモ](#設計上の判断メモ)） | 内部処理側だけ。Presenter・GUI は変更していない |
   | 「+ Add」の仮タスク名の付け方を変更（[#11](../../pull/11)） | `model/task/store.py` とそのテストだけ |
   | 「Overdue」を保存状態から `due_date` 由来の導出へ変更 | Model と Presenter は変えたが GUI は無変更（GUI は元から「どの行を何色で塗るか」の一覧を受け取るだけ） |
 
-- **GUI を起動せずにロジックをテストできる。** Model も Presenter も `tkinter` を import すらしない。`test_presenter.py` は本物の画面の代わりに偽物の画面（`FakeView`）を差し込み、「ボタンを押したら何が起きるか」を 43 ケース検証する。画面の無い CI（Ubuntu）でもそのまま通る。
+- **GUI を起動せずにロジックをテストできる。** Model も Presenter も `tkinter` を import しない。`test_presenter.py` は本物の画面の代わりに偽物の画面（`FakeView`）を差し込み、「ボタンを押したら何が起きるか」を 43 ケース検証する。画面の無い CI（Ubuntu）でもそのまま通る。
 
-- **GUI ライブラリを別物に差し替えても、内部処理は無変更でよい。** Presenter が知っているのは「画面はこういう操作ができる」という取り決め（抽象クラス `TaskListView` / `SettingsView`）だけ。テストで使う `FakeView` が、まさに「Tkinter ではない別の画面実装」の実例になっている。
+- **GUI ライブラリを別物に差し替えても、内部処理は無変更でよい。** Presenter が知っているのは「画面はこういう操作ができる」という取り決め（抽象クラス `TaskListView` / `SettingsView`）だけ。テストで使う `FakeView` は「Tkinter ではない別の画面実装」の一例にあたる。
 
 **コスト**: 次のぶんコード量は増える。数百行のアプリでは大げさに見えるが、上の「変更に強い」と引き換え。
 
@@ -196,7 +196,7 @@ src/task_manager_tkinter/     ルートパッケージ（src レイアウト。�
 
 | 層 | クラス | 役割 | 依存先 |
 |---|---|---|---|
-| Model | `TaskModel` | タスクの保持・追加（空欄タスクの追加を含む）・更新・削除のドメインロジック。編集操作はメモリ上の状態だけを書き換え、`save()`が呼ばれた時だけ`task_db`へ永続化を委譲する（自身はSQLを知らない）。UIのことも一切知らない。 | `task_db` |
+| Model | `TaskModel` | タスクの保持・追加（空欄タスクの追加を含む）・更新・削除のドメインロジック。編集操作はメモリ上の状態だけを書き換え、`save()`が呼ばれた時だけ`task_db`へ永続化を委譲する（自身はSQLを知らない）。UIのことも扱わない。 | `task_db` |
 | Model | `SettingsModel` | 設定値の保持・更新のドメインロジック。永続化の詳細（SQLite）は`settings_db`に委譲し、自身はSQLを知らない。 | `settings_db` |
 | Model | `task_db` / `settings_db`（`model/lib/`） | タスク・設定をSQLiteに保存/読み込みする。tkinterに依存しない純粋なI/O関数。 | `db_path`（DBファイルの場所） |
 | Model | `db_backup` | `app.db`をタイムスタンプ付きでバックアップし、指定した保持期間（既定24時間）より古いものを削除する。純粋なI/O関数。呼び出しタイミング（`SettingsModel`で設定した間隔、既定15分）はmain.pyが管理する。 | なし |
@@ -250,7 +250,7 @@ set PYTHONPATH=src && .venv\Scripts\python -m task_manager_tkinter.main
 
 `test_presenter.py`（pytest）— Presenter のロジック検証:
 
-- 各 View 抽象クラスの偽実装（`FakeView`）を差し込み、Tkinter を一切起動せずに 2 つの Presenter を検証する
+- 各 View 抽象クラスの偽実装（`FakeView`）を差し込み、Tkinter を起動せずに 2 つの Presenter を検証する
 - 依存するのは抽象クラス `TaskListView` / `SettingsView` だけ。Tkinter 実装（`view/task/tk_frame.py` など）は読み込まない（`view/` 配下の `__init__.py` は抽象クラスだけを再エクスポート）ので、tkinter が無い環境でも実行できる
 - `TaskModel` / `SettingsModel` は `db_path=":memory:"` のインメモリ SQLite。ディスクに何も残さず、テストどうしで状態が混ざらない（`task_ctx` fixture でまとめて組み立て）
 

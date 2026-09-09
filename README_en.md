@@ -142,14 +142,14 @@ swapping parts all stay cheap.**
   | Change how the placeholder task name is generated ([#11](../../pull/11)) | `model/task/store.py` and its tests only |
   | Turn "Overdue" from a stored status into a value derived from `due_date` | Model and Presenter changed, GUI untouched (the GUI already just receives a list of "which row gets which color") |
 
-- **The logic is testable without launching the GUI.** Neither the Model nor the Presenter even
+- **The logic is testable without launching the GUI.** Neither the Model nor the Presenter
   imports `tkinter`. `test_presenter.py` swaps in a fake screen (`FakeView`) in place of the real one
   and checks "what happens when you click this" across 43 cases. It runs as-is on CI's headless
   Ubuntu.
 
 - **Swapping the GUI library for something else needs no change to the internals.** All the Presenter
   knows is a contract — "the screen can do these operations" (the abstract classes `TaskListView` /
-  `SettingsView`). The `FakeView` used in the tests is exactly that: a non-Tkinter screen
+  `SettingsView`). The `FakeView` used in the tests is one example of that: a non-Tkinter screen
   implementation.
 
 **Cost**: the following add code. At a few hundred lines it can look like overkill — the trade is the resilience above.
@@ -213,7 +213,7 @@ src/task_manager_tkinter/     Root package (src layout; folder hierarchy == clas
 
 | Layer | Class | Role | Depends on |
 |---|---|---|---|
-| Model | `TaskModel` | Domain logic for holding, adding (including blank tasks), updating, and deleting tasks. Edits only change the in-memory state; persistence is delegated to `task_db` only when `save()` is called (and `TaskModel` doesn't know any SQL itself). Knows nothing about the UI either. | `task_db` |
+| Model | `TaskModel` | Domain logic for holding, adding (including blank tasks), updating, and deleting tasks. Edits only change the in-memory state; persistence is delegated to `task_db` only when `save()` is called (and `TaskModel` doesn't know any SQL itself). Doesn't deal with the UI either. | `task_db` |
 | Model | `SettingsModel` | Domain logic for holding and updating settings. Delegates the persistence details (SQLite) to `settings_db` and doesn't know any SQL itself. | `settings_db` |
 | Model | `task_db` / `settings_db` (`model/lib/`) | Saves/loads tasks and settings to/from SQLite. Pure I/O functions, no tkinter dependency. | `db_path` (where the DB file lives) |
 | Model | `db_backup` | Backs up `app.db` with a timestamp and deletes backups older than a given retention window (default 24h). Pure I/O functions; main.py owns the call cadence, read from `SettingsModel` (default 15 minutes). | none |
@@ -284,7 +284,7 @@ set PYTHONPATH=src && .venv\Scripts\python -m task_manager_tkinter.main
 
 `test_presenter.py` (pytest) — verifies the Presenter logic:
 
-- swaps in a fake View (`FakeView`) for each View abstract class and verifies the two Presenters without ever starting Tkinter
+- swaps in a fake View (`FakeView`) for each View abstract class and verifies the two Presenters without starting Tkinter
 - depends only on the abstract classes `TaskListView` / `SettingsView`; never imports the Tkinter implementation (`view/task/tk_frame.py`, …), because the `__init__.py` files under `view/` re-export only the abstract classes — so it runs fine even without tkinter installed
 - `TaskModel` / `SettingsModel` use `db_path=":memory:"` in-memory SQLite (assembled in the `task_ctx` fixture), so nothing is written to disk and tests don't share state
 
