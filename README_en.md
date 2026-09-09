@@ -3,14 +3,14 @@
 English | [日本語](README_ja.md)
 
 A tabbed task-management desktop app written in Python (Tkinter). Under the hood it splits code by
-role — screen, data, and the mediator between them — along the MVP (Model-View-Presenter) pattern:
-a design that is resilient to changing requirements.
+role — the GUI, the internals, and the mediator between them — along the MVP (Model-View-Presenter)
+pattern: a design that is resilient to changing requirements.
 
 > ℹ️ The GUI is in English; the code comments are in Japanese.
 
 > 🧭 **The design and architecture decisions here are the author's.** The main ones:
 >
-> - Splitting the app into layers along the MVP (Model / View / Presenter) pattern, and the dependency direction between them — separating the GUI from the internals makes it **resilient to change**: edit one side alone, test the logic without the GUI, or swap the GUI wholesale. Details in [Design](#design).
+> - Splitting the app into three layers (Model / View / Presenter) and the dependency direction between them — separating the GUI from the internals makes it **resilient to change**: edit one side alone, test the logic without the GUI, or swap the GUI wholesale. Details in [Design](#design).
 > - The "folder hierarchy = class import namespace" naming/placement scheme
 > - **The overall GUI design** (screen layout, an OS-native look, the due-date highlight colors, following window resizes, a tkcalendar font tweak)
 > - **Inline editing in the table** (`ttk.Treeview` has no built-in cell editing — an Entry / Combobox is overlaid on the cell's rectangle; the due date is picked from a calendar popup)
