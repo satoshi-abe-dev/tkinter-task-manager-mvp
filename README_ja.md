@@ -158,33 +158,33 @@ src/task_manager_tkinter/     ルートパッケージ（src レイアウト。�
     test_presenter.py         Presenter の pytest ユニットテスト（tkinter不要）
     test_gui_smoke.py         GUI 構築スモークテスト（pytest。画面が無ければ skip）
     data/                     SQLiteデータベース(app.db)の置き場。実行時に自動作成される
-        backups/               設定した間隔(既定15分)ごとに自動作成されるapp.dbのバックアップ(直近24時間分)
+        backups/              設定した間隔(既定15分)ごとに自動作成されるapp.dbのバックアップ(直近24時間分)
     model/
         lib/                  クラスを持たない純粋I/Oモジュールの置き場
-            db_path.py            DBファイルの既定パス（task/settingsで共有）
-            db_backup.py          app.dbのバックアップ・世代管理（純粋なI/O）
-            task_db.py            タスクの永続化(SQLite)。tkinterに依存しない純粋なI/O。
-                                   save()時にメモリ上の状態をまるごと書き込む方式
-            settings_db.py       設定の永続化(SQLite)。tkinterに依存しない純粋なI/O
-            csv_io.py            CSV書き出し/読み込み（tkinterに依存しない純粋なI/O）
+            db_path.py        DBファイルの既定パス（task/settingsで共有）
+            db_backup.py      app.dbのバックアップ・世代管理（純粋なI/O）
+            task_db.py        タスクの永続化(SQLite)。tkinterに依存しない純粋なI/O。
+                              save()時にメモリ上の状態をまるごと書き込む方式
+            settings_db.py    設定の永続化(SQLite)。tkinterに依存しない純粋なI/O
+            csv_io.py         CSV書き出し/読み込み（tkinterに依存しない純粋なI/O）
         task/
-            entity.py           Task（データクラス）＋ PRIORITIES / STATUSES
-            store.py            TaskModel（メモリ上のタスク集合を保持し永続化を委譲）
+            entity.py         Task（データクラス）＋ PRIORITIES / STATUSES
+            store.py          TaskModel（メモリ上のタスク集合を保持し永続化を委譲）
         settings/
-            entity.py           Settings（データクラス）
-            store.py            SettingsModel
+            entity.py         Settings（データクラス）
+            store.py          SettingsModel
     view/
-        callbacks.py            CallbackRegistryMixin（両 tk_frame 共通のコールバック登録 mixin）
+        callbacks.py          CallbackRegistryMixin（両 tk_frame 共通のコールバック登録 mixin）
         task/
-            contract.py         TaskListView（抽象クラス＝Presenterが依存する契約）
-            tk_frame.py         Tkinter実装（タスク一覧タブ）
+            contract.py       TaskListView（抽象クラス＝Presenterが依存する契約）
+            tk_frame.py       Tkinter実装（タスク一覧タブ）
         settings/
-            contract.py         SettingsView（抽象クラス＝Presenterが依存する契約）
-            tk_frame.py         Tkinter実装（設定タブ）
-        tk_main_window.py      Tkinter実装（2タブをまとめるウィンドウ全体）
-    presenter/               （タブごとにファイル1個。サブフォルダは作らない）
-        task.py                TaskListPresenter
-        settings.py            SettingsPresenter
+            contract.py       SettingsView（抽象クラス＝Presenterが依存する契約）
+            tk_frame.py       Tkinter実装（設定タブ）
+        tk_main_window.py     Tkinter実装（2タブをまとめるウィンドウ全体）
+    presenter/                （タブごとにファイル1個。サブフォルダは作らない）
+        task.py               TaskListPresenter
+        settings.py           SettingsPresenter
 ```
 
 - **命名規則**: `model` / `view` では、ファイル名は**役割**（`entity` / `store` / `contract` / `tk_frame`）だけを表し、どのタブのものかは**フォルダ**（`task` / `settings`）が示す。フォルダ名や層名はファイル名で繰り返さない
