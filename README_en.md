@@ -128,9 +128,8 @@ The main point of this repo: how roles are split across the MVP (Model / View / 
 
 ### Resilient to change (what the MVP split buys you)
 
-Not the textbook case for MVP — only what actually pays off in this repo. The GUI (the screen) and
-the internals (data + logic) are separate and don't affect each other, so **changing, testing, and
-swapping parts all stay cheap.**
+The GUI (the screen) and the internals (data + logic) are separate and don't affect each other, so
+**changing, testing, and swapping parts all stay cheap.**
 
 - **Changing the GUI doesn't touch the internals, and vice versa.** Almost every change in this repo
   touched one side only:
