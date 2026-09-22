@@ -1,6 +1,6 @@
 # tkinter-task-manager-mvp
 
-English | [日本語](README_ja.md)
+[日本語](README_ja.md) | English
 
 A tabbed task-management desktop app written in Python (Tkinter). Under the hood it splits code by
 role — the GUI, the internals, and the mediator between them — along the MVP (Model-View-Presenter)

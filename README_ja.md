@@ -1,6 +1,6 @@
 # tkinter-task-manager-mvp
 
-[English](README_en.md) | 日本語
+日本語 | [English](README_en.md)
 
 Python (Tkinter) で作った、タブ付きのタスク管理デスクトップアプリ。
 内部は MVP（Model-View-Presenter）パターンで GUI・内部処理・その仲介の役割ごとにコードを分けた、仕様変更に強い設計。
