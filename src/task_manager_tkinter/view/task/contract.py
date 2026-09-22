@@ -1,7 +1,7 @@
 """
-View（抽象層）— タスク一覧タブ
-------------------------------
-Presenterが依存する「契約」だけを定義する。
+View (abstract layer) — task list tab
+-----------------------------------------
+Defines only the "contract" the Presenter depends on.
 """
 
 from abc import ABC, abstractmethod
@@ -13,67 +13,69 @@ from task_manager_tkinter.model.task import Task
 class TaskListView(ABC):
     @abstractmethod
     def show_tasks(self, tasks: List[Task]) -> None:
-        """タスク一覧を表示する"""
+        """Display the task list"""
 
     @abstractmethod
     def set_on_cell_edited(
         self, handler: Callable[[int, str, str], None]
     ) -> None:
-        """セルのインライン編集が確定した時に呼ばれるハンドラを登録する。
-        引数: (task_id, field, new_value)
+        """Register a handler called when an inline cell edit is committed.
+        Arguments: (task_id, field, new_value)
         """
 
     @abstractmethod
     def set_on_column_clicked(self, handler: Callable[[str], None]) -> None:
-        """カラムのヘッダーがクリックされた時に呼ばれるハンドラを登録する。
-        引数: field（クリックされた列名）
+        """Register a handler called when a column header is clicked.
+        Argument: field (the name of the clicked column)
         """
 
     @abstractmethod
     def show_sort_state(self, field: Optional[str], ascending: bool) -> None:
-        """現在のソート対象列・昇順/降順を見た目に反映する（列見出しの矢印など）。
-        field が None の場合はソートされていない状態を表す。
+        """Reflect the current sort column and ascending/descending direction
+        visually (e.g. the arrow on the column header).
+        field == None represents the unsorted state.
         """
 
     @abstractmethod
     def set_on_add_click(self, handler: Callable[[], None]) -> None:
-        """「追加」ボタン押下時に呼ばれるハンドラを登録する"""
+        """Register a handler called when the "add" button is pressed"""
 
     @abstractmethod
     def set_on_delete_click(self, handler: Callable[[List[int]], None]) -> None:
-        """「削除」ボタン押下時に呼ばれるハンドラを登録する。
-        引数: task_ids（削除対象。複数選択している場合は選択中の全件）。
-        確認ポップアップの表示・選択行の特定はView側で行い、「はい」が選ばれた
-        場合のみこのハンドラを呼ぶ。
+        """Register a handler called when the "delete" button is pressed.
+        Argument: task_ids (the targets to delete; every selected id if
+        multiple rows are selected).
+        Showing the confirmation popup and identifying the selected rows is
+        the View's responsibility; this handler is only called once "Yes" is chosen.
         """
 
     @abstractmethod
     def select_task(self, task_id: int) -> None:
-        """指定したタスクを選択状態にする（追加直後に一覧を最新化した後などに使う）"""
+        """Select the given task (used e.g. after refreshing the list right after an add)"""
 
     @abstractmethod
     def show_due_date_highlights(self, highlights: Dict[int, str]) -> None:
-        """期限が近い/過ぎているタスクの行を見た目で強調する。
-        引数: task_id → "warning"（期限が近い）または "overdue"（期限超過）の対応表。
-        表に含まれないtask_idは通常表示に戻す。
+        """Visually emphasize rows for tasks whose due date is near or past.
+        Argument: a task_id -> "warning" (due soon) or "overdue" (past due) mapping.
+        Any task_id not in the mapping is returned to normal display.
         """
 
     @abstractmethod
     def set_on_export_click(self, handler: Callable[[], None]) -> None:
-        """「書き出し」ボタン押下時に呼ばれるハンドラを登録する"""
+        """Register a handler called when the "export" button is pressed"""
 
     @abstractmethod
     def set_on_import_click(self, handler: Callable[[], None]) -> None:
-        """「読み込み」ボタン押下時に呼ばれるハンドラを登録する"""
+        """Register a handler called when the "import" button is pressed"""
 
     @abstractmethod
     def ask_save_path(self) -> Optional[str]:
-        """書き出し先のファイルパスをユーザーに選ばせる。キャンセル時はNone"""
+        """Let the user choose the export destination file path. None if cancelled"""
 
     @abstractmethod
     def ask_open_path(self) -> Optional[str]:
-        """読み込み元のファイルパスをユーザーに選ばせる。キャンセル時はNone"""
+        """Let the user choose the import source file path. None if cancelled"""
 
     @abstractmethod
     def show_message(self, title: str, message: str) -> None:
-        """メッセージをポップアップ表示する"""
+        """Show a message in a popup"""

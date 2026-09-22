@@ -1,12 +1,13 @@
 """
-Presenter の単体テスト（pytest）
+Presenter unit tests (pytest)
 --------------------------------
-FakeView（各 View 抽象クラスの偽実装）を差し込むことで、Tkinter を一切起動せずに
-2 つの Presenter のロジックを検証する。View 以下の Tkinter 実装
-（view/task/tk_frame.py / view/settings/tk_frame.py / view/tk_main_window.py）は
-読み込まないため、tkinter が入っていない環境でも実行できる。
+Verifies the logic of the two Presenters without ever starting Tkinter, by
+plugging in a FakeView (a fake implementation of each View abstract class).
+Does not import the Tkinter implementations under View
+(view/task/tk_frame.py / view/settings/tk_frame.py / view/tk_main_window.py),
+so this runs fine even in an environment without tkinter installed.
 
-実行方法（リポジトリのルートで）:
+How to run (from the repository root):
     pip install -r requirements-dev.txt
     pytest
 """
@@ -106,8 +107,8 @@ class FakeSettingsView(SettingsView):
 
 @pytest.fixture
 def task_ctx():
-    """タスク一覧タブの Presenter 一式（インメモリ DB）。
-    戻り値: (model, settings_model, view, presenter)。
+    """A full set of task-list-tab Presenter parts (in-memory DB).
+    Returns: (model, settings_model, view, presenter).
     """
     model = TaskModel(db_path=":memory:")
     settings_model = SettingsModel(db_path=":memory:")
@@ -122,8 +123,8 @@ def task_ctx():
 
 @pytest.fixture
 def settings_pair():
-    """設定タブ用の (settings_model, view)。Presenter はテスト側で
-    on_settings_saved を渡して組む（テストごとに中身が違うため）。
+    """(settings_model, view) for the settings tab. The test itself wires up
+    the Presenter, passing on_settings_saved (since it differs per test).
     """
     settings_model = SettingsModel(db_path=":memory:")
     view = FakeSettingsView()
@@ -145,7 +146,7 @@ def test_task_list_presenter_edits_cell(task_ctx) -> None:
     view.cell_edited_handler(target.id, "assignee", "Suzuki")
 
     assert model.list_tasks()[0].assignee == "Suzuki"
-    # 更新後にViewへ再表示されている
+    # Re-shown to the View after the update
     assert view.shown_tasks[0].assignee == "Suzuki"
 
 
@@ -162,19 +163,19 @@ def test_task_list_presenter_rejects_empty_name_edit(task_ctx) -> None:
 def test_task_list_presenter_sorts_by_column_and_toggles_direction(task_ctx) -> None:
     model, settings_model, view, presenter = task_ctx
 
-    assert view.sort_state == (None, True)  # 初期状態はソートなし
+    assert view.sort_state == (None, True)  # Unsorted initially
 
     view.column_clicked_handler("due_date")
     dates = [t.due_date for t in view.shown_tasks]
-    assert dates == sorted(dates)  # 昇順
+    assert dates == sorted(dates)  # Ascending
     assert view.sort_state == ("due_date", True)
 
-    view.column_clicked_handler("due_date")  # 同じ列を再クリック→降順に切り替え
+    view.column_clicked_handler("due_date")  # Click the same column again -> switches to descending
     dates = [t.due_date for t in view.shown_tasks]
     assert dates == sorted(dates, reverse=True)
     assert view.sort_state == ("due_date", False)
 
-    view.column_clicked_handler("name")  # 別の列をクリック→昇順から
+    view.column_clicked_handler("name")  # Click a different column -> starts from ascending
     assert view.sort_state == ("name", True)
 
 
@@ -190,16 +191,16 @@ def test_task_list_presenter_sorts_priority_by_meaning_not_alphabetically(task_c
 def test_task_list_presenter_sort_keeps_blank_values_at_bottom(task_ctx) -> None:
     model, settings_model, view, presenter = task_ctx
 
-    # 「追加」で作った空欄タスクを1件混ぜる
+    # Mix in one blank task created via "add"
     view.add_handler()
     blank_task = model.list_tasks()[-1]
 
-    # 昇順: 空欄は末尾
+    # Ascending: blank goes last
     view.column_clicked_handler("assignee")
     assert view.shown_tasks[-1].id == blank_task.id
     assert all(t.assignee.strip() for t in view.shown_tasks[:-1])
 
-    # 降順に切り替えても、空欄は引き続き末尾（先頭に来てはいけない）
+    # Even after switching to descending, the blank stays last (must not jump to the front)
     view.column_clicked_handler("assignee")
     assert view.sort_state == ("assignee", False)
     assert view.shown_tasks[-1].id == blank_task.id
@@ -214,14 +215,15 @@ def test_task_list_presenter_adds_blank_task_with_default_name(task_ctx) -> None
 
     assert len(model.list_tasks()) == before + 1
     new_task = model.list_tasks()[-1]
-    # 仮名は件数や id ではなく「既存の "Task N" の最大値 + 1」。
-    # シード5件には "Task N" が無いので最初の追加は "Task 1"。
+    # The placeholder name is not based on count or id, but on "the highest
+    # existing 'Task N' + 1". None of the 5 seed tasks are named "Task N",
+    # so the first add is "Task 1".
     assert new_task.name == "Task 1"
     assert new_task.assignee == ""
     assert new_task.due_date == ""
     assert new_task.priority == ""
     assert new_task.status == ""
-    # 追加後、その行が選択状態になる
+    # The row becomes selected after adding
     assert view.selected_task_id == new_task.id
 
 
@@ -237,7 +239,7 @@ def test_task_list_presenter_add_names_start_at_task_1(task_ctx) -> None:
 def test_task_list_presenter_add_always_appears_at_bottom_even_when_sorted(task_ctx) -> None:
     model, settings_model, view, presenter = task_ctx
 
-    # タスク名で昇順ソートしておく
+    # Sort ascending by task name first
     view.column_clicked_handler("name")
     assert view.sort_state == ("name", True)
     sorted_ids_before_add = [t.id for t in view.shown_tasks]
@@ -245,9 +247,9 @@ def test_task_list_presenter_add_always_appears_at_bottom_even_when_sorted(task_
     view.add_handler()
     new_task = model.list_tasks()[-1]
 
-    # 見出しの矢印(ソート中の目印)は消えるが、
+    # The header arrow (the sorting indicator) disappears, but
     assert view.sort_state == (None, True)
-    # 既存の行の並び順はソートしていた時のまま変わらず、新タスクだけが末尾に足される
+    # the order of the existing rows stays exactly as it was while sorted; only the new task is appended at the end
     assert [t.id for t in view.shown_tasks] == sorted_ids_before_add + [new_task.id]
 
 
@@ -260,7 +262,7 @@ def test_task_list_presenter_add_preserves_order_across_further_edits(task_ctx) 
     new_task = model.list_tasks()[-1]
     order_after_add = order_after_add + [new_task.id]
 
-    # 追加後に別のセルを編集しても(=refreshが再度走っても)、固定した順番は保たれる
+    # Even editing another cell afterward (i.e. refresh runs again), the fixed order is preserved
     target = model.list_tasks()[0]
     view.cell_edited_handler(target.id, "assignee", "Tanaka")
 
@@ -278,20 +280,20 @@ def test_task_list_presenter_two_consecutive_adds_keep_order(task_ctx) -> None:
     view.add_handler()
     second_new = model.list_tasks()[-1]
 
-    # 1回目の追加が固定した並び順を、2回目の追加でも壊さず、末尾に足すだけ
+    # The order fixed by the first add is not broken by the second add; it's just appended at the end
     assert [t.id for t in view.shown_tasks] == sorted_ids + [first_new.id, second_new.id]
 
 
 def test_task_list_presenter_add_name_skips_existing_task_number(task_ctx) -> None:
     model, settings_model, view, presenter = task_ctx
 
-    # 既存の行を "Task 5" にリネームしておく（手入力や CSV 取り込みを想定）
+    # Rename an existing row to "Task 5" (simulating manual entry or a CSV import)
     seed = model.list_tasks()[0]
     view.cell_edited_handler(seed.id, "name", "Task 5")
 
     view.add_handler()
 
-    # 最大値 + 1。既存の "Task 5" と衝突しない
+    # Max value + 1. Doesn't collide with the existing "Task 5"
     assert model.list_tasks()[-1].name == "Task 6"
 
 
@@ -309,7 +311,7 @@ def test_task_list_presenter_deletes_task(task_ctx) -> None:
 def test_task_list_presenter_deletes_multiple_tasks(task_ctx) -> None:
     model, settings_model, view, presenter = task_ctx
 
-    targets = model.list_tasks()[:2]  # 複数選択のシミュレーション
+    targets = model.list_tasks()[:2]  # Simulating a multi-select
     target_ids = [t.id for t in targets]
     before = len(model.list_tasks())
     view.delete_handler(target_ids)
@@ -361,8 +363,9 @@ def test_task_list_presenter_excludes_completed_status_from_highlight(task_ctx) 
 
 
 def test_task_list_presenter_highlight_follows_due_date_not_status(task_ctx) -> None:
-    """「Overdue」という状態は無い。期限切れの赤は due_date からのみ決まり、
-    期限を未来に直せば赤も消える（＝一度赤くなったら戻らない、が起きない）。
+    """There is no "Overdue" status. The overdue-red state is decided purely
+    from due_date, and fixing the due date to the future clears the red too
+    (i.e. it never happens that "once red, always red").
     """
     model, settings_model, view, presenter = task_ctx
 
@@ -371,7 +374,7 @@ def test_task_list_presenter_highlight_follows_due_date_not_status(task_ctx) -> 
     yesterday = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
     view.cell_edited_handler(task.id, "due_date", yesterday)
     assert view.highlights.get(task.id) == "overdue"
-    # status は due_date 編集では書き換わらない
+    # status is not changed by editing due_date
     assert model.get_task(task.id).status == original_status
 
     far_future = (date.today() + timedelta(days=60)).strftime("%Y-%m-%d")
@@ -407,17 +410,17 @@ def test_task_list_presenter_export_import_csv(task_ctx) -> None:
         view.import_handler()
 
         assert len(model.list_tasks()) == before * 2
-        # 書き出し・読み込みそれぞれで1件ずつメッセージが表示される
+        # One message is shown for the export and one for the import
         assert len(view.messages) == 2
 
 
 def test_task_list_presenter_export_reports_io_error(task_ctx) -> None:
-    """書き出し先が開けない時、素のトレースバックではなくエラーメッセージを出す。"""
+    """When the export destination can't be opened, show an error message instead of a raw traceback."""
     model, settings_model, view, presenter = task_ctx
     with tempfile.TemporaryDirectory() as tmp_dir:
-        # 存在しないサブフォルダの下 → open() が FileNotFoundError(OSError)
+        # Under a subfolder that doesn't exist -> open() raises FileNotFoundError (an OSError)
         view.save_path = os.path.join(tmp_dir, "no_such_dir", "tasks.csv")
-        view.export_handler()  # 例外が外に漏れないこと
+        view.export_handler()  # The exception must not leak out
 
     assert view.messages and view.messages[-1][0] == "Error"
 
@@ -428,12 +431,12 @@ def test_task_list_presenter_import_reports_missing_file(task_ctx) -> None:
     view.open_path = os.path.join(tempfile.gettempdir(), "not_here_20260903.csv")
     view.import_handler()
 
-    assert len(model.list_tasks()) == before  # 何も取り込まれない
+    assert len(model.list_tasks()) == before  # Nothing is imported
     assert view.messages and view.messages[-1][0] == "Error"
 
 
 def test_task_list_presenter_import_reports_bad_format(task_ctx) -> None:
-    """'name' 列が無い CSV は「0件取り込み」ではなくエラーにする。"""
+    """A CSV without a 'name' column is treated as an error, not "0 imported"."""
     model, settings_model, view, presenter = task_ctx
     with tempfile.TemporaryDirectory() as tmp_dir:
         path = os.path.join(tmp_dir, "wrong.csv")
@@ -448,7 +451,7 @@ def test_task_list_presenter_import_reports_bad_format(task_ctx) -> None:
 
 
 def test_task_list_presenter_import_reports_bad_encoding(task_ctx) -> None:
-    """UTF-8 として解釈できないバイト列でも、トレースバックにせずエラー表示。"""
+    """Even a byte sequence that can't be decoded as UTF-8 is shown as an error, not a traceback."""
     model, settings_model, view, presenter = task_ctx
     with tempfile.TemporaryDirectory() as tmp_dir:
         path = os.path.join(tmp_dir, "bad_encoding.csv")
@@ -463,8 +466,8 @@ def test_task_list_presenter_import_reports_bad_encoding(task_ctx) -> None:
 
 
 def test_task_list_presenter_auto_saves_on_add(task_ctx) -> None:
-    """編集操作(ここでは追加)のたびに即座に保存され、model.is_dirty()が
-    Falseに戻る(Auto Save)。
+    """Every edit operation (here, an add) is saved immediately, and
+    model.is_dirty() returns back to False (Auto Save).
     """
     model, settings_model, view, presenter = task_ctx
 
@@ -475,8 +478,9 @@ def test_task_list_presenter_auto_saves_on_add(task_ctx) -> None:
 
 
 def test_task_list_presenter_edit_is_immediately_persisted() -> None:
-    """セル編集した内容が、別の接続(=再起動を模した新しいTaskModel)からも
-    即座に見えることを確認する(Save操作を挟まない)。
+    """Verifies that an edited cell is immediately visible from a different
+    connection (= a new TaskModel simulating a restart), without going
+    through a Save operation.
     """
     with tempfile.TemporaryDirectory() as tmp_dir:
         db_path = os.path.join(tmp_dir, "test.db")
@@ -493,8 +497,8 @@ def test_task_list_presenter_edit_is_immediately_persisted() -> None:
         reopened = TaskModel(db_path=db_path)
         assert reopened.get_task(target.id).assignee == "Changed"
 
-        # Windowsは開いているファイルを削除できないので、TemporaryDirectoryを
-        # 抜ける前に接続を閉じる。
+        # Windows can't delete a file that's still open, so close the
+        # connections before leaving the TemporaryDirectory.
         model.close()
         reopened.close()
         settings_model.close()
@@ -514,24 +518,24 @@ def test_backup_and_rotate_copies_current_db_contents() -> None:
         backups = os.listdir(backup_dir)
         assert len(backups) == 1
 
-        # バックアップ時点の内容が複製されていることを確認する
-        # (バックアップされたファイルをそのままTaskModelで開いて中身を見る)
+        # Confirm that the contents at backup time were duplicated
+        # (open the backed-up file directly with TaskModel and check its contents)
         backup_path = os.path.join(backup_dir, backups[0])
         reopened = TaskModel(db_path=backup_path)
-        assert len(reopened.list_tasks()) == 6  # デモ5件 + 追加した1件
+        assert len(reopened.list_tasks()) == 6  # 5 demo tasks + 1 added
         reopened.close()
 
 
 def test_backup_and_rotate_keeps_backups_within_retention_window() -> None:
     with tempfile.TemporaryDirectory() as tmp_dir:
         db_path = os.path.join(tmp_dir, "app.db")
-        TaskModel(db_path=db_path).close()  # 初回作成(シード投入)でapp.dbができる
+        TaskModel(db_path=db_path).close()  # app.db is created on first construction (seed data inserted)
 
         for _ in range(5):
             backup_and_rotate(db_path, keep_for=timedelta(hours=24))
 
         backup_dir = os.path.join(tmp_dir, "backups")
-        # 全部24時間以内に作られたものなので、5件とも残る
+        # All of them were made within the last 24 hours, so all 5 remain
         assert len(os.listdir(backup_dir)) == 5
 
 
@@ -545,11 +549,11 @@ def test_backup_and_rotate_prunes_backups_older_than_retention_window() -> None:
         old_backup_name = os.listdir(backup_dir)[0]
         old_backup_path = os.path.join(backup_dir, old_backup_name)
 
-        # このバックアップを25時間前に作られたことにする(保持期間の外)
+        # Pretend this backup was made 25 hours ago (outside the retention window)
         old_time = (datetime.now() - timedelta(hours=25)).timestamp()
         os.utime(old_backup_path, (old_time, old_time))
 
-        # 内容を変えてから、新しいバックアップをもう1つ作る
+        # Change the contents, then make one more new backup
         model = TaskModel(db_path=db_path)
         model.add_blank_task()
         model.save()
@@ -557,16 +561,16 @@ def test_backup_and_rotate_prunes_backups_older_than_retention_window() -> None:
         backup_and_rotate(db_path, keep_for=timedelta(hours=24))
 
         backups = os.listdir(backup_dir)
-        assert old_backup_name not in backups  # 保持期間外のものは消えている
-        assert len(backups) == 1  # 新しいものだけ残っている
+        assert old_backup_name not in backups  # The one outside the retention window is gone
+        assert len(backups) == 1  # Only the new one remains
 
 
 def test_backup_and_rotate_skips_memory_and_missing_files() -> None:
     with tempfile.TemporaryDirectory() as tmp_dir:
-        # :memory: はそもそもファイルが無いので何もしない
+        # ":memory:" has no file to begin with, so nothing happens
         backup_and_rotate(":memory:")
 
-        # まだ一度もsave()していない(=ファイルがまだ無い)場合も何もしない
+        # Also does nothing when save() has never been called yet (= the file doesn't exist yet)
         missing_path = os.path.join(tmp_dir, "not_created_yet.db")
         backup_and_rotate(missing_path)
 
@@ -574,8 +578,8 @@ def test_backup_and_rotate_skips_memory_and_missing_files() -> None:
 
 
 def test_settings_presenter_saves_field_changes_immediately(settings_pair) -> None:
-    """フィールドを変更した瞬間に、Saveボタンを介さず即座にDBへ保存される
-    （Auto Save）。
+    """The moment a field is changed, it's saved to the DB immediately
+    without going through a Save button (Auto Save).
     """
     settings_model, view = settings_pair
     SettingsPresenter(settings_model, view, on_settings_saved=lambda: None)
@@ -594,7 +598,7 @@ def test_settings_default_backup_interval_is_15_minutes() -> None:
 
 
 def test_settings_presenter_saves_backup_interval_immediately(settings_pair) -> None:
-    """バックアップ間隔も、他のフィールドと同様に変更した瞬間に即座に保存される"""
+    """The backup interval, like other fields, is saved immediately the moment it's changed"""
     settings_model, view = settings_pair
     SettingsPresenter(settings_model, view, on_settings_saved=lambda: None)
 
@@ -624,7 +628,7 @@ def test_settings_presenter_highlight_toggle_applies_immediately(settings_pair) 
     view.highlight_toggled_handler(False)
 
     assert settings_model.get().notify_enabled is False
-    assert len(saved) == 1  # 一覧タブの再評価(ハイライトOFF反映)が即座に呼ばれる
+    assert len(saved) == 1  # The list tab's re-evaluation (applying highlight OFF) is called immediately
 
 
 def test_task_list_presenter_highlight_disappears_immediately_when_toggled_off(task_ctx) -> None:
@@ -654,8 +658,9 @@ def test_task_list_presenter_highlight_disappears_immediately_when_toggled_off(t
         (["Task 1", "Task 2"], "Task 3"),
         (["Task 5"], "Task 6"),
         (["Task 1", "Task 9", "Task 3"], "Task 10"),
-        (["Task 007"], "Task 8"),  # 先頭ゼロは int() で落ちる
-        # どれも "Task <数字>" の完全一致ではないので無視され、"Task 1" に戻る
+        (["Task 007"], "Task 8"),  # Leading zeros are dropped by int()
+        # None of these is an exact match for "Task <number>", so they're
+        # ignored and it falls back to "Task 1"
         (
             ["Task", "Task  3", "task 3", "Task 3x", "My Task 4", "Task -1", "Task ３"],
             "Task 1",

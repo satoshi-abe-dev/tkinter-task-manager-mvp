@@ -1,9 +1,9 @@
 """
-view.settings — 設定タブの View 層。フォルダ ＝ この名前空間。
+view.settings — View layer for the settings tab. The folder = this namespace.
 
-再エクスポートするのは抽象クラス SettingsView（contract.py）だけ（理由は view.task と同じ）。
-Tkinter 実装は
-`task_manager_tkinter.view.settings.tk_frame` から import すること。
+Only re-exports the abstract class SettingsView (contract.py) (same reason
+as view.task). Import the Tkinter implementation from
+`task_manager_tkinter.view.settings.tk_frame`.
 """
 
 from task_manager_tkinter.view.settings.contract import SettingsView

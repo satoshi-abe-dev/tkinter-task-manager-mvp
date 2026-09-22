@@ -1,7 +1,8 @@
 """
-Model — アプリ設定（データクラス）
-----------------------------------
-設定1件分の値を表す。ロジックは持たない。永続化・取得は SettingsModel が担う。
+Model — app settings (dataclass)
+-----------------------------------
+Represents the values for one set of settings. Holds no logic — persistence
+and retrieval are handled by SettingsModel.
 """
 
 from dataclasses import dataclass

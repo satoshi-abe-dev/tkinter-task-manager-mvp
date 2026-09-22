@@ -1,13 +1,14 @@
 """
-View（Tkinter実装層）— ウィンドウ全体
---------------------------------------
-タスク一覧タブ(TkTaskListFrame)・設定タブ(TkSettingsFrame)をttk.Notebookに
-まとめ、ウィンドウ全体の起動(run)を担う。各タブ自体の実装は view/task/、
-view/settings/ 以下（タブごとのフォルダ）に分かれている。
+View (Tkinter implementation layer) — the overall window
+--------------------------------------------------------------
+Combines the task list tab (TkTaskListFrame) and the settings tab
+(TkSettingsFrame) into a ttk.Notebook, and handles launching the whole
+window (run). Each tab's own implementation lives under view/task/ and
+view/settings/ (one folder per tab).
 
-編集は常に即座にDB(SQLite)へ保存される(Auto Save)ため、Saveボタンや
-「未保存」表示は無い。ディスク破損などに備えたバックアップは、main.py側で
-schedule()を使って定期的に取る。
+Edits are always saved to the DB (SQLite) immediately (Auto Save), so there
+is no Save button or "unsaved" indicator. Backups against disk corruption
+etc. are taken periodically on the main.py side using schedule().
 """
 
 import tkinter as tk
@@ -23,7 +24,7 @@ _WINDOW_HEIGHT = 560
 
 # Called at main.py > def main()
 class TkMainWindow:
-    """2タブ(タスク一覧/設定)をまとめるメインウィンドウ"""
+    """The main window combining the two tabs (task list / settings)"""
 
     def __init__(self) -> None:
         self._root = tk.Tk()
@@ -45,15 +46,17 @@ class TkMainWindow:
         self._center_on_screen(_WINDOW_WIDTH, _WINDOW_HEIGHT)
 
     def _center_on_screen(self, width: int, height: int) -> None:
-        """指定サイズのウィンドウを画面中央に配置する。
+        """Position a window of the given size in the center of the screen.
 
-        geometry() にサイズだけ渡すと初期位置はウィンドウマネージャ任せに
-        なり、環境によっては左下などに寄る。画面の幅・高さから左上座標を
-        計算して "WxH+X+Y" 形式で明示する。
+        Passing only a size to geometry() leaves the initial position up to
+        the window manager, which on some environments ends up e.g. in the
+        bottom-left. Compute the top-left coordinates from the screen's
+        width/height and specify them explicitly in "WxH+X+Y" form.
 
-        macOS では、ウィンドウが実体化する前に座標付き geometry() を渡しても
-        初回表示時にマネージャの既定位置で上書きされてしまう。全ウィジェットを
-        組んだ後 update_idletasks() で一度実体化させてから座標を指定する。
+        On macOS, passing a geometry() with coordinates before the window is
+        actually realized gets overwritten by the manager's default position
+        on first display. Realize it first with update_idletasks() after
+        every widget has been built, then set the coordinates.
         """
         self._root.update_idletasks()
         screen_width = self._root.winfo_screenwidth()
@@ -63,9 +66,10 @@ class TkMainWindow:
         self._root.geometry(f"{width}x{height}+{x}+{y}")
 
     def schedule(self, delay_ms: int, callback: Callable[[], None]) -> None:
-        """delay_ms ミリ秒後にcallbackを1回呼ぶ(tkinterのafter()の薄いラッパー)。
-        定期的に実行したい場合は、callback自身の中で再度schedule()を呼べばよい
-        （main.pyの定期バックアップがこの使い方をしている）。
+        """Call callback once, delay_ms milliseconds from now (a thin wrapper
+        around tkinter's after()).
+        To run something repeatedly, have callback itself call schedule()
+        again from within (this is how main.py's periodic backup is implemented).
         """
         self._root.after(delay_ms, callback)
 
@@ -73,6 +77,6 @@ class TkMainWindow:
         self._root.mainloop()
 
     def destroy(self) -> None:
-        """ウィンドウを破棄する（run() を回さずに片付けたいとき用。
-        GUI 構築スモークテストが使う）。"""
+        """Destroy the window (for tearing down without running run() —
+        used by the GUI construction smoke test)."""
         self._root.destroy()

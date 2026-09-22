@@ -1,9 +1,10 @@
 """
-Presenter — 設定タブ
---------------------
-設定の読み込み・保存を行う。フィールドが変更されるたびに即座にDBへ保存する
-（Auto Save）。CSV書き出し/読み込みはタスクデータに対する操作であり、設定の
-概念とは性質が異なるため、タスク一覧タブ側（TaskListPresenter）が担う。
+Presenter — settings tab
+-------------------------
+Handles loading and saving settings. Saves to the DB immediately whenever a
+field changes (Auto Save). CSV export/import operates on task data, which
+is conceptually different from settings, so it belongs to the task list tab
+side (TaskListPresenter) instead.
 """
 
 from typing import Callable
@@ -28,20 +29,21 @@ class SettingsPresenter:
         self.view.set_on_highlight_toggled(self.on_highlight_toggled)
 
     def on_field_changed(self) -> None:
-        """いずれかの設定項目が変更された時に呼ばれる。即座に保存する"""
+        """Called whenever any settings field changes. Saves immediately"""
         self._save_now()
 
     def on_highlight_toggled(self, enabled: bool) -> None:
-        """ハイライトON/OFFチェックボタンが切り替わった時に呼ばれる。
-        一覧タブのハイライト表示へ即座に反映する。
+        """Called when the highlight on/off checkbox is toggled.
+        Applies the change to the list tab's highlighting immediately.
         """
         self.settings_model.set_notify_enabled(enabled)
         self.on_settings_saved()
 
     def _save_now(self) -> None:
-        """Viewのフォームの現在値をそのままDBへ保存する"""
+        """Save the View form's current values to the DB as-is"""
         settings = self.view.get_form_values()
         self.settings_model.update(settings)
-        # 通知設定（有効/無効・何日前から）が一覧タブの期限ハイライトに使われて
-        # いるため、保存直後に一覧タブへ再評価させる。
+        # The notification settings (enabled/disabled, how many days ahead)
+        # are used by the list tab's due-date highlighting, so trigger a
+        # re-evaluation there right after saving.
         self.on_settings_saved()

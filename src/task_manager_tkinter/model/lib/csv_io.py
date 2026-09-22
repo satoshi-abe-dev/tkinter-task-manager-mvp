@@ -1,14 +1,15 @@
 """
 Model
 -----
-タスクのCSV書き出し・読み込み。tkinterに依存しない純粋なI/Oロジック。
-「タスク一覧」タブの書き出し/読み込みボタンから、Presenter経由で呼ばれる。
+CSV export/import for tasks. Pure I/O logic with no dependency on tkinter.
+Called from the "Task List" tab's export/import buttons, via the Presenter.
 
-例外はここでは握りつぶさず、そのまま呼び出し側(Presenter)へ投げる。
-起こりうるのは OSError(ファイルが開けない/権限/ディスク等)、
-UnicodeDecodeError(文字コード不正。ValueErrorのサブクラス)、
-csv.Error(壊れたCSV)、ValueError(必要な列が無い等。下記で明示的にraise)。
-Presenter がこれらを捕捉して view.show_message() でユーザーに伝える。
+Exceptions are not swallowed here; they are simply passed on to the caller
+(the Presenter). Possible exceptions are: OSError (file can't be opened,
+permissions, disk, etc.), UnicodeDecodeError (invalid encoding; a subclass
+of ValueError), csv.Error (malformed CSV), and ValueError (e.g. a required
+column is missing — raised explicitly below). The Presenter catches these
+and reports them to the user via view.show_message().
 """
 
 import csv
@@ -20,7 +21,7 @@ FIELDNAMES = ["name", "assignee", "due_date", "priority", "status"]
 
 
 def export_tasks_to_csv(tasks: List[Task], path: str) -> None:
-    """タスク一覧をCSVファイルに書き出す"""
+    """Write the task list out to a CSV file."""
     with open(path, "w", newline="", encoding="utf-8-sig") as f:
         writer = csv.DictWriter(f, fieldnames=FIELDNAMES)
         writer.writeheader()
@@ -37,17 +38,18 @@ def export_tasks_to_csv(tasks: List[Task], path: str) -> None:
 
 
 def import_tasks_from_csv(path: str) -> Tuple[List[Task], int]:
-    """CSVファイルからタスクを読み込む。
+    """Read tasks in from a CSV file.
 
-    戻り値: (読み込めたTaskのリスト, タスク名が空でスキップした行数)
+    Returns: (list of Tasks that were read, number of rows skipped because the task name was blank)
     """
     tasks: List[Task] = []
     skipped = 0
     with open(path, newline="", encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
         if "name" not in (reader.fieldnames or []):
-            # 見出しに name 列が無い＝このアプリのCSVではない。
-            # 全行 skip して「0件取り込み」と見せるより、はっきりエラーにする。
+            # No "name" column in the header — this isn't a CSV produced by
+            # this app. Rather than skip every row and silently report
+            # "0 imported", raise a clear error instead.
             raise ValueError(
                 "The CSV file has no 'name' column — "
                 "import a CSV that was exported by this app."
@@ -57,8 +59,9 @@ def import_tasks_from_csv(path: str) -> Tuple[List[Task], int]:
             if not name:
                 skipped += 1
                 continue
-            # 旧バージョンが書き出した "Overdue" など、今は無いステータス値は
-            # "Not Started" に寄せる（"Overdue" は状態ではなく due_date から導出する）。
+            # Fold status values that no longer exist (e.g. "Overdue", written
+            # by an older version) into "Not Started" — "Overdue" is not a
+            # status; it's derived from due_date instead.
             status = row.get("status") or "Not Started"
             if status not in STATUSES:
                 status = "Not Started"

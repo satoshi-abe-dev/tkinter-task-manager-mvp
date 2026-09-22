@@ -1,14 +1,15 @@
 """
 Model
 -----
-タスクの保持・追加・更新・削除のドメインロジックだけを持つ。View や Presenter
-のことは一切知らない。
+Holds only the domain logic for keeping, adding, updating, and deleting
+tasks. Knows nothing about the View or the Presenter.
 
-編集操作(追加/更新/削除)はメモリ上の_tasksだけを書き換え、その場ではDBへ
-書き込まない。実際にSQLiteへ反映されるのは save() が明示的に呼ばれた時
-（一覧タブの「Save」ボタン押下時）だけ。これにより、保存前に操作を間違えても、
-保存さえしなければ次回起動時には直前の保存状態にそのまま戻る（アプリの
-再起動が「全部取り消し」の代わりになる）。
+Edit operations (add/update/delete) only modify the in-memory _tasks; they
+don't write to the DB on the spot. Changes are actually flushed to SQLite
+only when save() is called explicitly (when the "Save" button on the list
+tab is pressed). This means that if you make a mistake before saving, as
+long as you don't save, restarting the app puts you right back to the last
+saved state (restarting the app acts as an "undo everything").
 """
 
 import re
@@ -20,22 +21,22 @@ from task_manager_tkinter.model.lib import task_db
 from task_manager_tkinter.model.lib.db_path import DEFAULT_DB_PATH
 from task_manager_tkinter.model.task.entity import Task
 
-# 一覧タブのインライン編集で書き換えを許すフィールド
+# Fields that inline editing on the list tab is allowed to change
 EDITABLE_FIELDS = {"name", "assignee", "due_date", "priority", "status"}
 
-# 「+ Add」の仮タスク名 "Task <数字>" を拾うためのパターン（完全一致）
+# Pattern (full match) for picking out the "+ Add" placeholder task name "Task <number>"
 _DEFAULT_TASK_NAME_RE = re.compile(r"Task ([0-9]+)")
 
 
 def _next_default_task_name(existing_names: Iterable[str]) -> str:
-    """「+ Add」で入れる仮タスク名。既存の "Task <数字>" の最大値 + 1。
-    1件も無ければ "Task 1"。
+    """The placeholder task name used by "+ Add": the highest existing
+    "Task <number>" value + 1. "Task 1" if there are none.
 
-    件数や id ではなく既存の名前を見て採番する:
-      - シードだけの状態（"Task N" が無い）では必ず "Task 1" から始まる
-      - ユーザーが "Task 40" を手入力／CSV 取り込みしていても次は "Task 41"
-        になり、名前が重複しない
-    ユーザーはこの後この仮名を書き換える前提。
+    Numbering is based on the existing names, not the count or an id:
+      - With only the seed data (no "Task N" present), it always starts at "Task 1"
+      - Even if the user has typed in "Task 40" by hand or imported it via
+        CSV, the next one will be "Task 41", so names never collide
+    The user is expected to rename this placeholder afterward.
     """
     numbers = []
     for name in existing_names:
@@ -47,15 +48,17 @@ def _next_default_task_name(existing_names: Iterable[str]) -> str:
 
 
 def _seed_tasks() -> List[Task]:
-    """デモ用の初期データ。
+    """Initial demo data.
 
-    期限日は「初回起動した日」を基準に相対的に決める。既定の通知設定
-    （notify_enabled=True / notify_days_before=3）のもとで、一覧タブの期限ハイライトが
-    初回から「白2・黄2・赤1」に見えるように配置している（黄＝期限が近い、赤＝超過）。
+    Due dates are decided relative to "the day the app was first launched".
+    Under the default notification settings (notify_enabled=True /
+    notify_days_before=3), they're arranged so the list tab's due-date
+    highlighting shows "2 white, 2 yellow, 1 red" right from the start
+    (yellow = due soon, red = overdue).
 
-    呼び出すたびに新しいTaskインスタンスを作る（add_taskはtask.idをその場で
-    書き換えるため、複数のTaskModelインスタンス間で同じTaskオブジェクトを
-    使い回すとidが競合する）。
+    Builds a fresh set of Task instances on every call (add_task rewrites
+    task.id in place, so reusing the same Task objects across multiple
+    TaskModel instances would cause id collisions).
     """
     today = date.today()
 
@@ -63,23 +66,25 @@ def _seed_tasks() -> List[Task]:
         return (today + timedelta(days=offset_days)).strftime("%Y-%m-%d")
 
     return [
-        # 黄: 期限が近い（today+1 / today+2 とも警告しきい値 today+3 以内）
+        # Yellow: due soon (today+1 and today+2 are both within the today+3 warning threshold)
         Task("Prepare Quotation", "Sato", due(1), "High", "In Progress"),
         Task("Prepare Meeting Materials", "Tanaka", due(2), "Medium", "Not Started"),
-        # 赤: 期限超過（過去の期限日。未完了なら自動で赤くなる）
+        # Red: overdue (a past due date; turns red automatically while not yet done)
         Task("Write Release Notes", "Suzuki", due(-2), "High", "In Progress"),
-        # 白: Done は常にハイライト対象外
+        # White: Done tasks are always excluded from highlighting
         Task("Expense Report", "Sato", due(30), "Low", "Done"),
-        # 白: 警告しきい値より先（today+7 > today+3）
+        # White: beyond the warning threshold (today+7 > today+3)
         Task("Design Review", "Tanaka", due(7), "Medium", "In Progress"),
     ]
 
 
 class TaskModel:
     def __init__(self, db_path: str = DEFAULT_DB_PATH) -> None:
-        # デモデータを入れるのは「DBファイルがまだ存在しない＝正真正銘の初回起動」の
-        # ときだけ。connect() がファイルを作ってしまうので、その前に判定しておく。
-        # （":memory:" は毎回まっさらな使い捨てDBなので常に初回扱い＝テスト用）
+        # Only seed demo data when "the DB file doesn't exist yet" = a
+        # genuine first launch. connect() would create the file, so this
+        # must be checked beforehand.
+        # (":memory:" is a fresh disposable DB every time, so it's always
+        # treated as a first run — used for tests.)
         first_run = db_path == ":memory:" or not Path(db_path).exists()
 
         self._conn = task_db.connect(db_path)
@@ -90,41 +95,42 @@ class TaskModel:
         else:
             self._next_id = 1
             if first_run:
-                # 初回起動: デモ用の初期データを投入してすぐ保存する。
-                # 2回目以降にユーザーが全タスクを削除しても、app.db は残るので
-                # 「空のまま」になり、デモデータは復活しない。
+                # First launch: seed the initial demo data and save immediately.
+                # If the user later deletes every task, app.db still exists,
+                # so it just stays empty — the demo data never comes back.
                 for task in _seed_tasks():
                     self.add_task(task)
                 self.save()
 
     def close(self) -> None:
-        """DB接続を閉じる。アプリはプロセス終了まで開きっぱなしで問題ないが、
-        テストで一時ファイルを消す前などに明示的に閉じる（特にWindowsは
-        開いているファイルを削除できないため）。"""
+        """Close the DB connection. It's fine for the app to leave it open
+        until the process exits, but tests close it explicitly before
+        removing their temp files (Windows in particular can't delete a
+        file that's still open)."""
         self._conn.close()
 
     def list_tasks(self) -> List[Task]:
-        """登録済みタスクの一覧を返す"""
+        """Return the list of registered tasks"""
         return list(self._tasks)
 
     def get_task(self, task_id: int) -> Optional[Task]:
-        """idで1件だけ取得する。見つからなければNone"""
+        """Fetch a single task by id. Returns None if not found"""
         for task in self._tasks:
             if task.id == task_id:
                 return task
         return None
 
     def is_dirty(self) -> bool:
-        """save()していない変更があるかどうか"""
+        """Whether there are changes that haven't been save()d"""
         return self._dirty
 
     def save(self) -> None:
-        """現在のメモリ上の状態をまるごとDBへ反映する（一覧タブの「Save」ボタン用）"""
+        """Flush the current in-memory state to the DB wholesale (used by the list tab's "Save" button)"""
         task_db.replace_all(self._conn, self._tasks)
         self._dirty = False
 
     def add_task(self, task: Task) -> Task:
-        """タスクを1件追加する。idを採番して返す（DBへの反映はsave()を待つ）"""
+        """Add one task. Assigns and returns its id (the DB isn't updated until save())"""
         task.id = self._next_id
         self._next_id += 1
         self._tasks.append(task)
@@ -132,12 +138,13 @@ class TaskModel:
         return task
 
     def add_blank_task(self) -> Task:
-        """全項目が空のタスクを1件追加する（一覧タブの「追加」ボタン用）。
+        """Add one task with every field blank (used by the list tab's "add" button).
 
-        タスク名だけは空にせず仮名「Task N」を入れる。N は既存の
-        「Task <数字>」の最大値 + 1（無ければ 1）。件数や id に依存しないので、
-        シードだけの状態では「Task 1」から始まり、既存に「Task N」があっても
-        名前が重複しない。ユーザーはこの後この名前を書き換える前提。
+        Only the task name is not left blank — a placeholder "Task N" is
+        used instead. N is the highest existing "Task <number>" value + 1
+        (1 if none exist). Doesn't depend on the count or an id, so with
+        only the seed data it starts at "Task 1", and it won't collide with
+        an existing "Task N". The user is expected to rename it afterward.
         """
         name = _next_default_task_name(t.name for t in self._tasks)
         return self.add_task(
@@ -145,18 +152,18 @@ class TaskModel:
         )
 
     def delete_tasks(self, task_ids: Iterable[int]) -> None:
-        """指定した複数のタスクを削除する（一覧タブの「削除」ボタン用。複数選択に対応）"""
+        """Delete the given tasks (used by the list tab's "delete" button; supports multi-select)"""
         ids = set(task_ids)
         self._tasks = [t for t in self._tasks if t.id not in ids]
         self._dirty = True
 
     def update_task_field(self, task_id: int, field: str, value: str) -> None:
-        """指定したタスクの1項目を書き換える（一覧タブのインライン編集用）"""
+        """Change a single field on the given task (used by the list tab's inline editing)"""
         if field not in EDITABLE_FIELDS:
-            raise ValueError(f"編集できない項目です: {field}")
+            raise ValueError(f"Not an editable field: {field}")
         for task in self._tasks:
             if task.id == task_id:
                 setattr(task, field, value)
                 self._dirty = True
                 return
-        raise ValueError(f"該当するタスクが見つかりません: id={task_id}")
+        raise ValueError(f"No matching task found: id={task_id}")

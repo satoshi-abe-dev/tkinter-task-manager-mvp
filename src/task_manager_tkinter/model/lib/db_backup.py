@@ -1,19 +1,22 @@
 """
-DBファイル(app.db)のバックアップ・世代管理
---------------------------------------------
-tkinterに依存しない純粋なI/O。タスク用・設定用のテーブルは同じ物理ファイル
-(model.lib.db_path.DEFAULT_DB_PATH)に同居しているため、バックアップはファイル単位で
-1つの仕組みにまとめている。
+Backup and generation management for the DB file (app.db)
+------------------------------------------------------------
+Pure I/O with no dependency on tkinter. The task and settings tables live
+together in the same physical file (model.lib.db_path.DEFAULT_DB_PATH), so
+backups are handled as a single, file-level mechanism.
 
-SQLite自体はトランザクションのおかげで「書き込み中のクラッシュで中途半端に
-壊れる」ことには強いが、ディスク故障やファイルシステムの異常など、
-ファイルそのものが読めなくなるケースまでは守れない。そのための保険として、
-定期的に別ファイルへコピーしておく（main.py側で一定間隔ごとに呼ばれる）。
+SQLite itself, thanks to transactions, is resilient to "corrupted midway
+through because of a crash during a write", but it can't protect against
+cases where the file itself becomes unreadable, such as disk failure or a
+filesystem fault. As a safety net for that, we periodically copy it to a
+separate file (called at a fixed interval from the main.py side).
 
-保持方針は「直近24時間以内のものは全部残す」という時間ベース。件数ベース
-（直近N件）ではなく時間ベースにしているのは、将来DBが大規模化してバックアップ
-間隔を調整しても（例: 15分おき→1分おきに変更）、コードを直さずに「1日分は
-遡れる」という要件がそのまま保たれるようにするため。
+The retention policy is time-based: "keep everything from the last 24
+hours." It's time-based rather than count-based (e.g. "last N backups") so
+that, even if the DB grows large in the future and the backup interval is
+tuned accordingly (e.g. changed from every 15 minutes to every minute), the
+requirement "you can go back up to a day" continues to hold without any
+code changes.
 """
 
 import shutil
@@ -27,11 +30,11 @@ _DEFAULT_RETENTION = timedelta(hours=24)
 
 
 def backup_and_rotate(db_path: str, keep_for: timedelta = _DEFAULT_RETENTION) -> None:
-    """db_pathの現在の内容をタイムスタンプ付きでバックアップし、
-    `keep_for`より古いバックアップを削除する。
+    """Back up the current contents of db_path with a timestamp, and delete
+    any backups older than `keep_for`.
 
-    db_path=":memory:"の場合や、DBファイルがまだ存在しない場合（初回起動で
-    一度もsave()していない等）は何もしない。
+    Does nothing when db_path == ":memory:" or the DB file doesn't exist yet
+    (e.g. on first launch, before save() has ever been called).
     """
     source = Path(db_path)
     if db_path == ":memory:" or not source.exists():
@@ -41,9 +44,10 @@ def backup_and_rotate(db_path: str, keep_for: timedelta = _DEFAULT_RETENTION) ->
     backup_dir.mkdir(parents=True, exist_ok=True)
 
     timestamp = datetime.now().strftime(_TIMESTAMP_FORMAT)
-    # 短時間に連続でバックアップされると、環境によっては秒未満の時計の分解能が
-    # 粗くtimestampだけでは衝突しうる（同じ名前で上書きされ、実質バックアップが
-    # 増えない）。一意性を保証するため、短いランダムな符号を必ず付ける。
+    # If backups happen in quick succession, sub-second clock resolution on
+    # some environments can be too coarse for the timestamp alone to be
+    # unique (the same name would get overwritten, so no backup is actually
+    # gained). Always append a short random suffix to guarantee uniqueness.
     unique_suffix = uuid.uuid4().hex[:8]
     backup_path = backup_dir / f"{source.name}.{timestamp}-{unique_suffix}{_BACKUP_SUFFIX}"
     shutil.copy2(source, backup_path)
@@ -52,9 +56,10 @@ def backup_and_rotate(db_path: str, keep_for: timedelta = _DEFAULT_RETENTION) ->
 
 
 def _prune_old_backups(backup_dir: Path, db_filename: str, keep_for: timedelta) -> None:
-    """`keep_for`より古いバックアップファイルを削除する。
-    ファイル自体の更新日時(mtime)で古さを判定する（ファイル名のタイムスタンプを
-    パースするより単純で、命名規則が将来変わっても壊れない）。
+    """Delete backup files older than `keep_for`.
+    Age is judged by the file's own modification time (mtime) — simpler than
+    parsing the timestamp out of the filename, and won't break if the naming
+    convention changes in the future.
     """
     pattern = f"{db_filename}.*{_BACKUP_SUFFIX}"
     cutoff = datetime.now() - keep_for

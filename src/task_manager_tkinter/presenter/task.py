@@ -1,8 +1,9 @@
 """
-Presenter — タスク一覧タブ
---------------------------
-Modelのタスク一覧をViewに反映する橋渡し役。
-一覧のインライン編集・カラムヘッダークリックによるソート・期限接近のハイライトを扱う。
+Presenter — task list tab
+---------------------------
+Bridges the Model's task list to the View.
+Handles inline list editing, sorting by clicking a column header, and
+highlighting tasks whose due date is approaching.
 """
 
 import csv
@@ -20,8 +21,9 @@ from task_manager_tkinter.view.task import TaskListView
 _PRIORITY_ORDER = {value: index for index, value in enumerate(PRIORITIES)}
 _STATUS_ORDER = {value: index for index, value in enumerate(STATUSES)}
 
-# 列ごとのソートキー。優先度・ステータスは文字列の五十音順ではなく、
-# model.task で定義された意味のある並び順（低→高、未着手→完了 など）で並べる。
+# Sort key per column. Priority and status are not sorted alphabetically;
+# they use the meaningful order defined in model.task (low -> high,
+# not-started -> done, etc.).
 _SORT_KEYS: Dict[str, Callable[[Task], object]] = {
     "name": lambda t: t.name,
     "assignee": lambda t: t.assignee,
@@ -30,7 +32,7 @@ _SORT_KEYS: Dict[str, Callable[[Task], object]] = {
     "status": lambda t: _STATUS_ORDER.get(t.status, len(STATUSES)),
 }
 
-# 完了したタスクは、期限が過ぎていてもハイライト対象から除外する
+# Completed tasks are excluded from highlighting even if their due date has passed
 _EXCLUDED_STATUS = "Done"
 
 
@@ -43,9 +45,10 @@ class TaskListPresenter:
         self.view = view
         self._sort_field: Optional[str] = None
         self._sort_ascending = True
-        # 「追加」直後など、列ソートに従わず「今表示している順番」をそのまま
-        # 維持したい時に使う、タスクidの並び順。Noneの間は_sort_fieldに従って
-        # 毎回ソートし直す。列ヘッダーをクリックすると解除される。
+        # Task id ordering used to keep "the order currently displayed" as-is,
+        # ignoring column sort — e.g. right after an "add". While it is None,
+        # tasks are re-sorted by _sort_field every time. Clearing it happens
+        # when a column header is clicked.
         self._manual_order: Optional[List[int]] = None
         self.view.set_on_cell_edited(self.on_cell_edited)
         self.view.set_on_column_clicked(self.on_column_clicked)
@@ -56,10 +59,11 @@ class TaskListPresenter:
         self.refresh()
 
     def refresh(self) -> None:
-        """Modelから最新のタスク一覧を取得し、必要ならソートしてViewに反映する。
+        """Fetch the latest task list from the Model, sort it if needed, and apply it to the View.
 
-        この時点で未保存の変更があれば即座にsave()する（＝結果として、
-        編集操作のたびに自動保存される。Auto Save）。
+        If there are unsaved changes at this point, save() is called
+        immediately (i.e. as a result, every edit operation is auto-saved —
+        Auto Save).
         """
         tasks = self._ordered_tasks(self.model.list_tasks())
         self.view.show_tasks(tasks)
@@ -69,37 +73,38 @@ class TaskListPresenter:
             self.model.save()
 
     def _ordered_tasks(self, tasks: List[Task]) -> List[Task]:
-        """現在の表示順でタスクを並べる。
-        _manual_order（固定順）があればそれを、無ければ現在のソート列の
-        結果を使う。「今の並び順」を知りたい場面（追加時など）でも使う
-        共通ロジック。
+        """Order the tasks in the current display order.
+        Uses _manual_order (fixed order) if set, otherwise falls back to the
+        result of the current sort column. Shared logic also used wherever
+        "the current display order" is needed (e.g. when adding).
         """
         if self._manual_order is not None:
             return self._apply_manual_order(tasks)
         return self._sorted_tasks(tasks)
 
     def _sorted_tasks(self, tasks: List[Task]) -> List[Task]:
-        """現在のソート列に従ってタスクを並べ替える（列が未指定ならそのまま）。
+        """Sort the tasks according to the current sort column (left as-is if no column is set).
 
-        値が空欄のタスクは、昇順/降順のどちらでも常に末尾に置く
-        （reverse=Trueにすると単純なキー比較だけでは空欄が先頭に来てしまう
-        ため、空欄かどうかを別扱いにする必要がある）。
+        Tasks with a blank value are always placed last, whether ascending
+        or descending (with reverse=True, a plain key comparison alone would
+        put blanks first, so "is it blank" needs to be handled separately).
         """
         if self._sort_field is None:
             return tasks
         field = self._sort_field
         key = _SORT_KEYS[field]
         tasks = sorted(tasks, key=key, reverse=not self._sort_ascending)
-        # sorted()は安定ソートなので、この後「空欄かどうか」だけで並べ替えれば、
-        # 空欄以外の順序(昇順/降順の結果)は保ったまま、空欄だけを末尾に押し出せる。
+        # Since sorted() is a stable sort, sorting once more afterward by
+        # just "is it blank" pushes only the blanks to the end while
+        # preserving the order (ascending/descending result) of everything else.
         tasks = sorted(tasks, key=lambda t: not getattr(t, field).strip())
         return tasks
 
     def _apply_manual_order(self, tasks: List[Task]) -> List[Task]:
-        """_manual_orderで固定した並び順を適用する。
+        """Apply the order fixed in _manual_order.
 
-        削除されたタスクのidは自然に取り除かれ、_manual_orderに無い
-        新しいid（読み込みなどで増えた分）は末尾に追加する。
+        Deleted task ids naturally drop out, and any new id not in
+        _manual_order (e.g. added via import) is appended at the end.
         """
         tasks_by_id = {t.id: t for t in tasks}
         ordered_ids = [tid for tid in self._manual_order if tid in tasks_by_id]
@@ -109,10 +114,11 @@ class TaskListPresenter:
         return [tasks_by_id[tid] for tid in ordered_ids]
 
     def _compute_due_date_highlights(self, tasks: List[Task]) -> Dict[int, str]:
-        """期限が近い/過ぎているタスクをハイライトするための、id→種別の対応表を作る。
+        """Build an id -> kind mapping for highlighting tasks whose due date is near or past.
 
-        「設定」タブの通知設定（有効/無効・何日前から知らせるか）をそのまま
-        判定基準として使う。通知が無効になっている間はハイライトしない。
+        Uses the Settings tab's notification settings (enabled/disabled, how
+        many days ahead to warn) as-is for the judgment. No highlighting
+        while notifications are disabled.
         """
         settings = self.settings_model.get()
         if not settings.notify_enabled:
@@ -128,25 +134,25 @@ class TaskListPresenter:
             try:
                 due = datetime.strptime(task.due_date, "%Y-%m-%d").date()
             except ValueError:
-                continue  # 期限未設定・解釈できない値はハイライトしない
+                continue  # Don't highlight tasks with no/unparseable due date
             if due < today:
-                highlights[task.id] = "overdue"  # 期限切れ（＝赤）はここだけで決まる
+                highlights[task.id] = "overdue"  # Overdue (= red) is decided solely here
             elif due <= warning_cutoff:
                 highlights[task.id] = "warning"
         return highlights
 
     def on_cell_edited(self, task_id: int, field: str, value: str) -> None:
-        """一覧タブでのインライン編集が確定した時に呼ばれる"""
+        """Called when an inline edit on the list tab is committed"""
         if field == "name" and not value.strip():
-            # タスク名を空にはできない。編集前の表示に戻す。
+            # Task name can't be blank. Revert to the pre-edit display.
             self.refresh()
             return
         self.model.update_task_field(task_id, field, value)
         self.refresh()
 
     def on_column_clicked(self, field: str) -> None:
-        """一覧タブのカラムヘッダーがクリックされた時に呼ばれる"""
-        self._manual_order = None  # 明示的な列ソート操作なので、固定順は解除する
+        """Called when a column header on the list tab is clicked"""
+        self._manual_order = None  # An explicit column-sort action, so clear the fixed order
         if self._sort_field == field:
             self._sort_ascending = not self._sort_ascending
         else:
@@ -155,15 +161,16 @@ class TaskListPresenter:
         self.refresh()
 
     def on_add_click(self) -> None:
-        """「追加」ボタン押下時に呼ばれる。空欄のタスクを1件追加して選択状態にする。
+        """Called when the "add" button is pressed. Adds one blank task and selects it.
 
-        今表示されている行の並び順（ソートしていた場合はその結果、既に
-        _manual_orderで固定済みならその順番）は変えず、新しいタスクだけを
-        末尾に追加する。_sorted_tasks()だけを見ると、2回目以降の追加で
-        直前の追加が固定した順番を無視してしまう（_sort_fieldは1回目の
-        追加時点で既にNoneになっているため）ので、_manual_orderも考慮する
-        _ordered_tasks()を使う。列見出しの矢印は、もう厳密にソートされた
-        状態ではないことを示すため非表示にする。
+        Keeps the current row order as displayed (the sort result if
+        sorting, or the already-fixed order if _manual_order is set) and
+        only appends the new task at the end. Using _sorted_tasks() alone
+        would cause a second (or later) add to ignore the order fixed by a
+        previous add (because _sort_field is already None by the time of the
+        first add), so _ordered_tasks() is used instead, which also takes
+        _manual_order into account. The column header's sort arrow is hidden
+        to show that it's no longer strictly sorted.
         """
         current_order = [t.id for t in self._ordered_tasks(self.model.list_tasks())]
         task = self.model.add_blank_task()
@@ -173,35 +180,35 @@ class TaskListPresenter:
         self.view.select_task(task.id)
 
     def on_delete_click(self, task_ids: List[int]) -> None:
-        """「削除」ボタン押下時に呼ばれる（確認ポップアップで「はい」が選ばれた後）。
-        複数選択している場合は選択中の全件が渡される。
+        """Called when the "delete" button is pressed (after "Yes" is chosen in the confirmation popup).
+        If multiple rows are selected, every selected id is passed in.
         """
         self.model.delete_tasks(task_ids)
         self.refresh()
 
     def on_export_click(self) -> None:
-        """「書き出し」ボタン押下時に呼ばれる"""
+        """Called when the "export" button is pressed"""
         path = self.view.ask_save_path()
         if not path:
             return
         try:
             export_tasks_to_csv(self.model.list_tasks(), path)
         except (OSError, csv.Error) as exc:
-            # 書き込めない・ディスク不足など。素のトレースバックを出さず知らせる。
+            # Can't write, disk full, etc. Report it instead of a raw traceback.
             self.view.show_message("Error", f"Could not export the CSV file.\n{exc}")
             return
         self.view.show_message("Notice", f"Exported to {path}")
 
     def on_import_click(self) -> None:
-        """「読み込み」ボタン押下時に呼ばれる"""
+        """Called when the "import" button is pressed"""
         path = self.view.ask_open_path()
         if not path:
             return
         try:
             tasks, skipped = import_tasks_from_csv(path)
         except (OSError, csv.Error, ValueError) as exc:
-            # ファイルが開けない・壊れたCSV・文字コード不正・列が足りない等。
-            # （UnicodeDecodeError は ValueError のサブクラスなのでここで捕まる）
+            # File can't be opened, malformed CSV, bad encoding, missing column, etc.
+            # (UnicodeDecodeError is a subclass of ValueError, so it's caught here too)
             self.view.show_message("Error", f"Could not import the CSV file.\n{exc}")
             return
         for task in tasks:

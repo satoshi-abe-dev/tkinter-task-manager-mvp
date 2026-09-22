@@ -1,15 +1,16 @@
 """
-Task（データクラス）
---------------------
-タスク1件分のデータを表す。ロジックは持たない。
+Task (dataclass)
+-----------------
+Represents the data for a single task. Holds no logic.
 """
 
 from dataclasses import dataclass
 
-# 優先度・ステータスの取りうる値と、意味のある並び順（低い方から高い方へ など）。
-# フォームの選択肢や一覧のソート順など、複数箇所から共通で参照する。
-# ステータスはワークフローの状態のみ。「期限切れ」は状態としては持たず、
-# due_date が過去かどうかから毎回導出して赤くハイライトする（Presenter 側）。
+# The possible values for priority and status, in their meaningful order
+# (low to high, etc.). Shared by multiple places — form choices, list sort
+# order, and so on. Status only covers workflow state. "Overdue" is not
+# held as a status; it's derived each time from whether due_date is in the
+# past, and highlighted in red (on the Presenter side).
 PRIORITIES = ["Low", "Medium", "High"]
 STATUSES = ["Not Started", "In Progress", "Done"]
 
@@ -21,7 +22,7 @@ class Task:
     due_date: str
     priority: str  # "High" | "Medium" | "Low"
     status: str  # "Not Started" | "In Progress" | "Done"
-    # TaskModelが追加時に自動採番する。呼び出し側は指定しなくてよい。
-    # 一覧のインライン編集時に「どのタスクか」を安定して特定するために使う
-    # （一覧の並び順やインデックスに依存させないため）。
+    # Auto-assigned by TaskModel when a task is added; callers don't need to set it.
+    # Used to reliably identify "which task" during inline editing in the
+    # list (so it doesn't depend on the list's sort order or index).
     id: int = 0

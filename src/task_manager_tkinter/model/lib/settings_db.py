@@ -1,9 +1,10 @@
 """
-Model — 設定の永続化(SQLite)
-------------------------------
-設定をSQLiteに保存・読み込みする、tkinterに依存しない純粋なI/Oロジック。
-Settingsデータクラス(model.settings.entity)には依存せず、プリミティブな値だけを
-やり取りする（循環importを避けるため）。
+Model — settings persistence (SQLite)
+----------------------------------------
+Pure I/O logic, with no dependency on tkinter, for saving and loading
+settings to/from SQLite. Does not depend on the Settings dataclass
+(model.settings.entity) — it only exchanges primitive values (to avoid a
+circular import).
 """
 
 import sqlite3
@@ -21,15 +22,15 @@ CREATE TABLE IF NOT EXISTS settings (
 )
 """
 
-# settingsは常に1行だけ(id=1)を使い回す単一行テーブル。
+# settings is a single-row table; it always reuses the one row (id=1).
 _DEFAULT_NOTIFY_ENABLED = True
 _DEFAULT_NOTIFY_DAYS_BEFORE = 3
 _DEFAULT_BACKUP_INTERVAL_MINUTES = 15
 
 
 def connect(db_path: str = DEFAULT_DB_PATH) -> sqlite3.Connection:
-    """DBファイルへ接続する。ファイル・テーブルが無ければ作成する。
-    db_path=":memory:" を渡すとテスト用の使い捨てDBになる。
+    """Connect to the DB file, creating the file/table if they don't exist.
+    Passing db_path=":memory:" gives a disposable DB for tests.
     """
     if db_path != ":memory:":
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)
@@ -40,8 +41,9 @@ def connect(db_path: str = DEFAULT_DB_PATH) -> sqlite3.Connection:
 
 
 def load(conn: sqlite3.Connection) -> Tuple[bool, int, int]:
-    """設定を読み込む。行がまだ無ければ既定値で1行作ってから返す（初回起動時）。
-    戻り値: (notify_enabled, notify_days_before, backup_interval_minutes)
+    """Load the settings. If the row doesn't exist yet, create one with the
+    default values first, then return it (on first launch).
+    Returns: (notify_enabled, notify_days_before, backup_interval_minutes)
     """
     row = conn.execute(
         "SELECT notify_enabled, notify_days_before, backup_interval_minutes "
@@ -68,7 +70,7 @@ def save(
     notify_days_before: int,
     backup_interval_minutes: int,
 ) -> None:
-    """設定を保存する（1行しか無いのでINSERT OR REPLACEで丸ごと置き換える）"""
+    """Save the settings (since there's only ever one row, replace it wholesale with INSERT OR REPLACE)"""
     conn.execute(
         "INSERT OR REPLACE INTO settings "
         "(id, notify_enabled, notify_days_before, backup_interval_minutes) VALUES (1, ?, ?, ?)",

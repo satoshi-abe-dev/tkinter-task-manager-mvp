@@ -1,12 +1,12 @@
 """
-view.task — タスク一覧タブの View 層。フォルダ ＝ この名前空間。
+view.task — View layer for the task list tab. The folder = this namespace.
 
-再エクスポートするのは抽象クラス TaskListView（contract.py）だけ。Tkinter 実装
-(TkTaskListFrame) をここで import すると、抽象 View 目的で
-`task_manager_tkinter.view.task` を読むだけで tkinter を巻き込んでしまう
-（test_presenter.py が tkinter 無しで動く前提を壊す）ため、Tk 実装は
-完全モジュールパス
-`task_manager_tkinter.view.task.tk_frame` から import すること。
+Only re-exports the abstract class TaskListView (contract.py). Importing the
+Tkinter implementation (TkTaskListFrame) here would drag tkinter in just from
+reading `task_manager_tkinter.view.task` for the abstract View (breaking
+test_presenter.py's assumption that it runs without tkinter), so import the
+Tk implementation via its full module path,
+`task_manager_tkinter.view.task.tk_frame`, instead.
 """
 
 from task_manager_tkinter.view.task.contract import TaskListView

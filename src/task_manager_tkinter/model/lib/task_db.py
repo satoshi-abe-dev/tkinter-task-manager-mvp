@@ -1,15 +1,16 @@
 """
-Model — タスクの永続化(SQLite)
---------------------------------
-タスクをSQLiteに保存・読み込みする、tkinterに依存しない純粋なI/Oロジック。
-csv_io.pyと同じ位置づけで、TaskModel(model/task/store.py)がこのモジュールを介して
-DBを読み書きする。
+Model — task persistence (SQLite)
+------------------------------------
+Pure I/O logic, with no dependency on tkinter, for saving and loading tasks
+to/from SQLite. It plays the same role as csv_io.py: TaskModel
+(model/task/store.py) reads and writes the DB through this module.
 
-書き込みは「編集のたびに1件ずつ」ではなく、TaskModel.save()が呼ばれた時に
-その時点のメモリ上の状態をまるごとDBへ反映するスナップショット方式にしている。
-これは、ユーザーが明示的に「Save」ボタンを押すまではディスクに何も書き込まれ
-ないようにするため（保存前の操作を間違えても、保存しなければ次回起動時には
-直前の保存状態に戻せる）。
+Rather than writing "one row per edit", writes use a snapshot approach:
+whenever TaskModel.save() is called, the current in-memory state is written
+to the DB wholesale. This ensures nothing is written to disk until the user
+explicitly presses the "Save" button (so if you make a mistake before
+saving, as long as you don't save, restarting the app puts you right back
+to the last saved state).
 """
 
 import sqlite3
@@ -32,11 +33,11 @@ CREATE TABLE IF NOT EXISTS tasks (
 
 
 def connect(db_path: str = DEFAULT_DB_PATH) -> sqlite3.Connection:
-    """DBファイルへ接続する。ファイル・テーブルが無ければ作成する。
+    """Connect to the DB file, creating the file/table if they don't exist.
 
-    db_path=":memory:" を渡すと、ディスクに書き出さないインメモリDBになる
-    （テスト用。呼び出すたびに独立した空のDBが得られるので、テストどうしで
-    状態が混ざらない）。
+    Passing db_path=":memory:" gives an in-memory DB that isn't written to
+    disk (for tests — each call gets an independent, empty DB, so state
+    doesn't bleed between tests).
     """
     if db_path != ":memory:":
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)
@@ -47,7 +48,7 @@ def connect(db_path: str = DEFAULT_DB_PATH) -> sqlite3.Connection:
 
 
 def fetch_all(conn: sqlite3.Connection) -> List[Task]:
-    """保存済みタスクを全件取得する（id昇順 = 追加順）"""
+    """Fetch every saved task (ordered by id ascending = insertion order)"""
     rows = conn.execute(
         "SELECT id, name, assignee, due_date, priority, status FROM tasks ORDER BY id"
     ).fetchall()
@@ -58,11 +59,12 @@ def fetch_all(conn: sqlite3.Connection) -> List[Task]:
 
 
 def replace_all(conn: sqlite3.Connection, tasks: List[Task]) -> None:
-    """DBの内容を、渡されたタスク一覧でまるごと置き換える(「Save」操作用)。
+    """Replace the DB's contents wholesale with the given task list (for the "Save" operation).
 
-    差分計算はせず、既存の行を全部消してから入れ直すシンプルな方式
-    （タスク管理アプリの規模ではこれで十分速い）。idも明示的に書き込む
-    ことで、TaskModel側で採番した既存タスクのidをそのまま維持する。
+    No diffing — simply deletes every existing row and reinserts them all
+    (plenty fast at the scale of a task-manager app). id is written
+    explicitly too, so that ids assigned by TaskModel for existing tasks are
+    preserved as-is.
     """
     conn.execute("DELETE FROM tasks")
     conn.executemany(

@@ -1,9 +1,9 @@
 """
 Model
 -----
-アプリ設定の保持のみを行う。永続化は model.lib.settings_db（SQLite）に
-委譲しており、SettingsModel自身はSQLの詳細を知らない。
-Settings データクラスは model.settings.entity に分離してある。
+Holds the app settings only. Persistence is delegated to model.lib.settings_db
+(SQLite); SettingsModel itself knows nothing about the SQL details.
+The Settings dataclass is kept separate, in model.settings.entity.
 """
 
 from task_manager_tkinter.model.lib import settings_db
@@ -24,15 +24,15 @@ class SettingsModel:
         )
 
     def close(self) -> None:
-        """DB接続を閉じる（TaskModel.close() と同じ理由。主にテスト用）。"""
+        """Close the DB connection (same reason as TaskModel.close() — mainly for tests)."""
         self._conn.close()
 
     def get(self) -> Settings:
-        """現在の設定を返す"""
+        """Return the current settings"""
         return self._settings
 
     def update(self, settings: Settings) -> None:
-        """設定を丸ごと置き換える（DBへも書き込む）"""
+        """Replace the settings wholesale (also writes to the DB)"""
         settings_db.save(
             self._conn,
             settings.notify_enabled,
@@ -42,7 +42,7 @@ class SettingsModel:
         self._settings = settings
 
     def set_notify_enabled(self, enabled: bool) -> None:
-        """ハイライトの有効/無効だけを即座に切り替える"""
+        """Toggle just the highlight enabled/disabled flag, immediately"""
         self._settings.notify_enabled = enabled
         settings_db.save(
             self._conn,

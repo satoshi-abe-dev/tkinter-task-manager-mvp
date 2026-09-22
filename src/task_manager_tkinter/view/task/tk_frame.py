@@ -1,9 +1,9 @@
 """
-View（Tkinter実装層）— タスク一覧タブ
---------------------------------------
-view/task/contract.py の抽象クラス TaskListView を、Tkinterを使って具体的に実装する。
-Tkinterへの依存はこのファイル（および同じ役割の view/settings/tk_frame.py）だけに
-閉じ込める。
+View (Tkinter implementation layer) — task list tab
+--------------------------------------------------------
+Provides a concrete Tkinter implementation of the abstract class
+TaskListView from view/task/contract.py. The dependency on Tkinter is
+confined to this file (and view/settings/tk_frame.py, which plays the same role).
 """
 
 import tkinter as tk
@@ -30,13 +30,13 @@ _COLUMN_LABELS = {
 
 
 # Called at view/tk_main_window.py > class TkMainWindow
-# 継承順: 具象ウィジェット(ttk.Frame) → mixin(コールバック機構) → 契約(ABC)
+# Inheritance order: concrete widget (ttk.Frame) -> mixin (callback machinery) -> contract (ABC)
 class TkTaskListFrame(ttk.Frame, CallbackRegistryMixin, TaskListView):
-    """「タスク一覧」タブの実装。ttk.Treeviewで表形式に表示する。
+    """Implementation of the "Task List" tab. Displayed as a table using ttk.Treeview.
 
-    セルをダブルクリックするとインライン編集ができる。編集内容の確定は
-    Presenterに委ねる（Viewはここで直接Modelを書き換えない）。
-    表の下の「追加」「削除」ボタンで、タスクの追加・削除を行う。
+    Double-clicking a cell allows inline editing. Committing an edit is
+    delegated to the Presenter (the View never modifies the Model directly
+    here). The "add" and "delete" buttons below the table add and delete tasks.
     """
 
     PRIORITIES = PRIORITIES
@@ -44,29 +44,31 @@ class TkTaskListFrame(ttk.Frame, CallbackRegistryMixin, TaskListView):
 
     def __init__(self, master: tk.Widget) -> None:
         super().__init__(master, padding=16)
-        # コールバック(_on_cell_edited など)は CallbackRegistryMixin が名前付きで
-        # 保持する。ここで個別に None 初期化する必要はない。
+        # Callbacks (_on_cell_edited etc.) are held by name by
+        # CallbackRegistryMixin. No need to initialize them individually to
+        # None here.
         self._editor: Optional[tk.Widget] = None
         self._date_picker: Optional[tk.Toplevel] = None
 
-        # 既定の行高(18px前後)だとインライン編集用のEntry/Comboboxを重ねた時に
-        # 上下が窮屈になり文字が見切れるため、この一覧専用のスタイルで広げる。
+        # The default row height (around 18px) is too cramped for the
+        # inline-editing Entry/Combobox overlay, clipping the text — widen it
+        # with a style dedicated to this list.
         style = ttk.Style(self)
         style.configure("TaskList.Treeview", rowheight=28)
 
-        # このフレーム自身のgrid構成: 行0(表+スクロールバー)が余白を吸収し、
-        # 行1(追加/削除ボタン)・行2(書き出し/読み込みボタン)は内容ぶんの
-        # 高さで下端に固定される。
+        # This frame's own grid layout: row 0 (table + scrollbar) absorbs
+        # extra space, while row 1 (add/delete buttons) and row 2
+        # (export/import buttons) are pinned to the bottom at their content height.
         self.columnconfigure(0, weight=1)
         self.rowconfigure(0, weight=1)
         self.rowconfigure(1, weight=0)
         self.rowconfigure(2, weight=0)
 
-        # 表とスクロールバーをまとめる専用フレーム。
+        # A dedicated frame that groups the table and its scrollbar.
         tree_frame = ttk.Frame(self)
         tree_frame.grid(row=0, column=0, sticky="nsew")
-        tree_frame.columnconfigure(0, weight=1)  # 表側の列が余白を吸収
-        tree_frame.columnconfigure(1, weight=0)  # スクロールバー側は内容幅のまま
+        tree_frame.columnconfigure(0, weight=1)  # The table's column absorbs extra space
+        tree_frame.columnconfigure(1, weight=0)  # The scrollbar's column stays at its content width
         tree_frame.rowconfigure(0, weight=1)
 
         self._tree = ttk.Treeview(
@@ -81,17 +83,19 @@ class TkTaskListFrame(ttk.Frame, CallbackRegistryMixin, TaskListView):
         scrollbar = ttk.Scrollbar(tree_frame, orient="vertical", command=self._tree.yview)
         self._tree.configure(yscrollcommand=scrollbar.set)
 
-        # 期限が近い/過ぎているタスクの行ハイライト用タグ。
-        # ttk.Labelの背景色指定はAquaで無視されることがあるが、Treeviewの行タグは
-        # 別の描画経路のため背景色が確実に反映される。
+        # Row-highlight tags for tasks whose due date is near or past.
+        # A ttk.Label's background-color setting can be ignored on Aqua, but
+        # a Treeview row tag goes through a different rendering path, so its
+        # background color is reliably applied.
         self._tree.tag_configure("warning", background="#fbeed7", foreground="#b8790f")
         self._tree.tag_configure("overdue", background="#fbe4e4", foreground="#d94f4f")
 
         self._tree.grid(row=0, column=0, sticky="nsew")
         scrollbar.grid(row=0, column=1, sticky="ns")
 
-        # 「追加」「削除」ボタンは、隣接させて表の幅いっぱいに広げる
-        # (両列をweight=1にして幅を均等に分配)。
+        # The "add" and "delete" buttons sit side by side, stretched to fill
+        # the table's full width (both columns get weight=1 to split the
+        # width evenly).
         button_row = ttk.Frame(self)
         button_row.grid(row=1, column=0, sticky="ew", pady=(8, 0))
         button_row.columnconfigure(0, weight=1)
@@ -106,8 +110,8 @@ class TkTaskListFrame(ttk.Frame, CallbackRegistryMixin, TaskListView):
         )
         self._delete_button.grid(row=0, column=1, sticky="ew")
 
-        # CSV書き出し/読み込みは「追加」ボタンの下に配置する（左詰め、幅は
-        # 「追加」ボタンに揃えず内容ぶんのみ）。
+        # CSV export/import goes below the "add" button (left-aligned, sized
+        # to its content rather than matching the "add" button's width).
         csv_row = ttk.Frame(self)
         csv_row.grid(row=2, column=0, sticky="w", pady=(8, 0))
         self._export_button = ttk.Button(
@@ -217,8 +221,9 @@ class TkTaskListFrame(ttk.Frame, CallbackRegistryMixin, TaskListView):
         self._fire("add_click")
 
     def _handle_delete_click(self) -> None:
-        # ttk.Treeviewは既定(selectmode="extended")で複数選択に対応しており、
-        # Shift/Cmdクリックで選択した行はすべてselection()に含まれる。
+        # ttk.Treeview supports multi-selection by default
+        # (selectmode="extended"), and every row selected via Shift/Cmd-click
+        # is included in selection().
         selection = self._tree.selection()
         if not selection:
             return
@@ -235,8 +240,9 @@ class TkTaskListFrame(ttk.Frame, CallbackRegistryMixin, TaskListView):
             self._fire("delete_click", task_ids)
 
     def _on_click(self, event: tk.Event) -> None:
-        # 行の無い領域（表の下の余白など）をクリックした時は選択を解除する。
-        # ヘッダー部分("heading")はソート用クリックなので対象外。
+        # Clicking an area with no row (e.g. the empty space below the table)
+        # clears the selection. The header area ("heading") is excluded,
+        # since a click there is for sorting.
         if self._tree.identify_region(event.x, event.y) == "nothing":
             self._tree.selection_remove(*self._tree.selection())
 
@@ -244,7 +250,7 @@ class TkTaskListFrame(ttk.Frame, CallbackRegistryMixin, TaskListView):
         if self._tree.identify_region(event.x, event.y) != "cell":
             return
         row_id = self._tree.identify_row(event.y)
-        col_id = self._tree.identify_column(event.x)  # 例: "#1"
+        col_id = self._tree.identify_column(event.x)  # e.g. "#1"
         if not row_id or not col_id:
             return
         col_index = int(col_id.replace("#", "")) - 1
@@ -261,11 +267,13 @@ class TkTaskListFrame(ttk.Frame, CallbackRegistryMixin, TaskListView):
 
         self._destroy_editor()
 
-        # 期限欄だけは、セルに重ねるのではなく別ウィンドウのカレンダーで選ばせる。
-        # tkcalendar.DateEntryは装飾なしウィンドウ(overrideredirect)にカレンダーを
-        # 描画するが、macOSのAqua環境ではその中のttkウィジェットの文字色が正しく
-        # 描画されないことがある。装飾ありの通常のToplevelにCalendarを直接
-        # 埋め込むことで、この描画崩れと内部の後処理順序に起因するエラーの両方を避ける。
+        # Only the due-date field is picked via a separate calendar window
+        # rather than an overlay on the cell. tkcalendar.DateEntry draws its
+        # calendar in an undecorated window (overrideredirect), but on
+        # macOS's Aqua the text color of the ttk widgets inside it can
+        # render incorrectly. Embedding a Calendar directly in a regular,
+        # decorated Toplevel avoids both this rendering glitch and an error
+        # tied to the internal teardown order.
         if field == "due_date":
             self._open_date_picker(task_id, row_id, current_value)
             return
@@ -283,9 +291,10 @@ class TkTaskListFrame(ttk.Frame, CallbackRegistryMixin, TaskListView):
             entry.select_range(0, "end")
             editor = entry
 
-        # 編集ウィジェットをセルの矩形ぴったりに重ねると、ウィジェット自体の
-        # フォーカスハイライト枠が内側の文字表示領域を圧迫し、テキストが
-        # 見切れてしまう。枠の分だけ少し大きめ・上方向にずらして配置する。
+        # Placing the editing widget exactly flush with the cell's rectangle
+        # lets the widget's own focus-highlight border squeeze the inner text
+        # area, clipping the text. Position it slightly larger and shifted
+        # upward to make room for that border.
         pad_x, pad_y = 3, 2
         editor.place(
             x=x - pad_x,
@@ -311,9 +320,10 @@ class TkTaskListFrame(ttk.Frame, CallbackRegistryMixin, TaskListView):
         self._editor = editor
 
     def _open_date_picker(self, task_id: int, row_id: str, current_value: str) -> None:
-        # 既に開いている日付ピッカーがあれば、重ねて表示せず先に閉じる
-        # （前のポップアップを残したまま新しいものを開くと、ウィンドウが重なって
-        # 数字が崩れて見えることがある）。
+        # If a date picker is already open, close it first instead of
+        # stacking another on top (leaving the previous popup open while
+        # opening a new one can make the windows overlap and the digits
+        # look garbled).
         self._destroy_editor()
 
         popup = tk.Toplevel(self)
@@ -329,20 +339,26 @@ class TkTaskListFrame(ttk.Frame, CallbackRegistryMixin, TaskListView):
         calendar_kwargs = {
             "selectmode": "day",
             "date_pattern": _DATE_PATTERN,
-            # 月名・曜日名をGUIの言語(英語)に合わせる
+            # Match month/weekday names to the GUI's language (English)
             "locale": "en_US",
-            # 週番号列は使わないので非表示（先頭列に出る紛らわしい数字の正体はこれ）。
+            # The week-number column isn't used, so hide it (this is the
+            # confusing number that would otherwise appear in the leftmost column).
             "showweeknumbers": False,
-            # macOSのAquaテーマはttkカスタムスタイル(TLabel)の背景色指定を無視するため、
-            # tkcalendarが標準で使う「白文字」がその場合は常に白背景の上に乗って
-            # 見えなくなる（月/年ヘッダーがこれで消えていた）。文字色を黒に統一する。
+            # The macOS Aqua theme ignores background-color settings on
+            # custom ttk styles (TLabel), so tkcalendar's default "white
+            # text" ends up sitting on a white background and disappears
+            # (this is what was making the month/year header invisible).
+            # Force the text color to black.
             "foreground": "black",
-            # 選択中の日のハイライトも同じ理由でselectbackgroundが効かず、背景色では
-            # 目立たせられない。文字色を変えて目立たせる（フォントの太字化は下で追加）。
+            # For the same reason, selectbackground has no effect on the
+            # selected day's highlight either, so a background color can't
+            # make it stand out. Use a text-color change instead (bold is
+            # added separately below).
             "selectforeground": "#d94f4f",
-            # 一方でTButton(月/年の矢印ボタン)の背景色はAquaでも反映されるため、
-            # 既定の濃いグレー(gray30)のままだと黒い矢印との見分けがつきにくい。
-            # 明るい背景にして矢印が見えるようにする。
+            # On the other hand, TButton's (the month/year arrow buttons')
+            # background color IS respected on Aqua, so leaving it at the
+            # default dark gray (gray30) makes the black arrows hard to
+            # tell apart. Use a light background so the arrows are visible.
             "background": "white",
         }
         initial = None
@@ -350,25 +366,27 @@ class TkTaskListFrame(ttk.Frame, CallbackRegistryMixin, TaskListView):
             initial = datetime.strptime(current_value, "%Y-%m-%d").date()
             calendar_kwargs.update(year=initial.year, month=initial.month, day=initial.day)
         except ValueError:
-            pass  # 既存の値が日付として解釈できない場合は今日の月をそのまま表示
+            pass  # If the existing value can't be parsed as a date, just show the current month as-is
 
         popup.columnconfigure(0, weight=1)
 
-        # 現在設定されている期限を常に文字で表示しておく。カレンダー側のハイライトは
-        # 開いた直後の月にしか出ないため、月を送って見えなくなっても分かるようにする。
+        # Always display the currently set due date as text. The calendar's
+        # own highlight only appears for the month it opened on, so this
+        # stays visible even after navigating away to another month.
         info_row = ttk.Frame(popup)
         info_row.grid(row=0, column=0, sticky="ew", padx=10, pady=(10, 0))
-        info_row.columnconfigure(0, weight=1)  # ラベル側が伸び、戻るボタンは右端に寄る
+        info_row.columnconfigure(0, weight=1)  # The label side stretches; the back button hugs the right edge
         info_label = ttk.Label(info_row, text=f"Current due date: {current_value or 'Not set'}")
         info_label.grid(row=0, column=0, sticky="w")
 
         calendar = Calendar(popup, **calendar_kwargs)
         calendar.grid(row=1, column=0, padx=10, pady=10)
-        # selectbackground(背景の塗りつぶし)やborderwidth/relief(枠線)は、Aquaでは
-        # ttkカスタムスタイルとして値をセットしても描画に反映されない。確実に効く
-        # 「文字色」「太さ」「大きさ」だけで選択中の日を強調する。
-        # tkcalendarはスタイル名ごとのフォント上書きを構築時引数として公開していない
-        # ため、生成後にスタイルを直接書き換える。
+        # selectbackground (fill color) and borderwidth/relief (border) have
+        # no effect on Aqua even when set as a custom ttk style. Emphasize
+        # the selected day using only what reliably works: "text color",
+        # "weight", and "size". tkcalendar doesn't expose per-style-name font
+        # overrides as a constructor argument, so the style is rewritten
+        # directly after construction.
         base_font = calendar._font.actual()
         base_size = base_font["size"]
         larger_size = base_size + 4 if base_size >= 0 else base_size - 4
@@ -385,7 +403,7 @@ class TkTaskListFrame(ttk.Frame, CallbackRegistryMixin, TaskListView):
             )
             back_button.grid(row=0, column=1, sticky="e")
 
-        # ジオメトリ(位置)を計算する前に、ウィジェットの実サイズを確定させておく
+        # Finalize the widgets' real sizes before computing the geometry (position)
         popup.update_idletasks()
 
         def on_selected(_event: Optional[tk.Event] = None) -> None:
