@@ -4,7 +4,7 @@
 
 - Always go through **a feature branch → Pull Request → squash merge**. **Never push directly to `main`**
 - CI (`.github/workflows/test.yml`) also runs on PRs, so check its results before merging
-- Run `pytest` locally before opening a PR when possible
+- Run `pytest` locally before opening a PR when possible — e.g. this may not be possible in a sandboxed Claude Code session where `pytest`/`tkcalendar` aren't installed and network access to install them is blocked; if so, say that explicitly in the PR/report instead of silently skipping
 
 ## Language
 
