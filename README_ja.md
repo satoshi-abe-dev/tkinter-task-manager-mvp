@@ -5,18 +5,18 @@
 Python (Tkinter) で作った、タブ付きのタスク管理デスクトップアプリ。
 内部は MVP（Model-View-Presenter）パターンで GUI・内部処理・その仲介の役割ごとにコードを分けた、仕様変更に強い設計。
 
-> ℹ️ GUIの表示は英語。コード内コメントは日本語。
+> ℹ️ GUI・コード内コメントは英語。
 
 > 🧭 **設計・アーキテクチャ上の判断は作者によるもの。** 主なもの:
 >
-> - Model / View / Presenter の 3 層への分割と各層の依存方向 — GUI と内部処理を分けているので **変更に強い**（片方だけ直せる／GUI 抜きでロジックをテストできる／GUI ごと差し替えられる）。詳細は[設計](#設計)
+> - Model / View / Presenter の 3 層への分割と各層の依存方向。詳細は[設計](#設計)
 > - フォルダ階層 ＝ クラスの import 名前空間、という命名・配置の方針
-> - **GUI 全体の設計**（画面レイアウト、OS 標準寄りのスタイル、期限ハイライトの配色、ウィンドウリサイズへの追従、tkcalendar のフォント変更）
-> - **テーブルのインライン編集**（`ttk.Treeview` は本来セル編集不可。セルの矩形に Entry / Combobox を重ねて実現。期限日はカレンダーのポップアップで選ぶ）
-> - データの保存方式の設計（編集のたびに即座に DB へ保存。Save ボタンや「未保存」状態は持たない）
+> - GUI 全体の設計（画面レイアウト、OS 標準寄りのスタイル、期限ハイライトの配色、ウィンドウリサイズへの追従）
+> - テーブルのインライン編集（`ttk.Treeview` に Entry / Combobox を重ねて実現。期限日はカレンダーのポップアップで選ぶ）
+> - データの保存方式（編集のたびに即座に DB へ保存。Save ボタンや「未保存」状態は持たない）
 > - 自動バックアップの設計（一定間隔で `app.db` をコピー。件数ではなく「直近 24 時間」で保持）
 >
-> 各判断の理由は下記「[設計](#設計)」セクション、特に「[設計上の判断メモ](#設計上の判断メモ)」に書いている。実装には AI（Claude Code）をペアプログラミング相手として併用しており、その旨をコミットの `Co-Authored-By` に残している。
+> 各判断の理由は下記「[設計](#設計)」、特に「[設計上の判断メモ](#設計上の判断メモ)」に書いている。実装には AI（Claude Code）をペアプログラミング相手として併用しており、その旨をコミットの `Co-Authored-By` に残している。
 
 ## デモ
 
@@ -43,8 +43,9 @@ Python (Tkinter) で作った、タブ付きのタスク管理デスクトップ
 
 ### 動作環境
 
-> ⚠️ **開発環境は macOS で、Windows での手動動作確認はしていない。** ただし CI（GitHub Actions）で `pytest` を Ubuntu / Windows / macOS で自動実行している（ロジックのテストに加え、実物の Tkinter GUI が例外なく組み上がるかのスモークテストも含む。画面が無い Ubuntu では GUI のぶんだけ skip）。`tkinter` / `ttk` / `tkcalendar` だけのクロスプラットフォームなコードで、macOS 固有の API は使っていない。
-
+- 開発環境は macOS。Windows での手動動作確認はしていない
+- CI（GitHub Actions）で `pytest` を Ubuntu / Windows / macOS で自動実行（GUI スモークテストも含む。画面が無い Ubuntu では GUI のぶんだけ skip）
+- `tkinter` / `ttk` / `tkcalendar` だけのクロスプラットフォームなコードで、macOS 固有の API は使っていない
 - Python 3.14（Homebrew版）
 - tkinter 利用には `brew install python-tk@3.14` が別途必要（macOS 標準の `/usr/bin` 側は非推奨の Tcl/Tk 8.5.9 のため使わない）
 - GUI 起動には `tkcalendar` が必要（`requirements.txt`）
@@ -54,11 +55,11 @@ Python (Tkinter) で作った、タブ付きのタスク管理デスクトップ
 **Windows についての補足**
 
 - python.org 配布の Windows インストーラーは Tcl/Tk を標準で同梱するため、`brew install python-tk@3.14` 相当の追加インストールは不要
-- 設定タブの見出しに `font=("Helvetica", 10, "bold")` を指定している箇所があるが、Windows に "Helvetica" は標準搭載されていない。Tk は存在しないフォント名が渡されても自動的にフォールバックするため止まらない（見た目のフォントが変わるのみ）
+- 設定タブの見出しに `font=("Helvetica", 10, "bold")` を指定している箇所があるが、Windows に "Helvetica" は標準搭載されていない。Tk は自動的にフォールバックするため止まらない（見た目のフォントが変わるのみ）
 
 ### 起動手順
 
-`tkcalendar`（期限のカレンダー選択に使う）が必要なので、リポジトリ直下に仮想環境を作ってから起動する。GUIなので Tcl/Tk が使える環境で実行すること。
+`tkcalendar`（期限のカレンダー選択に使う）が必要なので、リポジトリ直下に仮想環境を作ってから起動する。
 
 **macOS / Linux**
 
@@ -76,7 +77,8 @@ python -m venv .venv
 set PYTHONPATH=src && .venv\Scripts\python -m task_manager_tkinter.main
 ```
 
-- パッケージは `src/` レイアウト。`-m` で起動するには `src/` を import パスに乗せる（`PYTHONPATH=src` か `cd src`）。`src/task_manager_tkinter/main.py` をファイル指定で直接起動する場合は不要（起動時に `src/` を自動で `sys.path` に足す）
+- パッケージは `src/` レイアウト。`-m` で起動するには `src/` を import パスに乗せる（`PYTHONPATH=src` か `cd src`）
+- `src/task_manager_tkinter/main.py` をファイル指定で直接起動する場合は不要（起動時に `src/` を自動で `sys.path` に足す）
 - **初回起動時**（`app.db` がまだ無いとき）だけ `src/task_manager_tkinter/data/app.db`（SQLite）が作られ、デモ用タスクが5件入る
 - デモタスクの期限日は起動日を基準に相対的に決まり、期限ハイライトが初回から「白2・黄2・赤1」に見える
 - **2回目以降**は、全タスクを削除しても `app.db` は残るのでデモデータは復活しない
@@ -89,20 +91,22 @@ set PYTHONPATH=src && .venv\Scripts\python -m task_manager_tkinter.main
 | やりたいこと | 操作 |
 |---|---|
 | 値を編集する | セルをダブルクリックしてその場で編集。優先度・ステータスはプルダウン、期限はカレンダーで選ぶ |
-| 並べ替える | 列見出しをクリック。もう一度クリックで昇順⇄降順（見出しに ▲/▼）。優先度・ステータスは五十音順ではなく意味順（Low→High、Not Started→In Progress→Done）。空欄の行は常に末尾 |
-| 追加する | 「+ Add」。空のタスクが末尾に増えて選択状態になる（名前だけ仮で「Task N」）。あとは他の行と同じくセルを埋めていく |
+| 並べ替える | 列見出しをクリック。もう一度クリックで昇順⇄降順（見出しに ▲/▼）。優先度・ステータスは意味順（Low→High、Not Started→In Progress→Done）。空欄の行は常に末尾 |
+| 追加する | 「+ Add」。空のタスクが末尾に増えて選択状態になる（名前だけ仮で「Task N」） |
 | 削除する | 行を選んで「− Delete」→ 確認ダイアログで Yes。Shift/Cmd クリックで複数選択 → まとめて削除 |
 | CSV で入出力する | 「Export」／「Import」 |
 
 期限切れの扱い:
 
-- 期限を過ぎて未完了のタスクは自動的に赤くなる（Done は対象外）。「Overdue」という状態は無く、赤かどうかは期限日から常に計算される。期限を先の日付に直せば赤も消える。
+- 期限を過ぎて未完了のタスクは自動的に赤くなる（Done は対象外）
+- 「Overdue」という状態は無く、赤かどうかは期限日から常に計算される
+- 期限を先の日付に直せば赤も消える
 
 #### 設定タブ
 
-- **期限ハイライト**: ON/OFF と「何日前から警告するか」を設定。切り替えは即座に一覧タブへ反映される。Done のタスクは対象外。
-- **バックアップ間隔**: 自動バックアップの間隔を分単位で設定（既定15分）。実行中に変えると、次にタイマーが発火したタイミングから反映される。
-- 変更した値は入力した瞬間に保存される（Auto Save）。
+- **期限ハイライト**: ON/OFF と「何日前から警告するか」を設定。切り替えは即座に一覧タブへ反映される（Done のタスクは対象外）
+- **バックアップ間隔**: 自動バックアップの間隔を分単位で設定（既定15分）。実行中に変えると、次にタイマーが発火したタイミングから反映される
+- 変更した値は入力した瞬間に保存される（Auto Save）
 
 > 💡 **動かすだけなら、ここまで読めば十分です。** この先は、このサンプルの主眼である「MVPパターンで役割をどう分けたか」の解説です。
 
@@ -120,20 +124,29 @@ set PYTHONPATH=src && .venv\Scripts\python -m task_manager_tkinter.main
 
 ### 変更に強い（MVP パターンの利点）
 
-GUI（画面）と内部処理（データ・ロジック）が分かれていて互いに影響しないので、**あとから直す・テストする・差し替えるのが小さいコストで済む。**
+- GUI（画面）と内部処理（データ・ロジック）は分離していて互いに影響しない
+- そのため「直す」「テストする」「差し替える」がいずれも小さいコストで済む
 
-- **GUI と内部処理は、片方を変えても他方に影響しない。** このリポジトリの変更はほぼ「片側だけ触って完了」している:
+**このリポジトリの変更はほぼ「片側だけ触って完了」している:**
 
-  | 変更 | 触った範囲 |
-  |---|---|
-  | 起動時にウィンドウを中央表示（[#12](../../pull/12)） | GUI 側の `view/tk_main_window.py` 1ファイルだけ |
-  | データの持ち方を「メモリのみ」→「SQLite に即保存」（[設計上の判断メモ](#設計上の判断メモ)） | 内部処理側だけ。Presenter・GUI は変更していない |
-  | 「+ Add」の仮タスク名の付け方を変更（[#11](../../pull/11)） | `model/task/store.py` とそのテストだけ |
-  | 「Overdue」を保存状態から `due_date` 由来の導出へ変更 | Model と Presenter は変えたが GUI は無変更（GUI は元から「どの行を何色で塗るか」の一覧を受け取るだけ） |
+| 変更 | 触った範囲 |
+|---|---|
+| 起動時にウィンドウを中央表示（[#12](../../pull/12)） | GUI 側の `view/tk_main_window.py` 1ファイルだけ |
+| データの持ち方を「メモリのみ」→「SQLite に即保存」（[設計上の判断メモ](#設計上の判断メモ)） | 内部処理側だけ。Presenter・GUI は変更していない |
+| 「+ Add」の仮タスク名の付け方を変更（[#11](../../pull/11)） | `model/task/store.py` とそのテストだけ |
+| 「Overdue」を保存状態から `due_date` 由来の導出へ変更 | Model と Presenter は変えたが GUI は無変更 |
 
-- **GUI を起動せずにロジックをテストできる。** Model も Presenter も `tkinter` を import しない。`test_presenter.py` は本物の画面の代わりに偽物の画面（`FakeView`）を差し込み、「ボタンを押したら何が起きるか」を 43 ケース検証する。画面の無い CI（Ubuntu）でもそのまま通る。
+**GUI を起動せずにロジックをテストできる**
 
-- **GUI ライブラリを別物に差し替えても、内部処理は無変更でよい。** Presenter が知っているのは「画面はこういう操作ができる」という取り決め（抽象クラス `TaskListView` / `SettingsView`）だけ。テストで使う `FakeView` は「Tkinter ではない別の画面実装」の一例にあたる。
+- Model も Presenter も `tkinter` を import しない
+- `test_presenter.py` は本物の画面の代わりに偽物の画面（`FakeView`）を差し込む
+- 「ボタンを押したら何が起きるか」を 43 ケース検証する
+- 画面の無い CI（Ubuntu）でもそのまま通る
+
+**GUI ライブラリを別物に差し替えても、内部処理は無変更でよい**
+
+- Presenter が知っているのは「画面はこういう操作ができる」という取り決め（抽象クラス `TaskListView` / `SettingsView`）だけ
+- テストで使う `FakeView` は「Tkinter ではない別の画面実装」の一例
 
 **コスト**: 次のぶんコード量は増える。数百行のアプリでは大げさに見えるが、上の「変更に強い」と引き換え。
 
@@ -143,12 +156,14 @@ GUI（画面）と内部処理（データ・ロジック）が分かれてい�
 
 ### 永続化とバックアップ
 
-- **保存方式**: タスク・設定はどちらも SQLite（標準ライブラリの `sqlite3`、追加インストール不要）に保存。**編集は常に即座に DB へ書き込まれる**（Auto Save）
-- **無いもの**: Save ボタン・「未保存」表示・終了時の確認ダイアログ
-- **代償**: 保存を意識しなくてよい代わりに、うっかり操作を取り消す手段も無い（下記の自動バックアップが唯一の保険）
-- **バックアップ**: 設定した間隔（既定15分）ごとに `app.db` の変更を検知し、変化があれば `data/backups/` へコピー（前回から変化が無ければスキップ）
+- **保存方式**: タスク・設定はどちらも SQLite（標準ライブラリの `sqlite3`、追加インストール不要）に保存
+- 編集は常に即座に DB へ書き込まれる（Auto Save）
+- Save ボタン・「未保存」表示・終了時の確認ダイアログは無い
+- **代償**: 保存を意識しなくてよい代わりに、うっかり操作を取り消す手段も無い（自動バックアップが唯一の保険）
+- **バックアップ**: 設定した間隔（既定15分）ごとに `app.db` の変更を検知し、変化があれば `data/backups/` へコピー
+- 前回から変化が無ければスキップする
 - **間引き方**: 直近 **24時間** 分だけ残し、古いものは自動削除（件数ではなく経過時間で間引く）
-- **守れる範囲**: ディスク破損などで DB ファイル自体が読めなくなった場合の備え。SQLite のトランザクションは書き込み中クラッシュに強いが、ファイルごと壊れるケースは守れないため
+- **守れる範囲**: ディスク破損などで DB ファイル自体が読めなくなった場合の備え。SQLite のトランザクションは書き込み中クラッシュに強いが、ファイルごと壊れるケースは守れない
 
 ### フォルダ構成
 
@@ -163,8 +178,7 @@ src/task_manager_tkinter/     ルートパッケージ（src レイアウト。�
         lib/                  クラスを持たない純粋I/Oモジュールの置き場
             db_path.py        DBファイルの既定パス（task/settingsで共有）
             db_backup.py      app.dbのバックアップ・世代管理（純粋なI/O）
-            task_db.py        タスクの永続化(SQLite)。tkinterに依存しない純粋なI/O。
-                              save()時にメモリ上の状態をまるごと書き込む方式
+            task_db.py        タスクの永続化(SQLite)。tkinterに依存しない純粋なI/O
             settings_db.py    設定の永続化(SQLite)。tkinterに依存しない純粋なI/O
             csv_io.py         CSV書き出し/読み込み（tkinterに依存しない純粋なI/O）
         task/
@@ -187,50 +201,71 @@ src/task_manager_tkinter/     ルートパッケージ（src レイアウト。�
         settings.py           SettingsPresenter
 ```
 
-- **命名規則**: `model` / `view` では、ファイル名は**役割**（`entity` / `store` / `contract` / `tk_frame`）だけを表し、どのタブのものかは**フォルダ**（`task` / `settings`）が示す。フォルダ名や層名はファイル名で繰り返さない
+- **命名規則**: `model` / `view` では、ファイル名は**役割**（`entity` / `store` / `contract` / `tk_frame`）だけを表す
+- どのタブのものかは**フォルダ**（`task` / `settings`）が示す。フォルダ名や層名はファイル名で繰り返さない
 - **`presenter`**: タブごとに1クラスなのでサブフォルダを作らず `task.py` / `settings.py` を直下に置く
-- **フォルダ ＝ import 名前空間**: `model` / `view` のサブフォルダはそのままクラスの import パスになる（`src/task_manager_tkinter/model/task/` ⇔ `task_manager_tkinter.model.task.TaskModel`）。各サブパッケージの `__init__.py` が公開クラスを再エクスポートするので、所在フォルダのドット表記でそのまま import できる
+- **フォルダ ＝ import 名前空間**: `model` / `view` のサブフォルダはそのままクラスの import パスになる（`src/task_manager_tkinter/model/task/` ⇔ `task_manager_tkinter.model.task.TaskModel`）
+- 各サブパッケージの `__init__.py` が公開クラスを再エクスポートするので、所在フォルダのドット表記でそのまま import できる
 - **`view/` 直下の例外**: 両タブをまとめる `tk_main_window.py` と、どのタブにも属さない mixin の `callbacks.py`
 
 ### 各層の役割
 
 | 層 | クラス | 役割 | 依存先 |
 |---|---|---|---|
-| Model | `TaskModel` | タスクの保持・追加（空欄タスクの追加を含む）・更新・削除のドメインロジック。編集操作はメモリ上の状態だけを書き換え、`save()`が呼ばれた時だけ`task_db`へ永続化を委譲する（自身はSQLを知らない）。UIのことも扱わない。 | `task_db` |
-| Model | `SettingsModel` | 設定値の保持・更新のドメインロジック。永続化の詳細（SQLite）は`settings_db`に委譲し、自身はSQLを知らない。 | `settings_db` |
-| Model | `task_db` / `settings_db`（`model/lib/`） | タスク・設定をSQLiteに保存/読み込みする。tkinterに依存しない純粋なI/O関数。 | `db_path`（DBファイルの場所） |
-| Model | `db_backup` | `app.db`をタイムスタンプ付きでバックアップし、指定した保持期間（既定24時間）より古いものを削除する。純粋なI/O関数。呼び出しタイミング（`SettingsModel`で設定した間隔、既定15分）はmain.pyが管理する。 | なし |
-| Model | `csv_io` | タスクのCSV書き出し/読み込み。純粋なI/O関数。 | なし |
-| View（抽象） | `TaskListView` / `SettingsView` | 各タブの「契約」（表示・入力取得・ハンドラ登録）を定義。 | なし |
-| View（実装） | `view/task/tk_frame.py`(`TkTaskListFrame`) / `view/settings/tk_frame.py`(`TkSettingsFrame`) / `view/tk_main_window.py`(`TkMainWindow`) | 上記の抽象をTkinter（`ttk.Notebook` + 標準ウィジェット）で実装。 | 各View抽象, tkinter |
-| Presenter | `TaskListPresenter` / `SettingsPresenter` | 各タブの「画面の振る舞い」のロジック。バリデーション・Model更新・一覧のソート状態管理・タスクの追加/削除/CSV入出力・期限ハイライトの判定を担う。`refresh()`（または`on_field_changed()`）のたびに未保存の変更があればその場で`save()`する（Auto Save）。`TaskListPresenter`は期限ハイライトの判定基準（有効/無効・何日前から）を得るためにも`SettingsModel`を参照する。 | 対応するModel（`TaskListPresenter`は`TaskModel`と`SettingsModel`の両方）, 対応するView（抽象のみ） |
+| Model | `TaskModel` | タスクの追加（空欄タスク含む）・更新・削除。`save()` 時のみ `task_db` へ永続化を委譲（自身はSQLを知らない） | `task_db` |
+| Model | `SettingsModel` | 設定値の保持・更新。永続化は `settings_db` に委譲 | `settings_db` |
+| Model | `task_db` / `settings_db`（`model/lib/`） | タスク・設定の SQLite 読み書き（純粋 I/O） | `db_path` |
+| Model | `db_backup` | `app.db` のタイムスタンプ付きバックアップと保持期間切れの削除（純粋 I/O）。呼び出しタイミングは main.py が管理 | なし |
+| Model | `csv_io` | タスクの CSV 書き出し/読み込み（純粋 I/O） | なし |
+| View（抽象） | `TaskListView` / `SettingsView` | 各タブの表示・入力取得・ハンドラ登録の契約 | なし |
+| View（実装） | `tk_frame.py`（task/settings）/ `tk_main_window.py` | 上記契約の Tkinter 実装（`ttk.Notebook` + 標準ウィジェット） | 各View抽象, tkinter |
+| Presenter | `TaskListPresenter` / `SettingsPresenter` | バリデーション・Model更新・ソート状態管理・タスクの追加/削除/CSV入出力・期限ハイライト判定。変更があれば都度 Auto Save | 対応するModel（`TaskListPresenter`は`TaskModel`と`SettingsModel`の両方）, 対応するView（抽象のみ） |
 
 - Presenter は対応する View 抽象にしか依存しないので、View 実装を差し替えても（Tkinter ／ 別の GUI ライブラリ ／ テスト用の `FakeView`）Presenter は無変更
 - `TaskModel` / `SettingsModel` は永続化方法を `task_db` / `settings_db` に隠しているので、「メモリのみ」→「SQLite（即時書き込み）」の切り替えでも Presenter・View は無変更（経緯は[設計上の判断メモ](#設計上の判断メモ)）
 
 ### データフロー（「+ Add」を押した時）
 
-1. ユーザーが「タスク一覧」タブの「+ Add」ボタンを押す。
-2. `TkTaskListFrame`に登録済みのハンドラ（`TaskListPresenter.on_add_click`）が呼ばれる。
-3. Presenterが`TaskModel.add_blank_task()`を呼ぶ。Modelは全項目が空のタスクを追加し、
-   既存の「Task <数字>」の最大値 + 1（無ければ 1）で「Task N」という仮の名前を自動で入れる。
-4. `refresh()`で一覧を最新化し、`view.select_task(task.id)`で追加した行を選択状態にする。
-   このとき、既存行のソート順（ソートしていた場合はその結果）は変えず、新タスクだけを
-   末尾に足す。
-5. ユーザーは選択された行のセルをダブルクリックして、担当・期限・優先度・ステータスなどを
-   インライン編集で埋めていく（既存タスクの編集と同じ仕組み）。
+1. 「タスク一覧」タブの「+ Add」ボタンを押す
+2. `TkTaskListFrame` に登録済みのハンドラ（`TaskListPresenter.on_add_click`）が呼ばれる
+3. Presenter が `TaskModel.add_blank_task()` を呼ぶ
+4. Model は全項目が空のタスクを追加し、既存の「Task <数字>」の最大値 + 1（無ければ1）で仮の名前を自動で入れる
+5. `refresh()` で一覧を最新化し、`view.select_task(task.id)` で追加した行を選択状態にする
+6. このとき既存行のソート順は変えず、新タスクだけを末尾に足す
+7. ユーザーは選択された行のセルをダブルクリックして、担当・期限・優先度・ステータスをインライン編集で埋めていく
 
 ### 設計上の判断メモ
 
-- **Auto Save に落ち着くまで**: 最初は「メモリのみ」→「SQLite に即時書き込み」。その後「保存前の誤操作をアプリ再起動だけで取り消せるように」と、明示的な `save()` を待つ方式（Saveボタン・未保存表示・終了時確認つき）にしたこともあった。だが「Saveボタンの置き場所に悩むくらいなら自動保存でいい」となり、今の常時 Auto Save に戻した。取り消し手段をあきらめる代わりに、定期バックアップを別の防御層として残している。この一連で Presenter・View を触ったのは「ユーザーから見える振る舞い（Saveボタン等）」が増減した時だけで、永続化方式そのものの差し替え（メモリ→SQLite）では Presenter・View は無変更だった。
-- **バックアップは時間ベース保持**: 「直近 N 件」ではなく「直近 24 時間」。将来バックアップ間隔を変えても（15分→1分など）コードを直さず「1日分は遡れる」という要件が保たれる。
-- **「Overdue」は状態ではなく導出**: Status は Not Started / In Progress / Done のみ。期限切れの赤は「`due_date` が今日より前 かつ Done でない」から毎回計算する。以前は手動／自動で `status="Overdue"` を保存できたが、「一度赤くなると期限を先に直しても赤のまま」という戻れない状態になったため、保存される Overdue を廃止した。
-- **CSV 入出力の失敗はダイアログで通知**: 開けない／権限が無い／壊れている／文字コードが不正／`name` 列が無い、といった場合に素のトレースバックを出さず、Presenter が例外を捕まえて `view.show_message("Error", …)` を出す。`csv_io` は UI を知らない純粋 I/O なので、例外は投げるだけで握りつぶさない。
+**Auto Save に落ち着くまで**
+
+- 最初は「メモリのみ」→「SQLite に即時書き込み」だった
+- 次に「保存前の誤操作をアプリ再起動だけで取り消せるように」と、明示的な `save()` を待つ方式（Saveボタン・未保存表示・終了時確認つき）を試した
+- 「Saveボタンの置き場所」に悩み続けた末、「悩むくらいなら自動保存でいい」となり今の常時 Auto Save に戻した
+- 取り消し手段はあきらめる代わりに、定期バックアップを別の防御層として残している
+- Presenter・View を触ったのは「ユーザーから見える振る舞い」が増減した時だけ。永続化方式そのものの差し替え（メモリ→SQLite）では両者とも無変更だった
+
+**バックアップは時間ベース保持**
+
+- 「直近 N 件」ではなく「直近 24 時間」
+- バックアップ間隔を変えても（15分→1分など）コードを直さず「1日分は遡れる」という要件が保たれる
+
+**「Overdue」は状態ではなく導出**
+
+- Status は Not Started / In Progress / Done のみ
+- 期限切れの赤は「`due_date` が今日より前 かつ Done でない」から毎回計算する
+- 以前は手動／自動で `status="Overdue"` を保存できたが、「一度赤くなると期限を先に直しても赤のまま」という戻れない状態になったため廃止した
+
+**CSV 入出力の失敗はダイアログで通知**
+
+- 開けない／権限が無い／壊れている／文字コードが不正／`name` 列が無い、といった場合が対象
+- Presenter が例外を捕まえて `view.show_message("Error", …)` を出す（素のトレースバックは出さない）
+- `csv_io` は UI を知らない純粋 I/O なので、例外は投げるだけで握りつぶさない
 
 ### 起動方法の補足
 
 - `-m` でもファイル指定でも起動できる
-- `-m` で起動するときは `src/` を import パスに乗せる（`PYTHONPATH=src` か `cd src`）。ファイル指定で直接起動する場合は、`main.py` が先頭で「スクリプトとして直接実行された」（`__package__` 未設定）を検知して `src/`（このファイルの2つ上）を `sys.path` に足すので、追加設定は不要
+- `-m` で起動するときは `src/` を import パスに乗せる（`PYTHONPATH=src` か `cd src`）
+- ファイル指定で直接起動する場合は、`main.py` が「スクリプトとして直接実行された」（`__package__` 未設定）を検知して `src/` を `sys.path` に足すので追加設定は不要
 
 ```bash
 # リポジトリのルートで（src/ を import パスに乗せる）
@@ -251,12 +286,12 @@ set PYTHONPATH=src && .venv\Scripts\python -m task_manager_tkinter.main
 `test_presenter.py`（pytest）— Presenter のロジック検証:
 
 - 各 View 抽象クラスの偽実装（`FakeView`）を差し込み、Tkinter を起動せずに 2 つの Presenter を検証する
-- 依存するのは抽象クラス `TaskListView` / `SettingsView` だけ。Tkinter 実装（`view/task/tk_frame.py` など）は読み込まない（`view/` 配下の `__init__.py` は抽象クラスだけを再エクスポート）ので、tkinter が無い環境でも実行できる
+- Tkinter 実装（`view/task/tk_frame.py` など）は読み込まない（`view/` 配下の `__init__.py` は抽象クラスだけを再エクスポート）ので、tkinter が無い環境でも実行できる
 - `TaskModel` / `SettingsModel` は `db_path=":memory:"` のインメモリ SQLite。ディスクに何も残さず、テストどうしで状態が混ざらない（`task_ctx` fixture でまとめて組み立て）
 
 `test_gui_smoke.py`（`@pytest.mark.smoke`）— GUI が組み上がるかだけの確認:
 
-- 実物の `TkMainWindow`（＝全 Tkinter ウィジェット）を生成し、**例外なく組み上がることだけ**を見る（挙動は検証しない。`mainloop()` は呼ばないのでハングしない）
+- 実物の `TkMainWindow`（＝全 Tkinter ウィジェット）を生成し、例外なく組み上がることだけを見る（`mainloop()` は呼ばないのでハングしない）
 - `tkinter` が無い／画面が無い環境では自動で skip する
 
 ```bash

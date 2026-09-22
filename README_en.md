@@ -6,16 +6,16 @@ A tabbed task-management desktop app written in Python (Tkinter). Under the hood
 role — the GUI, the internals, and the mediator between them — along the MVP (Model-View-Presenter)
 pattern: a design that is resilient to changing requirements.
 
-> ℹ️ The GUI is in English; the code comments are in Japanese.
+> ℹ️ The GUI and code comments are in English.
 
 > 🧭 **The design and architecture decisions here are the author's.** The main ones:
 >
-> - Splitting the app into three layers (Model / View / Presenter) and the dependency direction between them — separating the GUI from the internals makes it **resilient to change**: edit one side alone, test the logic without the GUI, or swap the GUI wholesale. Details in [Design](#design).
+> - Splitting the app into three layers (Model / View / Presenter) and the dependency direction between them. Details in [Design](#design)
 > - The "folder hierarchy = class import namespace" naming/placement scheme
-> - **The overall GUI design** (screen layout, an OS-native look, the due-date highlight colors, following window resizes, a tkcalendar font tweak)
-> - **Inline editing in the table** (`ttk.Treeview` has no built-in cell editing — an Entry / Combobox is overlaid on the cell's rectangle; the due date is picked from a calendar popup)
+> - The overall GUI design (screen layout, an OS-native look, the due-date highlight colors, following window resizes)
+> - Inline editing in the table (`ttk.Treeview` has no built-in cell editing — an Entry / Combobox is overlaid on the cell's rectangle; the due date is picked from a calendar popup)
 > - The persistence behavior (every edit is written to the database immediately; no Save button or "unsaved" state)
-> - The automatic backup design (`app.db` is copied at a set interval, and kept by "the last 24 hours" rather than by count)
+> - The automatic backup design (`app.db` is copied at a set interval, kept by "the last 24 hours" rather than by count)
 >
 > The reasoning for each is in the "[Design](#design)" section below, especially "[Design notes](#design-notes)". Implementation was done with Claude Code as a pair-programming aid, which is why the commits carry `Co-Authored-By` trailers.
 
@@ -44,11 +44,9 @@ If it doesn't play inline, [open it here](https://github.com/user-attachments/as
 
 ### Prerequisites
 
-> ⚠️ **Developed on macOS; not manually tested on Windows.** CI (GitHub Actions) runs
-> `pytest` on Ubuntu / Windows / macOS — the logic tests plus a smoke test that the real
-> Tkinter GUI builds without raising (skipped on headless Ubuntu). The code sticks to
-> cross-platform `tkinter` / `ttk` / `tkcalendar` and uses no macOS-specific API.
-
+- Developed on macOS; not manually tested on Windows
+- CI (GitHub Actions) runs `pytest` on Ubuntu / Windows / macOS, including the GUI smoke test (skipped on headless Ubuntu)
+- The code sticks to cross-platform `tkinter` / `ttk` / `tkcalendar` and uses no macOS-specific API
 - Python 3.14 (Homebrew build)
 - Using tkinter requires `brew install python-tk@3.14` separately (the deprecated Tcl/Tk 8.5.9 bundled with macOS's `/usr/bin` Python is not used)
 - Running the GUI requires `tkcalendar` (see `requirements.txt`)
@@ -57,16 +55,13 @@ If it doesn't play inline, [open it here](https://github.com/user-attachments/as
 
 **Windows notes**
 
-- The official python.org Windows installer bundles Tcl/Tk, so there's no equivalent of
-  `brew install python-tk@3.14` to install separately
-- The Settings tab's section header uses `font=("Helvetica", 10, "bold")`; "Helvetica" isn't a standard
-  Windows font, but Tk silently falls back to a substitute instead of raising an error, so this only
-  affects appearance, not functionality
+- The official python.org Windows installer bundles Tcl/Tk, so there's no equivalent of `brew install python-tk@3.14` to install separately
+- The Settings tab's section header uses `font=("Helvetica", 10, "bold")`; "Helvetica" isn't a standard Windows font, but Tk silently falls back to a substitute instead of raising an error, so this only affects appearance, not functionality
 
 ### Run it
 
 `tkcalendar` is required (the due-date calendar picker), so create a virtual environment at the
-repository root first. It's a GUI app, so run it where Tcl/Tk is available.
+repository root first.
 
 **macOS / Linux**
 
@@ -84,7 +79,8 @@ python -m venv .venv
 set PYTHONPATH=src && .venv\Scripts\python -m task_manager_tkinter.main
 ```
 
-- The package uses a `src/` layout. To launch with `-m`, put `src/` on the import path (`PYTHONPATH=src` or `cd src`). Running `src/task_manager_tkinter/main.py` directly as a file needs no setup (it adds `src/` to `sys.path` on startup)
+- The package uses a `src/` layout. To launch with `-m`, put `src/` on the import path (`PYTHONPATH=src` or `cd src`)
+- Running `src/task_manager_tkinter/main.py` directly as a file needs no setup (it adds `src/` to `sys.path` on startup)
 - **First run only** (when `app.db` doesn't exist yet): `src/task_manager_tkinter/data/app.db` (SQLite) is created and seeded with 5 demo tasks
 - Their due dates are set relative to the launch date, so the highlight shows 2 white, 2 yellow, and 1 red right from the first run
 - **After that**: the file stays, so deleting every task does not bring the demo data back
@@ -98,19 +94,21 @@ set PYTHONPATH=src && .venv\Scripts\python -m task_manager_tkinter.main
 |---|---|
 | Edit a value | Double-click a cell to edit it in place. Priority and status are dropdowns; the due date is picked from a calendar |
 | Sort | Click a column header; click again to toggle ascending/descending (shown as ▲/▼). Priority and status sort by meaning (Low→High, Not Started→In Progress→Done), not alphabetically. Rows with a blank value always sink to the bottom |
-| Add | "+ Add". A blank task is appended and selected (only the name gets a placeholder, "Task N"). Fill in the rest by editing cells, same as any other row |
+| Add | "+ Add". A blank task is appended and selected (only the name gets a placeholder, "Task N") |
 | Delete | Select a row, then "− Delete" → confirm with Yes. Shift/Cmd-click to multi-select and delete several at once |
 | CSV in/out | "Export" / "Import" |
 
 Overdue handling:
 
-- A task that is past its due date and not Done is automatically shown in red (Done tasks excluded). There is no "Overdue" status — whether a row is red is always computed from the due date, so moving the due date into the future clears the red.
+- A task past its due date and not Done is automatically shown in red (Done tasks excluded)
+- There is no "Overdue" status — whether a row is red is always computed from the due date
+- Moving the due date into the future clears the red
 
 #### Settings tab
 
-- **Due-date highlight**: toggle on/off and set how many days ahead to warn. Toggling applies to the task list immediately. Done tasks are excluded.
-- **Backup interval**: how often (in minutes, default 15) automatic backups run. Changing it while running takes effect from the next timer tick.
-- Every changed value is saved the moment you enter it (Auto Save).
+- **Due-date highlight**: toggle on/off and set how many days ahead to warn. Toggling applies to the task list immediately (Done tasks are excluded)
+- **Backup interval**: how often (in minutes, default 15) automatic backups run. Changing it while running takes effect from the next timer tick
+- Every changed value is saved the moment you enter it (Auto Save)
 
 > 💡 **If you just want to run it, you can stop here.** The rest is the main point of this sample: how roles are split under the MVP pattern.
 
@@ -128,28 +126,29 @@ The main point of this repo: how roles are split across the MVP (Model / View / 
 
 ### Resilient to change (what the MVP split buys you)
 
-The GUI (the screen) and the internals (data + logic) are separate and don't affect each other, so
-**changing, testing, and swapping parts all stay cheap.**
+- The GUI (the screen) and the internals (data + logic) are separate and don't affect each other
+- So changing, testing, and swapping parts all stay cheap
 
-- **Changing the GUI doesn't touch the internals, and vice versa.** Almost every change in this repo
-  touched one side only:
+**Almost every change in this repo touched one side only:**
 
-  | Change | What it touched |
-  |---|---|
-  | Center the window on launch ([#12](../../pull/12)) | one GUI-side file, `view/tk_main_window.py` |
-  | Hold data in memory only → write-through SQLite ([Design notes](#design-notes)) | the internals only; the Presenter and GUI were not touched |
-  | Change how the placeholder task name is generated ([#11](../../pull/11)) | `model/task/store.py` and its tests only |
-  | Turn "Overdue" from a stored status into a value derived from `due_date` | Model and Presenter changed, GUI untouched (the GUI already just receives a list of "which row gets which color") |
+| Change | What it touched |
+|---|---|
+| Center the window on launch ([#12](../../pull/12)) | one GUI-side file, `view/tk_main_window.py` |
+| Hold data in memory only → write-through SQLite ([Design notes](#design-notes)) | the internals only; the Presenter and GUI were not touched |
+| Change how the placeholder task name is generated ([#11](../../pull/11)) | `model/task/store.py` and its tests only |
+| Turn "Overdue" from a stored status into a value derived from `due_date` | Model and Presenter changed, GUI untouched |
 
-- **The logic is testable without launching the GUI.** Neither the Model nor the Presenter
-  imports `tkinter`. `test_presenter.py` swaps in a fake screen (`FakeView`) in place of the real one
-  and checks "what happens when you click this" across 43 cases. It runs as-is on CI's headless
-  Ubuntu.
+**The logic is testable without launching the GUI**
 
-- **Swapping the GUI library for something else needs no change to the internals.** All the Presenter
-  knows is a contract — "the screen can do these operations" (the abstract classes `TaskListView` /
-  `SettingsView`). The `FakeView` used in the tests is one example of that: a non-Tkinter screen
-  implementation.
+- Neither the Model nor the Presenter imports `tkinter`
+- `test_presenter.py` swaps in a fake screen (`FakeView`) in place of the real one
+- It checks "what happens when you click this" across 43 cases
+- It runs as-is on CI's headless Ubuntu
+
+**Swapping the GUI library for something else needs no change to the internals**
+
+- All the Presenter knows is a contract — "the screen can do these operations" (the abstract classes `TaskListView` / `SettingsView`)
+- The `FakeView` used in the tests is one example of that: a non-Tkinter screen implementation
 
 **Cost**: the following add code. At a few hundred lines it can look like overkill — the trade is the resilience above.
 
@@ -159,10 +158,12 @@ The GUI (the screen) and the internals (data + logic) are separate and don't aff
 
 ### Persistence and backups
 
-- **How it saves**: both tasks and settings go to SQLite (standard-library `sqlite3`, no extra install). **Edits are written to the database immediately** (Auto Save)
-- **What's missing**: no Save button, no "unsaved changes" indicator, no confirm-on-quit dialog
+- **How it saves**: both tasks and settings go to SQLite (standard-library `sqlite3`, no extra install)
+- Edits are written to the database immediately (Auto Save)
+- No Save button, no "unsaved changes" indicator, no confirm-on-quit dialog
 - **The catch**: you never think about saving, but there's also no way to undo a mistake by not saving (the backup below is the only safety net)
-- **Backup**: at the configured interval (default 15 min) the app checks whether `app.db` changed and, if so, copies it to `data/backups/` (skipped if nothing changed)
+- **Backup**: at the configured interval (default 15 min) the app checks whether `app.db` changed and, if so, copies it to `data/backups/`
+- Skipped if nothing changed since the last check
 - **Retention**: keeps only the newest **24 hours** and deletes anything older (by elapsed time, not by count)
 - **Scope**: protects against the database *file* becoming unreadable (disk failure, corruption). SQLite's transactions already guard against a crash mid-write, but not against the file being lost or corrupted outright
 
@@ -179,8 +180,7 @@ src/task_manager_tkinter/     Root package (src layout; folder hierarchy == clas
         lib/                  Home for pure-I/O modules that hold no class
             db_path.py        The DB file's default path (shared by task/settings)
             db_backup.py      Backs up and rotates app.db (pure I/O)
-            task_db.py        Task persistence (SQLite), pure I/O, no tkinter dependency.
-                              save() writes the whole in-memory state at once
+            task_db.py        Task persistence (SQLite), pure I/O, no tkinter dependency
             settings_db.py    Settings persistence (SQLite), pure I/O, no tkinter dependency
             csv_io.py         CSV export/import (pure I/O, no tkinter dependency)
         task/
@@ -203,67 +203,71 @@ src/task_manager_tkinter/     Root package (src layout; folder hierarchy == clas
         settings.py           SettingsPresenter
 ```
 
-- **Naming rule**: under `model` / `view`, file names carry only the **role** (`entity` / `store` / `contract` / `tk_frame`); which tab they belong to is shown by the **folder** (`task` / `settings`). The folder name and the layer name are not repeated in the file name
+- **Naming rule**: under `model` / `view`, file names carry only the **role** (`entity` / `store` / `contract` / `tk_frame`)
+- Which tab they belong to is shown by the **folder** (`task` / `settings`). The folder name and the layer name are not repeated in the file name
 - **`presenter`**: one class per tab, so no subfolder — `task.py` / `settings.py` sit directly under `presenter/`
-- **Folder = import namespace**: the `model` / `view` subfolders are the import path of the classes inside them (`src/task_manager_tkinter/model/task/` ⇔ `task_manager_tkinter.model.task.TaskModel`). Each subpackage's `__init__.py` re-exports its public classes, so callers import by the dotted path of the containing folder
+- **Folder = import namespace**: the `model` / `view` subfolders are the import path of the classes inside them (`src/task_manager_tkinter/model/task/` ⇔ `task_manager_tkinter.model.task.TaskModel`)
+- Each subpackage's `__init__.py` re-exports its public classes, so callers import by the dotted path of the containing folder
 - **Exceptions under `view/`**: `tk_main_window.py` (combines both tabs) and `callbacks.py` (a mixin that belongs to no tab)
 
 ### The Role of Each Layer
 
 | Layer | Class | Role | Depends on |
 |---|---|---|---|
-| Model | `TaskModel` | Domain logic for holding, adding (including blank tasks), updating, and deleting tasks. Edits only change the in-memory state; persistence is delegated to `task_db` only when `save()` is called (and `TaskModel` doesn't know any SQL itself). Doesn't deal with the UI either. | `task_db` |
-| Model | `SettingsModel` | Domain logic for holding and updating settings. Delegates the persistence details (SQLite) to `settings_db` and doesn't know any SQL itself. | `settings_db` |
-| Model | `task_db` / `settings_db` (`model/lib/`) | Saves/loads tasks and settings to/from SQLite. Pure I/O functions, no tkinter dependency. | `db_path` (where the DB file lives) |
-| Model | `db_backup` | Backs up `app.db` with a timestamp and deletes backups older than a given retention window (default 24h). Pure I/O functions; main.py owns the call cadence, read from `SettingsModel` (default 15 minutes). | none |
-| Model | `csv_io` | Exports/imports tasks to/from CSV. Pure I/O functions. | none |
-| View (abstract) | `TaskListView` / `SettingsView` | Define the "contract" for each tab (rendering, reading input, registering handlers). | none |
-| View (impl) | `view/task/tk_frame.py` (`TkTaskListFrame`) / `view/settings/tk_frame.py` (`TkSettingsFrame`) / `view/tk_main_window.py` (`TkMainWindow`) | Concrete implementation of the above abstractions using Tkinter (`ttk.Notebook` + standard widgets). | the View abstractions, tkinter |
-| Presenter | `TaskListPresenter` / `SettingsPresenter` | Holds the "screen behavior" logic for each tab: validation, updating the Model, tracking the list's sort state, adding/deleting tasks, CSV export/import, and determining the due-date highlight. On every `refresh()` (or `on_field_changed()`), saves immediately if there's anything unsaved (Auto Save). `TaskListPresenter` also reads `SettingsModel` to get the highlight criteria (on/off, how many days ahead). | the corresponding Model(s) (`TaskListPresenter` depends on both `TaskModel` and `SettingsModel`), the corresponding View (abstract only) |
+| Model | `TaskModel` | Adds (including blank tasks), updates, and deletes tasks. Delegates persistence to `task_db` only when `save()` is called (doesn't know any SQL itself) | `task_db` |
+| Model | `SettingsModel` | Holds and updates settings. Delegates persistence to `settings_db` | `settings_db` |
+| Model | `task_db` / `settings_db` (`model/lib/`) | Saves/loads tasks and settings to/from SQLite (pure I/O) | `db_path` |
+| Model | `db_backup` | Backs up `app.db` with a timestamp and deletes backups past the retention window (pure I/O); main.py owns the call cadence | none |
+| Model | `csv_io` | Exports/imports tasks to/from CSV (pure I/O) | none |
+| View (abstract) | `TaskListView` / `SettingsView` | Contract for each tab (rendering, reading input, registering handlers) | none |
+| View (impl) | `tk_frame.py` (task/settings) / `tk_main_window.py` | Tkinter implementation of the above (`ttk.Notebook` + standard widgets) | the View abstractions, tkinter |
+| Presenter | `TaskListPresenter` / `SettingsPresenter` | Validation, updating the Model, sort-state tracking, add/delete/CSV, due-date highlight. Auto Saves whenever there's something unsaved | the corresponding Model(s) (`TaskListPresenter` depends on both), the corresponding View (abstract only) |
 
 - Each Presenter depends only on its View abstraction, so swapping the View implementation (Tkinter / another GUI library / a `FakeView` for testing) requires no change to the Presenter
 - `TaskModel` / `SettingsModel` hide their persistence behind `task_db` / `settings_db`, so switching from in-memory-only to write-through SQLite required no changes to Presenter or View at all (history in [Design notes](#design-notes))
 
 ### Data Flow (clicking "+ Add")
 
-1. The user clicks "+ Add" on the "Task List" tab.
-2. The handler registered with `TkTaskListFrame` (`TaskListPresenter.on_add_click`) is invoked.
-3. The Presenter calls `TaskModel.add_blank_task()`. The Model adds a task with every field blank,
-   automatically filling the name with a placeholder like "Task N", numbered one past the highest
-   existing `Task <number>` (or 1 if there is none).
-4. It calls `refresh()` to update the list, then `view.select_task(task.id)` to select the new row.
-   The existing rows' order (including any active sort result) is left untouched — only the new
-   task is appended at the end.
-5. The user double-clicks cells on that selected row to fill in the assignee, due date, priority, and
-   status via the same inline-editing mechanism used for any other task.
+1. The user clicks "+ Add" on the "Task List" tab
+2. The handler registered with `TkTaskListFrame` (`TaskListPresenter.on_add_click`) is invoked
+3. The Presenter calls `TaskModel.add_blank_task()`
+4. The Model adds a task with every field blank, filling the name with a placeholder ("Task N"), numbered one past the highest existing `Task <number>` (or 1 if there is none)
+5. It calls `refresh()` to update the list, then `view.select_task(task.id)` to select the new row
+6. The existing rows' order (including any active sort) is left untouched — only the new task is appended at the end
+7. The user double-clicks cells on that row to fill in the assignee, due date, priority, and status via the same inline-editing mechanism used for any other task
 
 ### Design notes
 
-- **How Auto Save came to be**: it started as in-memory-only, then SQLite write-through. A later
-  redesign replaced write-through with an explicit `save()` behind a Save button (plus an "unsaved
-  changes" indicator and a confirm-on-quit dialog), so a mistake could be discarded by simply not
-  saving — but deciding where that button should live turned into its own recurring design problem.
-  In the end the simplest option won: back to saving on every change (Auto Save, no button), with the
-  periodic backup as the safety net instead. Across all of this, Presenter/View changes were only
-  ever needed when the *user-facing* behavior changed (a button, a dialog, an indicator) — the Model's
-  persistence mechanism itself (in-memory vs. SQLite) never required touching Presenter or View.
-- **Time-based backup retention**: "the last 24 hours", not "the last N backups". Changing the backup
-  interval later (15 min → 1 min, say) then doesn't break the "one day of history" guarantee without
-  a code change.
-- **"Overdue" is derived, not stored**: status is only Not Started / In Progress / Done. The red
-  "overdue" highlight is computed every time from `due_date < today and status != Done`. An earlier
-  design let you store `status="Overdue"` (manually, or auto-set when a due date was edited to the
-  past), but that was a one-way trap — once red, moving the due date forward didn't clear it — so the
-  stored value was removed.
-- **CSV I/O failures are reported in a dialog**: if the file can't be opened, isn't writable, is
-  malformed, has a bad encoding, or has no `name` column, the Presenter catches the exception and
-  calls `view.show_message("Error", …)` instead of letting a raw traceback through. `csv_io` is
-  pure I/O with no knowledge of the UI, so it just raises — it never swallows the error.
+**How Auto Save came to be**
+
+- It started as in-memory-only, then SQLite write-through
+- A later redesign replaced write-through with an explicit `save()` behind a Save button (plus an "unsaved changes" indicator and a confirm-on-quit dialog), so a mistake could be discarded by simply not saving
+- Deciding where that button should live turned into its own recurring design problem, so the simplest option won: back to saving on every change (Auto Save, no button)
+- The periodic backup stands in as the safety net instead
+- Across all of this, Presenter/View changes were only ever needed when the *user-facing* behavior changed (a button, a dialog, an indicator) — the Model's persistence mechanism itself never required touching Presenter or View
+
+**Time-based backup retention**
+
+- "The last 24 hours", not "the last N backups"
+- Changing the backup interval later (15 min → 1 min, say) doesn't break the "one day of history" guarantee without a code change
+
+**"Overdue" is derived, not stored**
+
+- Status is only Not Started / In Progress / Done
+- The red "overdue" highlight is computed every time from `due_date < today and status != Done`
+- An earlier design let you store `status="Overdue"` (manually, or auto-set when a due date was edited to the past), but that was a one-way trap — once red, moving the due date forward didn't clear it — so the stored value was removed
+
+**CSV I/O failures are reported in a dialog**
+
+- Covers: the file can't be opened, isn't writable, is malformed, has a bad encoding, or has no `name` column
+- The Presenter catches the exception and calls `view.show_message("Error", …)` instead of letting a raw traceback through
+- `csv_io` is pure I/O with no knowledge of the UI, so it just raises — it never swallows the error
 
 ### Running: other ways
 
 - Both `-m` and a plain file path work
-- For `-m`, put `src/` on the import path (`PYTHONPATH=src` or `cd src`). When run as a plain file, `main.py` detects it was run as a script (`__package__` unset) and prepends `src/` (two levels up from the file) to `sys.path`, so the same absolute imports resolve without extra setup
+- For `-m`, put `src/` on the import path (`PYTHONPATH=src` or `cd src`)
+- When run as a plain file, `main.py` detects it was run as a script (`__package__` unset) and prepends `src/` to `sys.path`, so the same absolute imports resolve without extra setup
 
 ```bash
 # from the repository root (put src/ on the import path)
@@ -284,12 +288,12 @@ set PYTHONPATH=src && .venv\Scripts\python -m task_manager_tkinter.main
 `test_presenter.py` (pytest) — verifies the Presenter logic:
 
 - swaps in a fake View (`FakeView`) for each View abstract class and verifies the two Presenters without starting Tkinter
-- depends only on the abstract classes `TaskListView` / `SettingsView`; never imports the Tkinter implementation (`view/task/tk_frame.py`, …), because the `__init__.py` files under `view/` re-export only the abstract classes — so it runs fine even without tkinter installed
+- never imports the Tkinter implementation (`view/task/tk_frame.py`, …), because the `__init__.py` files under `view/` re-export only the abstract classes — so it runs fine even without tkinter installed
 - `TaskModel` / `SettingsModel` use `db_path=":memory:"` in-memory SQLite (assembled in the `task_ctx` fixture), so nothing is written to disk and tests don't share state
 
-`test_gui_smoke.py` (`@pytest.mark.smoke`) — the opposite, checks only that the GUI assembles:
+`test_gui_smoke.py` (`@pytest.mark.smoke`) — checks only that the GUI assembles:
 
-- constructs the real `TkMainWindow` (every Tkinter widget) and checks only that it **builds without raising** — no behavior is verified, and `mainloop()` is never called, so it can't hang
+- constructs the real `TkMainWindow` (every Tkinter widget) and checks only that it builds without raising (`mainloop()` is never called, so it can't hang)
 - skips itself when `tkinter` isn't installed or there's no display
 
 ```bash
