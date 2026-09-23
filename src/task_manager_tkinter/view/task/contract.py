@@ -19,22 +19,16 @@ class TaskListView(ABC):
     def set_on_cell_edited(
         self, handler: Callable[[int, str, str], None]
     ) -> None:
-        """Register a handler called when an inline cell edit is committed.
-        Arguments: (task_id, field, new_value)
-        """
+        """Register a handler for a committed inline edit: (task_id, field, new_value)"""
 
     @abstractmethod
     def set_on_column_clicked(self, handler: Callable[[str], None]) -> None:
-        """Register a handler called when a column header is clicked.
-        Argument: field (the name of the clicked column)
-        """
+        """Register a handler for a column-header click, given the field name"""
 
     @abstractmethod
     def show_sort_state(self, field: Optional[str], ascending: bool) -> None:
-        """Reflect the current sort column and ascending/descending direction
-        visually (e.g. the arrow on the column header).
-        field == None represents the unsorted state.
-        """
+        """Reflect the current sort column/direction (e.g. header arrow).
+        field=None means unsorted."""
 
     @abstractmethod
     def set_on_add_click(self, handler: Callable[[], None]) -> None:
@@ -42,23 +36,19 @@ class TaskListView(ABC):
 
     @abstractmethod
     def set_on_delete_click(self, handler: Callable[[List[int]], None]) -> None:
-        """Register a handler called when the "delete" button is pressed.
-        Argument: task_ids (the targets to delete; every selected id if
-        multiple rows are selected).
-        Showing the confirmation popup and identifying the selected rows is
-        the View's responsibility; this handler is only called once "Yes" is chosen.
+        """Register a handler for the "delete" button, given the selected
+        task_ids. Confirmation and row selection are the View's job — this
+        fires only once "Yes" is chosen.
         """
 
     @abstractmethod
     def select_task(self, task_id: int) -> None:
-        """Select the given task (used e.g. after refreshing the list right after an add)"""
+        """Select the given task (e.g. after refreshing the list post-add)"""
 
     @abstractmethod
     def show_due_date_highlights(self, highlights: Dict[int, str]) -> None:
-        """Visually emphasize rows for tasks whose due date is near or past.
-        Argument: a task_id -> "warning" (due soon) or "overdue" (past due) mapping.
-        Any task_id not in the mapping is returned to normal display.
-        """
+        """Highlight rows near/past due: task_id -> "warning"/"overdue".
+        Ids not in the mapping return to normal display."""
 
     @abstractmethod
     def set_on_export_click(self, handler: Callable[[], None]) -> None:

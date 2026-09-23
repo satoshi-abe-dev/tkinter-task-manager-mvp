@@ -1,8 +1,7 @@
 """
 Model — app settings (dataclass)
 -----------------------------------
-Represents the values for one set of settings. Holds no logic — persistence
-and retrieval are handled by SettingsModel.
+Holds settings values only; SettingsModel handles persistence.
 """
 
 from dataclasses import dataclass

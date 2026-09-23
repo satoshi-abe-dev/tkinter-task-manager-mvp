@@ -1,10 +1,8 @@
 """
 Model — settings persistence (SQLite)
 ----------------------------------------
-Pure I/O logic, with no dependency on tkinter, for saving and loading
-settings to/from SQLite. Does not depend on the Settings dataclass
-(model.settings.entity) — it only exchanges primitive values (to avoid a
-circular import).
+Pure I/O, no tkinter dependency. Exchanges primitive values, not the
+Settings dataclass (model.settings.entity) — avoids a circular import.
 """
 
 import sqlite3

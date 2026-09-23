@@ -1,9 +1,8 @@
 """
 Model
 -----
-Holds the app settings only. Persistence is delegated to model.lib.settings_db
-(SQLite); SettingsModel itself knows nothing about the SQL details.
-The Settings dataclass is kept separate, in model.settings.entity.
+Holds app settings; persistence delegated to model.lib.settings_db (SQLite).
+The Settings dataclass lives separately in model.settings.entity.
 """
 
 from task_manager_tkinter.model.lib import settings_db
@@ -24,7 +23,7 @@ class SettingsModel:
         )
 
     def close(self) -> None:
-        """Close the DB connection (same reason as TaskModel.close() — mainly for tests)."""
+        """Close the DB connection (mainly for tests)"""
         self._conn.close()
 
     def get(self) -> Settings:

@@ -1,22 +1,15 @@
 """
 Backup and generation management for the DB file (app.db)
 ------------------------------------------------------------
-Pure I/O with no dependency on tkinter. The task and settings tables live
-together in the same physical file (model.lib.db_path.DEFAULT_DB_PATH), so
-backups are handled as a single, file-level mechanism.
+Pure I/O, no tkinter. Tasks and settings share one physical file
+(model.lib.db_path.DEFAULT_DB_PATH), so backups work at the file level.
 
-SQLite itself, thanks to transactions, is resilient to "corrupted midway
-through because of a crash during a write", but it can't protect against
-cases where the file itself becomes unreadable, such as disk failure or a
-filesystem fault. As a safety net for that, we periodically copy it to a
-separate file (called at a fixed interval from the main.py side).
+SQLite's transactions survive a crash mid-write, but not disk failure or
+filesystem corruption — this periodic copy (called from main.py) is the
+safety net for that.
 
-The retention policy is time-based: "keep everything from the last 24
-hours." It's time-based rather than count-based (e.g. "last N backups") so
-that, even if the DB grows large in the future and the backup interval is
-tuned accordingly (e.g. changed from every 15 minutes to every minute), the
-requirement "you can go back up to a day" continues to hold without any
-code changes.
+Retention is time-based ("last 24 hours"), not count-based, so tuning the
+backup interval later doesn't silently shrink the retained history.
 """
 
 import shutil
@@ -44,10 +37,7 @@ def backup_and_rotate(db_path: str, keep_for: timedelta = _DEFAULT_RETENTION) ->
     backup_dir.mkdir(parents=True, exist_ok=True)
 
     timestamp = datetime.now().strftime(_TIMESTAMP_FORMAT)
-    # If backups happen in quick succession, sub-second clock resolution on
-    # some environments can be too coarse for the timestamp alone to be
-    # unique (the same name would get overwritten, so no backup is actually
-    # gained). Always append a short random suffix to guarantee uniqueness.
+    # Sub-second clock resolution can collide on rapid backups; add a random suffix
     unique_suffix = uuid.uuid4().hex[:8]
     backup_path = backup_dir / f"{source.name}.{timestamp}-{unique_suffix}{_BACKUP_SUFFIX}"
     shutil.copy2(source, backup_path)
@@ -56,11 +46,8 @@ def backup_and_rotate(db_path: str, keep_for: timedelta = _DEFAULT_RETENTION) ->
 
 
 def _prune_old_backups(backup_dir: Path, db_filename: str, keep_for: timedelta) -> None:
-    """Delete backup files older than `keep_for`.
-    Age is judged by the file's own modification time (mtime) — simpler than
-    parsing the timestamp out of the filename, and won't break if the naming
-    convention changes in the future.
-    """
+    """Delete backup files older than `keep_for`, judged by mtime (simpler
+    than parsing the timestamp out of the filename)."""
     pattern = f"{db_filename}.*{_BACKUP_SUFFIX}"
     cutoff = datetime.now() - keep_for
     for backup_file in backup_dir.glob(pattern):

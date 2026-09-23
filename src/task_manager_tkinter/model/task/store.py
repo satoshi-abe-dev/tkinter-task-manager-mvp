@@ -4,12 +4,8 @@ Model
 Holds only the domain logic for keeping, adding, updating, and deleting
 tasks. Knows nothing about the View or the Presenter.
 
-Edit operations (add/update/delete) only modify the in-memory _tasks; they
-don't write to the DB on the spot. Changes are actually flushed to SQLite
-only when save() is called explicitly (when the "Save" button on the list
-tab is pressed). This means that if you make a mistake before saving, as
-long as you don't save, restarting the app puts you right back to the last
-saved state (restarting the app acts as an "undo everything").
+Edit operations only touch in-memory _tasks; save() flushes them to SQLite.
+The Presenter calls save() after every edit (Auto Save).
 """
 
 import re
@@ -24,19 +20,14 @@ from task_manager_tkinter.model.task.entity import Task
 # Fields that inline editing on the list tab is allowed to change
 EDITABLE_FIELDS = {"name", "assignee", "due_date", "priority", "status"}
 
-# Pattern (full match) for picking out the "+ Add" placeholder task name "Task <number>"
+# Matches the "+ Add" placeholder name, "Task <number>"
 _DEFAULT_TASK_NAME_RE = re.compile(r"Task ([0-9]+)")
 
 
 def _next_default_task_name(existing_names: Iterable[str]) -> str:
-    """The placeholder task name used by "+ Add": the highest existing
-    "Task <number>" value + 1. "Task 1" if there are none.
-
-    Numbering is based on the existing names, not the count or an id:
-      - With only the seed data (no "Task N" present), it always starts at "Task 1"
-      - Even if the user has typed in "Task 40" by hand or imported it via
-        CSV, the next one will be "Task 41", so names never collide
-    The user is expected to rename this placeholder afterward.
+    """Placeholder name for "+ Add": highest existing "Task <number>" + 1,
+    or "Task 1" if none. Based on existing names (not count/id), so a
+    hand-typed or CSV-imported "Task 40" still yields "Task 41" next.
     """
     numbers = []
     for name in existing_names:
@@ -48,17 +39,11 @@ def _next_default_task_name(existing_names: Iterable[str]) -> str:
 
 
 def _seed_tasks() -> List[Task]:
-    """Initial demo data.
-
-    Due dates are decided relative to "the day the app was first launched".
-    Under the default notification settings (notify_enabled=True /
-    notify_days_before=3), they're arranged so the list tab's due-date
-    highlighting shows "2 white, 2 yellow, 1 red" right from the start
-    (yellow = due soon, red = overdue).
-
-    Builds a fresh set of Task instances on every call (add_task rewrites
-    task.id in place, so reusing the same Task objects across multiple
-    TaskModel instances would cause id collisions).
+    """Initial demo data. Due dates are relative to launch day, arranged so
+    the default highlight settings show "2 white, 2 yellow, 1 red" from the
+    start. Builds fresh Task instances each call — add_task rewrites
+    task.id in place, so reusing objects across TaskModel instances would
+    cause id collisions.
     """
     today = date.today()
 
@@ -80,11 +65,7 @@ def _seed_tasks() -> List[Task]:
 
 class TaskModel:
     def __init__(self, db_path: str = DEFAULT_DB_PATH) -> None:
-        # Only seed demo data when "the DB file doesn't exist yet" = a
-        # genuine first launch. connect() would create the file, so this
-        # must be checked beforehand.
-        # (":memory:" is a fresh disposable DB every time, so it's always
-        # treated as a first run — used for tests.)
+        # Check before connect() creates the file — ":memory:" is always a first run (tests)
         first_run = db_path == ":memory:" or not Path(db_path).exists()
 
         self._conn = task_db.connect(db_path)
@@ -95,18 +76,14 @@ class TaskModel:
         else:
             self._next_id = 1
             if first_run:
-                # First launch: seed the initial demo data and save immediately.
-                # If the user later deletes every task, app.db still exists,
-                # so it just stays empty — the demo data never comes back.
+                # Seed once; app.db then exists, so deleting all tasks won't re-seed
                 for task in _seed_tasks():
                     self.add_task(task)
                 self.save()
 
     def close(self) -> None:
-        """Close the DB connection. It's fine for the app to leave it open
-        until the process exits, but tests close it explicitly before
-        removing their temp files (Windows in particular can't delete a
-        file that's still open)."""
+        """Close the DB connection (tests close it explicitly — Windows
+        can't delete a file that's still open)."""
         self._conn.close()
 
     def list_tasks(self) -> List[Task]:
@@ -125,7 +102,7 @@ class TaskModel:
         return self._dirty
 
     def save(self) -> None:
-        """Flush the current in-memory state to the DB wholesale (used by the list tab's "Save" button)"""
+        """Flush the current in-memory state to the DB wholesale (called by the Presenter after every edit — Auto Save)"""
         task_db.replace_all(self._conn, self._tasks)
         self._dirty = False
 
@@ -138,14 +115,8 @@ class TaskModel:
         return task
 
     def add_blank_task(self) -> Task:
-        """Add one task with every field blank (used by the list tab's "add" button).
-
-        Only the task name is not left blank — a placeholder "Task N" is
-        used instead. N is the highest existing "Task <number>" value + 1
-        (1 if none exist). Doesn't depend on the count or an id, so with
-        only the seed data it starts at "Task 1", and it won't collide with
-        an existing "Task N". The user is expected to rename it afterward.
-        """
+        """Add one task with every field blank except name (see
+        _next_default_task_name for the placeholder)."""
         name = _next_default_task_name(t.name for t in self._tasks)
         return self.add_task(
             Task(name=name, assignee="", due_date="", priority="", status="")

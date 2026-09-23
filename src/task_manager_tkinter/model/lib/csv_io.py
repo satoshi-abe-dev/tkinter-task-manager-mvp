@@ -1,15 +1,11 @@
 """
 Model
 -----
-CSV export/import for tasks. Pure I/O logic with no dependency on tkinter.
-Called from the "Task List" tab's export/import buttons, via the Presenter.
+CSV export/import for tasks. Pure I/O, no tkinter dependency. Called from
+the "Task List" tab's export/import buttons, via the Presenter.
 
-Exceptions are not swallowed here; they are simply passed on to the caller
-(the Presenter). Possible exceptions are: OSError (file can't be opened,
-permissions, disk, etc.), UnicodeDecodeError (invalid encoding; a subclass
-of ValueError), csv.Error (malformed CSV), and ValueError (e.g. a required
-column is missing — raised explicitly below). The Presenter catches these
-and reports them to the user via view.show_message().
+Exceptions propagate uncaught (OSError, UnicodeDecodeError, csv.Error,
+ValueError); the Presenter catches them and reports via view.show_message().
 """
 
 import csv
@@ -38,18 +34,13 @@ def export_tasks_to_csv(tasks: List[Task], path: str) -> None:
 
 
 def import_tasks_from_csv(path: str) -> Tuple[List[Task], int]:
-    """Read tasks in from a CSV file.
-
-    Returns: (list of Tasks that were read, number of rows skipped because the task name was blank)
-    """
+    """Read tasks from a CSV file. Returns (tasks, count skipped for blank name)."""
     tasks: List[Task] = []
     skipped = 0
     with open(path, newline="", encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
         if "name" not in (reader.fieldnames or []):
-            # No "name" column in the header — this isn't a CSV produced by
-            # this app. Rather than skip every row and silently report
-            # "0 imported", raise a clear error instead.
+            # Not a CSV this app produced — raise rather than silently import 0 rows
             raise ValueError(
                 "The CSV file has no 'name' column — "
                 "import a CSV that was exported by this app."
@@ -59,9 +50,7 @@ def import_tasks_from_csv(path: str) -> Tuple[List[Task], int]:
             if not name:
                 skipped += 1
                 continue
-            # Fold status values that no longer exist (e.g. "Overdue", written
-            # by an older version) into "Not Started" — "Overdue" is not a
-            # status; it's derived from due_date instead.
+            # Fold retired status values (e.g. old "Overdue") into "Not Started"
             status = row.get("status") or "Not Started"
             if status not in STATUSES:
                 status = "Not Started"

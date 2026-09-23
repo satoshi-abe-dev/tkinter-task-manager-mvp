@@ -1,10 +1,8 @@
 """
 Presenter — settings tab
 -------------------------
-Handles loading and saving settings. Saves to the DB immediately whenever a
-field changes (Auto Save). CSV export/import operates on task data, which
-is conceptually different from settings, so it belongs to the task list tab
-side (TaskListPresenter) instead.
+Loads/saves settings, writing to the DB on every field change (Auto Save).
+CSV export/import is task data, so it lives on TaskListPresenter instead.
 """
 
 from typing import Callable
@@ -33,9 +31,7 @@ class SettingsPresenter:
         self._save_now()
 
     def on_highlight_toggled(self, enabled: bool) -> None:
-        """Called when the highlight on/off checkbox is toggled.
-        Applies the change to the list tab's highlighting immediately.
-        """
+        """Applies the highlight on/off toggle to the list tab immediately"""
         self.settings_model.set_notify_enabled(enabled)
         self.on_settings_saved()
 
@@ -43,7 +39,5 @@ class SettingsPresenter:
         """Save the View form's current values to the DB as-is"""
         settings = self.view.get_form_values()
         self.settings_model.update(settings)
-        # The notification settings (enabled/disabled, how many days ahead)
-        # are used by the list tab's due-date highlighting, so trigger a
-        # re-evaluation there right after saving.
+        # Notification settings drive the list tab's due-date highlight
         self.on_settings_saved()

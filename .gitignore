@@ -13,14 +13,14 @@ __pycache__/
 venv/
 *.egg-info/
 
-# デバッグ用にやり取りしたスクリーンショットなどの置き場
+# デバッグ用スクショなど
 temp/
 
-# アプリのデータ(SQLite)。ユーザーごとの実行時データなのでコミットしない。
+# アプリのSQLiteデータ（実行時生成）
 src/task_manager_tkinter/data/
 
-# デモ動画のローカル作業コピー。配布は GitHub アタッチメント URL 経由なのでコミットしない。
+# デモ動画（配布はGitHub添付URL経由）
 docs/demo_h264.mp4
 
-# 個人用メモの置き場（非公開）。
+# 個人用メモ（非公開）
 private/
