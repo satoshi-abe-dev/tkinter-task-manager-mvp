@@ -22,5 +22,5 @@ src/task_manager_tkinter/data/
 # デモ動画のローカル作業コピー。配布は GitHub アタッチメント URL 経由なのでコミットしない。
 docs/demo_h264.mp4
 
-# 個人的なメモ（ポートフォリオ評価など、公開しない下書き）の置き場。
+# 個人用メモの置き場（非公開）。
 private/
