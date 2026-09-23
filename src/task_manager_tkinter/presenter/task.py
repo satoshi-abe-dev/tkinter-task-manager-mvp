@@ -21,9 +21,7 @@ from task_manager_tkinter.view.task import TaskListView
 _PRIORITY_ORDER = {value: index for index, value in enumerate(PRIORITIES)}
 _STATUS_ORDER = {value: index for index, value in enumerate(STATUSES)}
 
-# Sort key per column. Priority and status are not sorted alphabetically;
-# they use the meaningful order defined in model.task (low -> high,
-# not-started -> done, etc.).
+# Priority/status sort by meaningful order (low->high, not-started->done), not alphabetically
 _SORT_KEYS: Dict[str, Callable[[Task], object]] = {
     "name": lambda t: t.name,
     "assignee": lambda t: t.assignee,
@@ -45,10 +43,8 @@ class TaskListPresenter:
         self.view = view
         self._sort_field: Optional[str] = None
         self._sort_ascending = True
-        # Task id ordering used to keep "the order currently displayed" as-is,
-        # ignoring column sort — e.g. right after an "add". While it is None,
-        # tasks are re-sorted by _sort_field every time. Clearing it happens
-        # when a column header is clicked.
+        # Fixed display order (ignoring sort), e.g. right after an add.
+        # None means re-sort by _sort_field each time; cleared on column-header click.
         self._manual_order: Optional[List[int]] = None
         self.view.set_on_cell_edited(self.on_cell_edited)
         self.view.set_on_column_clicked(self.on_column_clicked)
@@ -59,12 +55,8 @@ class TaskListPresenter:
         self.refresh()
 
     def refresh(self) -> None:
-        """Fetch the latest task list from the Model, sort it if needed, and apply it to the View.
-
-        If there are unsaved changes at this point, save() is called
-        immediately (i.e. as a result, every edit operation is auto-saved —
-        Auto Save).
-        """
+        """Fetch tasks from the Model, order them, and apply to the View.
+        Auto Save: any unsaved change is save()d immediately."""
         tasks = self._ordered_tasks(self.model.list_tasks())
         self.view.show_tasks(tasks)
         self.view.show_sort_state(self._sort_field, self._sort_ascending)
@@ -73,39 +65,27 @@ class TaskListPresenter:
             self.model.save()
 
     def _ordered_tasks(self, tasks: List[Task]) -> List[Task]:
-        """Order the tasks in the current display order.
-        Uses _manual_order (fixed order) if set, otherwise falls back to the
-        result of the current sort column. Shared logic also used wherever
-        "the current display order" is needed (e.g. when adding).
-        """
+        """Current display order: _manual_order if set, else the current sort.
+        Shared wherever "current display order" is needed (e.g. adding)."""
         if self._manual_order is not None:
             return self._apply_manual_order(tasks)
         return self._sorted_tasks(tasks)
 
     def _sorted_tasks(self, tasks: List[Task]) -> List[Task]:
-        """Sort the tasks according to the current sort column (left as-is if no column is set).
-
-        Tasks with a blank value are always placed last, whether ascending
-        or descending (with reverse=True, a plain key comparison alone would
-        put blanks first, so "is it blank" needs to be handled separately).
-        """
+        """Sort by the current column (unchanged if none set).
+        Blank values always sort last regardless of direction."""
         if self._sort_field is None:
             return tasks
         field = self._sort_field
         key = _SORT_KEYS[field]
         tasks = sorted(tasks, key=key, reverse=not self._sort_ascending)
-        # Since sorted() is a stable sort, sorting once more afterward by
-        # just "is it blank" pushes only the blanks to the end while
-        # preserving the order (ascending/descending result) of everything else.
+        # Stable sort: this second pass pushes blanks to the end without disturbing the rest
         tasks = sorted(tasks, key=lambda t: not getattr(t, field).strip())
         return tasks
 
     def _apply_manual_order(self, tasks: List[Task]) -> List[Task]:
         """Apply the order fixed in _manual_order.
-
-        Deleted task ids naturally drop out, and any new id not in
-        _manual_order (e.g. added via import) is appended at the end.
-        """
+        Deleted ids drop out; new ids (e.g. from import) are appended at the end."""
         tasks_by_id = {t.id: t for t in tasks}
         ordered_ids = [tid for tid in self._manual_order if tid in tasks_by_id]
         known_ids = set(ordered_ids)
@@ -114,12 +94,8 @@ class TaskListPresenter:
         return [tasks_by_id[tid] for tid in ordered_ids]
 
     def _compute_due_date_highlights(self, tasks: List[Task]) -> Dict[int, str]:
-        """Build an id -> kind mapping for highlighting tasks whose due date is near or past.
-
-        Uses the Settings tab's notification settings (enabled/disabled, how
-        many days ahead to warn) as-is for the judgment. No highlighting
-        while notifications are disabled.
-        """
+        """Map task id -> "overdue"/"warning" for near/past due dates.
+        Uses the Settings tab's notify_enabled/notify_days_before; empty if disabled."""
         settings = self.settings_model.get()
         if not settings.notify_enabled:
             return {}
@@ -161,16 +137,10 @@ class TaskListPresenter:
         self.refresh()
 
     def on_add_click(self) -> None:
-        """Called when the "add" button is pressed. Adds one blank task and selects it.
-
-        Keeps the current row order as displayed (the sort result if
-        sorting, or the already-fixed order if _manual_order is set) and
-        only appends the new task at the end. Using _sorted_tasks() alone
-        would cause a second (or later) add to ignore the order fixed by a
-        previous add (because _sort_field is already None by the time of the
-        first add), so _ordered_tasks() is used instead, which also takes
-        _manual_order into account. The column header's sort arrow is hidden
-        to show that it's no longer strictly sorted.
+        """Add one blank task, select it, and append it after the current
+        display order (via _ordered_tasks, so a later add doesn't drop the
+        order fixed by an earlier one). Clears the sort arrow — the result
+        is no longer strictly sorted.
         """
         current_order = [t.id for t in self._ordered_tasks(self.model.list_tasks())]
         task = self.model.add_blank_task()
@@ -180,9 +150,7 @@ class TaskListPresenter:
         self.view.select_task(task.id)
 
     def on_delete_click(self, task_ids: List[int]) -> None:
-        """Called when the "delete" button is pressed (after "Yes" is chosen in the confirmation popup).
-        If multiple rows are selected, every selected id is passed in.
-        """
+        """Called after "Yes" in the delete confirmation; task_ids covers every selected row"""
         self.model.delete_tasks(task_ids)
         self.refresh()
 
@@ -207,8 +175,7 @@ class TaskListPresenter:
         try:
             tasks, skipped = import_tasks_from_csv(path)
         except (OSError, csv.Error, ValueError) as exc:
-            # File can't be opened, malformed CSV, bad encoding, missing column, etc.
-            # (UnicodeDecodeError is a subclass of ValueError, so it's caught here too)
+            # Covers open failure, malformed CSV, bad encoding (⊂ ValueError), missing column
             self.view.show_message("Error", f"Could not import the CSV file.\n{exc}")
             return
         for task in tasks:

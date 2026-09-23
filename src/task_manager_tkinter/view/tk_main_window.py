@@ -2,13 +2,12 @@
 View (Tkinter implementation layer) — the overall window
 --------------------------------------------------------------
 Combines the task list tab (TkTaskListFrame) and the settings tab
-(TkSettingsFrame) into a ttk.Notebook, and handles launching the whole
-window (run). Each tab's own implementation lives under view/task/ and
-view/settings/ (one folder per tab).
+(TkSettingsFrame) into a ttk.Notebook, and handles launching the window
+(run). Each tab's own implementation lives under view/task/ and
+view/settings/.
 
-Edits are always saved to the DB (SQLite) immediately (Auto Save), so there
-is no Save button or "unsaved" indicator. Backups against disk corruption
-etc. are taken periodically on the main.py side using schedule().
+Auto Save means no Save button or "unsaved" indicator. Backups run
+periodically from main.py via schedule().
 """
 
 import tkinter as tk
@@ -22,7 +21,6 @@ _WINDOW_WIDTH = 640
 _WINDOW_HEIGHT = 560
 
 
-# Called at main.py > def main()
 class TkMainWindow:
     """The main window combining the two tabs (task list / settings)"""
 
@@ -46,17 +44,13 @@ class TkMainWindow:
         self._center_on_screen(_WINDOW_WIDTH, _WINDOW_HEIGHT)
 
     def _center_on_screen(self, width: int, height: int) -> None:
-        """Position a window of the given size in the center of the screen.
+        """Center a window of the given size on the screen.
 
-        Passing only a size to geometry() leaves the initial position up to
-        the window manager, which on some environments ends up e.g. in the
-        bottom-left. Compute the top-left coordinates from the screen's
-        width/height and specify them explicitly in "WxH+X+Y" form.
-
-        On macOS, passing a geometry() with coordinates before the window is
-        actually realized gets overwritten by the manager's default position
-        on first display. Realize it first with update_idletasks() after
-        every widget has been built, then set the coordinates.
+        geometry() with size alone leaves position to the window manager
+        (can land bottom-left), so compute top-left coords explicitly as
+        "WxH+X+Y". On macOS, setting coords before the window is realized
+        gets overwritten by the manager's default — call update_idletasks()
+        first.
         """
         self._root.update_idletasks()
         screen_width = self._root.winfo_screenwidth()
@@ -66,17 +60,14 @@ class TkMainWindow:
         self._root.geometry(f"{width}x{height}+{x}+{y}")
 
     def schedule(self, delay_ms: int, callback: Callable[[], None]) -> None:
-        """Call callback once, delay_ms milliseconds from now (a thin wrapper
-        around tkinter's after()).
-        To run something repeatedly, have callback itself call schedule()
-        again from within (this is how main.py's periodic backup is implemented).
-        """
+        """Call callback once, delay_ms ms from now (wraps tkinter's after()).
+        For repeats, have callback call schedule() again itself — see
+        main.py's periodic backup."""
         self._root.after(delay_ms, callback)
 
     def run(self) -> None:
         self._root.mainloop()
 
     def destroy(self) -> None:
-        """Destroy the window (for tearing down without running run() —
-        used by the GUI construction smoke test)."""
+        """Destroy the window without running run() (used by the GUI smoke test)"""
         self._root.destroy()

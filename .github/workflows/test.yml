@@ -1,33 +1,32 @@
 # CI: pytest を Linux / Windows / macOS で回す。
-#   test_presenter.py … Model / Presenter / 抽象 View のユニットテスト（tkinter 不要）
-#   test_gui_smoke.py … 実物の Tkinter ウィジェットが例外なく組み上がるかの確認
-#                       （@pytest.mark.smoke。tkinter/画面が無い Ubuntu では skip）
+#   test_presenter.py … Presenter のユニットテスト（tkinter 不要）
+#   test_gui_smoke.py … 実物の GUI 組み立て確認（@pytest.mark.smoke、Ubuntu は skip）
 name: CI
 
 on:
   push:
-    branches: [main] # main に入った後に流す
+    branches: [main] # main 反映後に実行
   pull_request:
-    branches: [main] # main 向け PR を、マージ前にブランチの状態で流す
+    branches: [main] # マージ前に PR のブランチ状態で実行
 
 jobs:
   tests:
     strategy:
-      fail-fast: false # 1 OS が落ちても他をキャンセルせず、全 OS の結果を見る
+      fail-fast: false # 1 OS 失敗でも他を継続
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v5 # リポジトリをランナーへチェックアウトする
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v6 # 指定バージョンの Python を入れて PATH を通す
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
       - name: Install dependencies
         run: python -m pip install -r requirements-dev.txt
 
-      # python3 ではなく python（Windows には python3 が無い。python は全 OS で有効）。
-      # -ra で skip 理由をサマリに出す（Ubuntu では GUI テストが skip されるのが見える）。
+      # python3 ではなく python（Windows に python3 は無い）
+      # -ra で skip 理由もサマリに出す
       - name: Run pytest
         run: python -m pytest -ra

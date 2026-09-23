@@ -22,10 +22,7 @@ class TkSettingsFrame(ttk.Frame, CallbackRegistryMixin, SettingsView):
 
     def __init__(self, master: tk.Widget) -> None:
         super().__init__(master, padding=16)
-        # Callbacks (_on_field_changed / _on_highlight_toggled) are held by
-        # name by CallbackRegistryMixin.
-        # Guard against field_changed firing accidentally via a variable
-        # trace while load_settings() is setting values on the form.
+        # Guard against field_changed firing via variable trace while load_settings() runs
         self._loading = False
 
         self._notify_var = tk.BooleanVar(value=True)
@@ -46,9 +43,7 @@ class TkSettingsFrame(ttk.Frame, CallbackRegistryMixin, SettingsView):
         notify_checkbox.grid(row=row, column=0, columnspan=2, sticky="w", pady=2)
         row += 1
         days_row = ttk.Frame(self)
-        # Align the start of the next row with where the "text" of the
-        # checkbutton above it begins. A checkbutton's text is pushed right
-        # by its check indicator, so measure that indent and use it as padx.
+        # Align with the checkbutton's text start (indented past its check indicator)
         days_row.grid(
             row=row,
             column=0,
@@ -57,7 +52,7 @@ class TkSettingsFrame(ttk.Frame, CallbackRegistryMixin, SettingsView):
             pady=2,
             padx=(self._measure_checkbox_text_indent(notify_checkbox), 0),
         )
-        # Only allow typing non-negative integers directly (reject negative numbers/letters).
+        # Restrict typed input to non-negative integers
         validate_digits = (self.register(self._validate_day_count), "%P")
         self._days_spinbox = ttk.Spinbox(
             days_row,
@@ -70,7 +65,6 @@ class TkSettingsFrame(ttk.Frame, CallbackRegistryMixin, SettingsView):
             validatecommand=validate_digits,
         )
         self._days_spinbox.grid(row=0, column=0)
-        # Spell out the unit (days) explicitly
         self._days_unit_label = ttk.Label(days_row, text="days before due date")
         self._days_unit_label.grid(row=0, column=1, padx=(6, 0))
         row += 1
@@ -81,7 +75,7 @@ class TkSettingsFrame(ttk.Frame, CallbackRegistryMixin, SettingsView):
         row += 1
         backup_row = ttk.Frame(self)
         backup_row.grid(row=row, column=0, columnspan=2, sticky="w", pady=2)
-        # Only allow typing non-negative integers directly (same validation as the days field).
+        # Same validation as the days field
         validate_digits = (self.register(self._validate_day_count), "%P")
         self._backup_interval_spinbox = ttk.Spinbox(
             backup_row,
@@ -101,12 +95,10 @@ class TkSettingsFrame(ttk.Frame, CallbackRegistryMixin, SettingsView):
 
         self.columnconfigure(1, weight=1)
 
-        # Detect changes to the days field / backup interval field via a trace
-        # (suppressed by _loading while load_settings runs).
+        # Detect field edits via trace, suppressed by _loading during load_settings()
         self._notify_days_var.trace_add("write", lambda *_: self._changed())
         self._backup_interval_var.trace_add("write", lambda *_: self._changed())
 
-        # Match the days field's state to the checkbutton's initial state (on by default)
         self._update_days_row_state()
 
     def _changed(self) -> None:
@@ -126,12 +118,8 @@ class TkSettingsFrame(ttk.Frame, CallbackRegistryMixin, SettingsView):
         self._days_unit_label.state(state)
 
     def _measure_checkbox_text_indent(self, checkbutton: ttk.Checkbutton) -> int:
-        """Measure, in pixels, where a Checkbutton's "text" actually begins (distance from the left edge).
-
-        Subtracting the width of the text itself from the widget's total
-        width gives the amount taken up by the check indicator plus padding,
-        which is exactly where the text starts.
-        """
+        """Pixels from the left edge to where the Checkbutton's text begins
+        (total width minus text width = indicator + padding)."""
         self.update_idletasks()
         style_name = checkbutton.cget("style") or "TCheckbutton"
         style = ttk.Style(self)
@@ -142,9 +130,7 @@ class TkSettingsFrame(ttk.Frame, CallbackRegistryMixin, SettingsView):
 
     @staticmethod
     def _validate_day_count(proposed: str) -> bool:
-        """Restrict input in the days field / backup interval field to
-        non-negative integers (or a blank value mid-edit) only
-        """
+        """Allow only non-negative integers, or blank mid-edit"""
         return proposed == "" or proposed.isdigit()
 
     # Override

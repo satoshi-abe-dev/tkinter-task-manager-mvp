@@ -1,15 +1,11 @@
 """
 Presenter unit tests (pytest)
 --------------------------------
-Verifies the logic of the two Presenters without ever starting Tkinter, by
-plugging in a FakeView (a fake implementation of each View abstract class).
-Does not import the Tkinter implementations under View
-(view/task/tk_frame.py / view/settings/tk_frame.py / view/tk_main_window.py),
-so this runs fine even in an environment without tkinter installed.
+Verifies both Presenters without starting Tkinter, via a FakeView per View
+ABC. Doesn't import the Tkinter View implementations, so it runs without
+tkinter installed.
 
-How to run (from the repository root):
-    pip install -r requirements-dev.txt
-    pytest
+    pip install -r requirements-dev.txt && pytest
 """
 
 import os
@@ -200,7 +196,7 @@ def test_task_list_presenter_sort_keeps_blank_values_at_bottom(task_ctx) -> None
     assert view.shown_tasks[-1].id == blank_task.id
     assert all(t.assignee.strip() for t in view.shown_tasks[:-1])
 
-    # Even after switching to descending, the blank stays last (must not jump to the front)
+    # Descending: blank still stays last (doesn't jump to front)
     view.column_clicked_handler("assignee")
     assert view.sort_state == ("assignee", False)
     assert view.shown_tasks[-1].id == blank_task.id
@@ -215,9 +211,7 @@ def test_task_list_presenter_adds_blank_task_with_default_name(task_ctx) -> None
 
     assert len(model.list_tasks()) == before + 1
     new_task = model.list_tasks()[-1]
-    # The placeholder name is not based on count or id, but on "the highest
-    # existing 'Task N' + 1". None of the 5 seed tasks are named "Task N",
-    # so the first add is "Task 1".
+    # Placeholder is "highest existing Task N" + 1; none of the seed tasks match, so "Task 1"
     assert new_task.name == "Task 1"
     assert new_task.assignee == ""
     assert new_task.due_date == ""
@@ -247,9 +241,8 @@ def test_task_list_presenter_add_always_appears_at_bottom_even_when_sorted(task_
     view.add_handler()
     new_task = model.list_tasks()[-1]
 
-    # The header arrow (the sorting indicator) disappears, but
+    # Sort arrow disappears, but existing rows keep their sorted order; new task is appended
     assert view.sort_state == (None, True)
-    # the order of the existing rows stays exactly as it was while sorted; only the new task is appended at the end
     assert [t.id for t in view.shown_tasks] == sorted_ids_before_add + [new_task.id]
 
 
@@ -262,7 +255,7 @@ def test_task_list_presenter_add_preserves_order_across_further_edits(task_ctx) 
     new_task = model.list_tasks()[-1]
     order_after_add = order_after_add + [new_task.id]
 
-    # Even editing another cell afterward (i.e. refresh runs again), the fixed order is preserved
+    # Fixed order survives another edit too (refresh reruns)
     target = model.list_tasks()[0]
     view.cell_edited_handler(target.id, "assignee", "Tanaka")
 
@@ -280,7 +273,7 @@ def test_task_list_presenter_two_consecutive_adds_keep_order(task_ctx) -> None:
     view.add_handler()
     second_new = model.list_tasks()[-1]
 
-    # The order fixed by the first add is not broken by the second add; it's just appended at the end
+    # First add's order isn't broken by the second; it's just appended
     assert [t.id for t in view.shown_tasks] == sorted_ids + [first_new.id, second_new.id]
 
 
@@ -363,10 +356,8 @@ def test_task_list_presenter_excludes_completed_status_from_highlight(task_ctx) 
 
 
 def test_task_list_presenter_highlight_follows_due_date_not_status(task_ctx) -> None:
-    """There is no "Overdue" status. The overdue-red state is decided purely
-    from due_date, and fixing the due date to the future clears the red too
-    (i.e. it never happens that "once red, always red").
-    """
+    """No "Overdue" status — red is derived from due_date, so moving it to
+    the future clears the red too (never "once red, always red")."""
     model, settings_model, view, presenter = task_ctx
 
     task = model.list_tasks()[0]
@@ -418,7 +409,7 @@ def test_task_list_presenter_export_reports_io_error(task_ctx) -> None:
     """When the export destination can't be opened, show an error message instead of a raw traceback."""
     model, settings_model, view, presenter = task_ctx
     with tempfile.TemporaryDirectory() as tmp_dir:
-        # Under a subfolder that doesn't exist -> open() raises FileNotFoundError (an OSError)
+        # Nonexistent subfolder -> open() raises FileNotFoundError (an OSError)
         view.save_path = os.path.join(tmp_dir, "no_such_dir", "tasks.csv")
         view.export_handler()  # The exception must not leak out
 
@@ -466,9 +457,7 @@ def test_task_list_presenter_import_reports_bad_encoding(task_ctx) -> None:
 
 
 def test_task_list_presenter_auto_saves_on_add(task_ctx) -> None:
-    """Every edit operation (here, an add) is saved immediately, and
-    model.is_dirty() returns back to False (Auto Save).
-    """
+    """Every edit (here, an add) is saved immediately — is_dirty() returns False (Auto Save)."""
     model, settings_model, view, presenter = task_ctx
 
     assert model.is_dirty() is False
@@ -478,10 +467,8 @@ def test_task_list_presenter_auto_saves_on_add(task_ctx) -> None:
 
 
 def test_task_list_presenter_edit_is_immediately_persisted() -> None:
-    """Verifies that an edited cell is immediately visible from a different
-    connection (= a new TaskModel simulating a restart), without going
-    through a Save operation.
-    """
+    """An edit is visible from a new TaskModel connection (simulated
+    restart), with no explicit Save."""
     with tempfile.TemporaryDirectory() as tmp_dir:
         db_path = os.path.join(tmp_dir, "test.db")
 
@@ -497,8 +484,7 @@ def test_task_list_presenter_edit_is_immediately_persisted() -> None:
         reopened = TaskModel(db_path=db_path)
         assert reopened.get_task(target.id).assignee == "Changed"
 
-        # Windows can't delete a file that's still open, so close the
-        # connections before leaving the TemporaryDirectory.
+        # Windows can't delete an open file; close connections before leaving TemporaryDirectory
         model.close()
         reopened.close()
         settings_model.close()
@@ -518,8 +504,7 @@ def test_backup_and_rotate_copies_current_db_contents() -> None:
         backups = os.listdir(backup_dir)
         assert len(backups) == 1
 
-        # Confirm that the contents at backup time were duplicated
-        # (open the backed-up file directly with TaskModel and check its contents)
+        # Contents at backup time were duplicated (reopen the backup with TaskModel)
         backup_path = os.path.join(backup_dir, backups[0])
         reopened = TaskModel(db_path=backup_path)
         assert len(reopened.list_tasks()) == 6  # 5 demo tasks + 1 added
@@ -578,9 +563,7 @@ def test_backup_and_rotate_skips_memory_and_missing_files() -> None:
 
 
 def test_settings_presenter_saves_field_changes_immediately(settings_pair) -> None:
-    """The moment a field is changed, it's saved to the DB immediately
-    without going through a Save button (Auto Save).
-    """
+    """Field changes save to the DB immediately, no Save button (Auto Save)."""
     settings_model, view = settings_pair
     SettingsPresenter(settings_model, view, on_settings_saved=lambda: None)
 
@@ -628,7 +611,7 @@ def test_settings_presenter_highlight_toggle_applies_immediately(settings_pair) 
     view.highlight_toggled_handler(False)
 
     assert settings_model.get().notify_enabled is False
-    assert len(saved) == 1  # The list tab's re-evaluation (applying highlight OFF) is called immediately
+    assert len(saved) == 1  # List tab's re-evaluation fires immediately
 
 
 def test_task_list_presenter_highlight_disappears_immediately_when_toggled_off(task_ctx) -> None:
@@ -659,8 +642,7 @@ def test_task_list_presenter_highlight_disappears_immediately_when_toggled_off(t
         (["Task 5"], "Task 6"),
         (["Task 1", "Task 9", "Task 3"], "Task 10"),
         (["Task 007"], "Task 8"),  # Leading zeros are dropped by int()
-        # None of these is an exact match for "Task <number>", so they're
-        # ignored and it falls back to "Task 1"
+        # None of these exactly matches "Task <number>", so it falls back to "Task 1"
         (
             ["Task", "Task  3", "task 3", "Task 3x", "My Task 4", "Task -1", "Task ３"],
             "Task 1",

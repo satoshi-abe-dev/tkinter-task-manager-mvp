@@ -1,16 +1,11 @@
 """
 Model — task persistence (SQLite)
 ------------------------------------
-Pure I/O logic, with no dependency on tkinter, for saving and loading tasks
-to/from SQLite. It plays the same role as csv_io.py: TaskModel
+Pure I/O, no tkinter dependency — same role as csv_io.py. TaskModel
 (model/task/store.py) reads and writes the DB through this module.
 
-Rather than writing "one row per edit", writes use a snapshot approach:
-whenever TaskModel.save() is called, the current in-memory state is written
-to the DB wholesale. This ensures nothing is written to disk until the user
-explicitly presses the "Save" button (so if you make a mistake before
-saving, as long as you don't save, restarting the app puts you right back
-to the last saved state).
+Writes are whole-snapshot, not per-edit: TaskModel.save() writes the full
+in-memory state each time (the Presenter calls it after every edit).
 """
 
 import sqlite3
@@ -33,11 +28,8 @@ CREATE TABLE IF NOT EXISTS tasks (
 
 
 def connect(db_path: str = DEFAULT_DB_PATH) -> sqlite3.Connection:
-    """Connect to the DB file, creating the file/table if they don't exist.
-
-    Passing db_path=":memory:" gives an in-memory DB that isn't written to
-    disk (for tests — each call gets an independent, empty DB, so state
-    doesn't bleed between tests).
+    """Connect to the DB file, creating the file/table if needed.
+    ":memory:" gives a disposable in-memory DB (for tests — no shared state).
     """
     if db_path != ":memory:":
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)
@@ -59,12 +51,9 @@ def fetch_all(conn: sqlite3.Connection) -> List[Task]:
 
 
 def replace_all(conn: sqlite3.Connection, tasks: List[Task]) -> None:
-    """Replace the DB's contents wholesale with the given task list (for the "Save" operation).
-
-    No diffing — simply deletes every existing row and reinserts them all
-    (plenty fast at the scale of a task-manager app). id is written
-    explicitly too, so that ids assigned by TaskModel for existing tasks are
-    preserved as-is.
+    """Replace the DB's contents wholesale with the given tasks (called by
+    save()). No diffing — deletes all rows and reinserts, preserving
+    TaskModel's ids.
     """
     conn.execute("DELETE FROM tasks")
     conn.executemany(
