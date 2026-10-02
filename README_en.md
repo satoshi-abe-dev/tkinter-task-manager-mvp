@@ -110,7 +110,14 @@ Overdue handling:
 - **Backup interval**: how often (in minutes, default 15) automatic backups run. Changing it while running takes effect from the next timer tick
 - Every changed value is saved the moment you enter it (Auto Save)
 
-> 💡 **If you just want to run it, you can stop here.** The rest is the main point of this sample: how roles are split under the MVP pattern.
+> [!TIP]
+> **If you just want to run it, this is enough.**
+> The rest covers the main point of this sample — how roles are split under the MVP pattern — and the development process. Read only what interests you.
+>
+> - What the MVP split buys you: [Resilient to change](#resilient-to-change-what-the-mvp-split-buys-you)
+> - How the code is organized: [Folder Structure](#folder-structure) and [The Role of Each Layer](#the-role-of-each-layer)
+> - How one action flows through the layers: [Data Flow](#data-flow-clicking--add)
+> - How it was developed: [Testing](#testing) and [Development workflow](#development-workflow)
 
 ---
 
